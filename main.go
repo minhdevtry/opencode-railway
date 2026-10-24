@@ -679,7 +679,7 @@ func systemoneHandler(w http.ResponseWriter, r *http.Request) {
 		resolved = "jev-1.13-free"
 	}
 	reqData["model"] = resolved
-	body, _ := json.Marshal(reqData)
+	body, _ := jsonMarshalNoEscape(reqData)
 	t0 := time.Now()
 
 	up, gerr := forward(r.Context(), resolved, false, zenURL+"/systemone", "application/json", sessionKey(r, reqData), func(string) []byte { return body })

@@ -159,7 +159,7 @@ func setUpstreamHeaders(req *http.Request, accept, key string) {
 	req.Header.Set("Authorization", "Bearer public")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "opencode/2.1.1")
-	req.Header.Set("x-opencode-client", "cli")
+	req.Header.Set("x-opencode-client", "CLI")
 	req.Header.Set("x-opencode-project", proj)
 	req.Header.Set("x-opencode-request", newRequestID())
 	req.Header.Set("x-opencode-session", ses)
