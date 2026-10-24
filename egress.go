@@ -527,10 +527,17 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 			Message string `json:"message"`
 		}
 		if json.NewDecoder(resp.Body).Decode(&res) == nil {
-			if res.Status == 101 || res.Status == 102 {
+			msgLower := strings.ToLower(res.Message)
+			if res.Status == 102 || strings.Contains(msgLower, "khong ton tai") || strings.Contains(msgLower, "het han") {
 				e.expired.Store(true)
 				e.ready.Store(false)
-				log.Printf("[ProxyXoay] Key của %s đã hết hạn (%s)! Tự động loại bỏ hoàn toàn khỏi routing, chuyển sang WARP.", e.Name, res.Message)
+				log.Printf("[ProxyXoay] Key của %s đã thực sự hết hạn (%s)! Tự động loại bỏ hoàn toàn khỏi routing, chuyển sang WARP.", e.Name, res.Message)
+				return
+			}
+			if res.Status == 101 {
+				// 101 là cooldown ("Còn N giây mới có thể đổi proxy"), KHÔNG PHẢI HẾT HẠN!
+				// Giữ nguyên proxy hiện tại để tiếp tục phục vụ traffic.
+				log.Printf("[ProxyXoay] %s đang trong cooldown đổi IP (%s), giữ nguyên IP hiện tại để phục vụ.", e.Name, res.Message)
 				return
 			}
 			log.Printf("[ProxyXoay] %s đổi IP thành công (%s), chờ warmup 7s...", e.Name, res.Message)
