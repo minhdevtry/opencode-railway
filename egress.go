@@ -660,36 +660,41 @@ func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
 		return direct
 	}
 	start := int(atomic.AddUint32(&m.rr, 1))
-	// 1. ƯU TIÊN SỐ 1: Bốc từ Tier 1 (Proxy dân cư sạch)
-	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start); e != nil {
+
+	// Vòng 1: Dàn đều an toàn (Tier 1 tối đa 3 in-flight/proxy, Tier 2 tối đa 2 in-flight/proxy)
+	// Đảm bảo không proxy nào bị dồn cục quá 2-3 request cùng lúc!
+	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start, 3); e != nil {
+		return e
+	}
+	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start, 2); e != nil {
 		return e
 	}
 
-	// 2. ƯU TIÊN SỐ 2: Nếu Tier 1 bận/cooldown/đang đổi IP/hết hạn -> Tràn xuống Tier 2 (16 WARP)!
-	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start); e != nil {
+	// Vòng 2: Khi toàn bộ 19 proxy đều đã bận, nới lỏng trần lên 6 / 4 trước khi cho xếp hàng chờ
+	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start, 6); e != nil {
+		return e
+	}
+	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start, 4); e != nil {
 		return e
 	}
 
 	if len(avoidMap) > 0 {
-		if e := m.pickTierAvoid(list[1:], 1, model, nil, start); e != nil {
+		if e := m.pickTierAvoid(list[1:], 1, model, nil, start, 3); e != nil {
 			return e
 		}
-		if e := m.pickTierAvoid(list[1:], 2, model, nil, start); e != nil {
+		if e := m.pickTierAvoid(list[1:], 2, model, nil, start, 2); e != nil {
 			return e
 		}
 	}
 
-	// Direct làm chốt chặn cuối
-	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.claim(model) {
-		return direct
-	}
-	if !cfg.PreferDirect && direct.available(model) && direct.claim(model) {
+	// Direct làm chốt chặn cuối (tối đa 2 in-flight)
+	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < 2 && direct.claim(model) {
 		return direct
 	}
 	return nil
 }
 
-func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap map[string]bool, start int) *Egress {
+func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap map[string]bool, start int, maxInflight int) *Egress {
 	if len(rest) == 0 {
 		return nil
 	}
@@ -708,6 +713,9 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 		if len(avoidMap) > 0 && avoidMap[e.daemon] {
 			continue
 		}
+		if maxInflight > 0 && int(e.inflight.Load()) >= maxInflight {
+			continue // Đã đạt trần an toàn -> dàn tải sang proxy khác!
+		}
 		if !e.available(model) || (e.canRotate && int(e.inflight.Load()) >= cfg.TorMaxInflight) {
 			continue
 		}
@@ -724,7 +732,7 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 }
 
 func (m *Manager) pickRest(rest []*Egress, model string) *Egress {
-	return m.pickRestAvoid(rest, model, nil)
+	return m.pickTierAvoid(rest, 2, model, nil, int(atomic.AddUint32(&m.rr, 1)), 0)
 }
 
 // loadScore: càng thấp càng nên chọn. Circuit chưa đủ mẫu coi như bằng trung vị (để được thử), mỗi request đang chạy
