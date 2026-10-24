@@ -224,7 +224,7 @@ services:
       PROXY_POOL: "socks5://warp:1080,socks5://warp2:1080,socks5://warp3:1080,socks5://warp4:1080,socks5://warp5:1080,socks5://warp6:1080,socks5://warp7:1080,socks5://warp8:1080,socks5://warp9:1080,socks5://warp10:1080,socks5://warp11:1080,socks5://warp12:1080,socks5://warp13:1080,socks5://warp14:1080,socks5://warp15:1080,socks5://warp16:1080"
       RESIDENTIAL_PROXIES: "http://160.250.166.13:10448,http://160.250.166.17:10577,http://160.250.166.35:10198"
       RESIDENTIAL_REFRESH_URLS: "https://proxyxoay.shop/api/get.php?key=ePrWbeBkpFZCfpMFITFuvB&nhamang=random&tinhthanh=0&whitelist=117.4.246.227,https://proxyxoay.shop/api/get.php?key=HJZiXQfSCXYWItgEDzSYBZ&nhamang=random&tinhthanh=0&whitelist=117.4.246.227,https://proxyxoay.shop/api/get.php?key=RmGMTwAhalcnAyYBbhrKoM&nhamang=random&tinhthanh=0&whitelist=117.4.246.227"
-      AUTO_MODELS: ""
+      AUTO_MODELS: "${AUTO_MODELS:-}"
       MAX_ATTEMPTS: "4"
       DEFAULT_MODEL: "deepseek"
       AUTO_MODEL_FALLBACK: "true"

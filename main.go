@@ -68,6 +68,43 @@ func initFreeModelPool(custom string) []string {
 	return cp
 }
 
+// reconcilePool giao pool hiện tại với danh sách model Free đang sống ở upstream.
+//
+// custom != "" ⇒ pool ĐÓNG: chỉ giữ đúng các model người dùng liệt kê (và còn
+// sống). Không gộp thêm model khác — nếu gộp thì AUTO_MODELS trở nên vô nghĩa và
+// các model phế quay lại pool sau mỗi lần đồng bộ (đo 24/10: pool mặc định 6
+// model bị phình thành 7 vì gộp nemotron-3.5-super-vl-free).
+//
+// custom == "" ⇒ pool MỞ: giữ các model đang có và gộp thêm model Free mới của
+// upstream (trừ jev-1.13-free và flint-40b-free).
+func reconcilePool(current []string, active map[string]bool, custom string) []string {
+	var live []string
+	for _, m := range current {
+		if active[m] {
+			live = append(live, m)
+		}
+	}
+	if custom != "" {
+		return live
+	}
+	for m := range active {
+		if m == "jev-1.13-free" || m == "flint-40b-free" {
+			continue
+		}
+		found := false
+		for _, p := range live {
+			if p == m {
+				found = true
+				break
+			}
+		}
+		if !found {
+			live = append(live, m)
+		}
+	}
+	return live
+}
+
 func prunePool(model string) {
 	poolMu.Lock()
 	defer poolMu.Unlock()
@@ -135,27 +172,7 @@ func syncCatalog() {
 	}
 	poolMu.Lock()
 	defer poolMu.Unlock()
-	var live []string
-	for _, m := range freeModelPool {
-		if active[m] {
-			live = append(live, m)
-		}
-	}
-	for m := range active {
-		if m == "jev-1.13-free" || m == "flint-40b-free" {
-			continue
-		}
-		found := false
-		for _, p := range live {
-			if p == m {
-				found = true
-				break
-			}
-		}
-		if !found {
-			live = append(live, m)
-		}
-	}
+	live := reconcilePool(freeModelPool, active, cfg.AutoModels)
 	if len(live) > 0 {
 		freeModelPool = live
 		log.Printf("[CatalogSync] Tự động đồng bộ pool theo upstream: %v", live)
