@@ -14,7 +14,8 @@ Không cần API key trả phí. Client chỉ việc gửi request; gateway lo c
 | Văn bản rất dài (`auto-long`) | ~300k token/request | đọc đúng, quá giới hạn thì tự chuyển model |
 | Lô cực lớn (`/v1/batches`) | gateway tự chạy hết tốc độ | lưu bền Redis, không mất job khi khởi động lại |
 
-Gửi bao nhiêu request cùng lúc cũng được: phần vượt sức chứa xếp hàng chờ, không trả lỗi.
+Gửi bao nhiêu request cùng lúc cũng được: phần vượt sức chứa xếp hàng chờ. Riêng khi toàn bộ hạn mức free trong ngày
+đã cạn (cuối ngày UTC), gateway trả 429 ngay kèm `Retry-After` thay vì giữ hàng chờ vô ích — chờ tới 07:00 giờ VN (reset).
 
 **Viết chương trình gọi gateway với thông lượng cao: đọc [`docs/CLIENT_GUIDE.md`](docs/CLIENT_GUIDE.md)** (chọn chế độ,
 mức đồng thời, timeout/retry, ví dụ Python/TypeScript chạy được trong `examples/`).
@@ -105,6 +106,7 @@ cho câu trả lời (rỗng, `finish_reason: length`); đặt 16 000 còn 2%.
 
 - Gửi bao nhiêu cũng được: phần vượt sức chứa **xếp hàng chờ** (tối đa `MAX_WAIT`, mặc định 30 phút), không bị lỗi.
 - Để chờ ít nhất: giữ số request đang gửi quanh `recommended_concurrency` của `GET /v1/capacity`.
+- Muốn fail nhanh thay vì chờ: header `X-Max-Wait: 30s` (mặc định chờ tới `MAX_WAIT`).
 - Lô rất lớn (hàng nghìn tới hàng trăm nghìn): dùng `/v1/batches`. Job lưu bền trong Redis, lỗi tạm thời tự thử lại có
   backoff, gateway khởi động lại vẫn chạy tiếp, lấy kết quả theo đúng thứ tự gửi:
 
@@ -185,6 +187,8 @@ bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` kh
 | `Failed to communicate with the WARP API` | log `[WARP]` | API đăng ký của Cloudflare tạm từ chối, gateway tự thử lại sau 30 s |
 | Proxy dân cư lỗi | log `[resN]`, `[ProxyXoay]` | Tự xoay IP sau 5 lỗi liên tiếp; key hết hạn thì tự loại |
 | Request lớn báo 400 vượt context | `/status` → `context_limits` | Với `auto`: tự chuyển model. Với model cố định: chọn model đọc dài hơn (mục 2.4) |
+| Hàng loạt 429, log `[AccountGate]` | toàn bộ quota free trong ngày đã cạn | Circuit breaker tự ngừng đổi IP (tránh xoay vô ích) và thăm dò lại định kỳ; tự mở khi quota hồi. Chờ 07:00 giờ VN |
+| 1 proxy dân cư lỗi TCP liên tục | log `[resN] ... transport error` | Gateway cho cả egress đó nghỉ (backoff 2–60 s), xoay IP sau 3 lỗi; request tự sang egress khác |
 
 **Không chạy quá 16 container WARP** trừ khi đã nâng giới hạn kernel
 (`sudo sysctl -w fs.inotify.max_user_instances=1024 fs.inotify.max_user_watches=1048576`): đo thực tế 32 container làm
@@ -242,7 +246,8 @@ research/ceiling.sh                       # đo trần theo bậc concurrency (n
 | `sched.go` | Bộ điều phối, hàng đợi, trần đồng thời thích ứng, chế độ cố định model |
 | `sessions.go` | Session sống lâu theo từng đường mạng |
 | `tlsfp.go` | TLS giả lập Bun + SOCKS5/HTTP CONNECT tự viết |
-| `warp.go` | Đổi danh tính WARP qua Docker API, vòng quét tự làm mới |
+| `warp.go` | Đổi danh tính WARP qua Docker API, vòng quét tự làm mới, thăm dò khi quota cạn |
+| `accountgate.go` | Circuit breaker: ngừng đổi IP khi cạn quota cấp tài khoản |
 | `autoguard.go` | Tham số theo model, thinking, kiểm tra stream, chất lượng model |
 | `profiles.go` | Profile auto-fast/best/long, giới hạn context tự học |
 | `jobs.go`, `redis.go` | Hàng đợi job bền, client Redis tối giản |

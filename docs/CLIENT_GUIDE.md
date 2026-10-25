@@ -37,7 +37,10 @@ curl http://127.0.0.1:8090/v1/capacity
 
 - **Giữ số request đang chạy quanh `recommended_concurrency`** và đọc lại mỗi ~30 giây (con số thay đổi theo số đường
   mạng đang dùng được). Đây là mức cho thông lượng cao nhất mà hàng chờ vẫn ngắn.
-- Gửi nhiều hơn **không bị lỗi**: phần dư xếp hàng trong gateway (tối đa 30 phút), chỉ là chờ lâu hơn.
+- Gửi nhiều hơn khi hệ thống còn sức: phần dư xếp hàng trong gateway (tối đa 30 phút), không bị lỗi.
+- **Ngoại lệ:** về cuối ngày UTC khi **toàn bộ hạn mức free trong ngày đã cạn** (mọi IP, kể cả IP mới đổi, đều bị chặn
+  tới 00:00 UTC), gateway trả **429 ngay** kèm `Retry-After`, KHÔNG giữ request trong hàng chờ vô ích. Lúc này chờ tới
+  mốc reset (07:00 giờ VN) hoặc thêm proxy dân cư mới. Đây là hành vi cố ý: xếp hàng 30 phút rồi vẫn 429 thì vô nghĩa.
 - Gửi ít hơn nhiều so với khuyến nghị là để phí sức chứa.
 
 ---
@@ -47,8 +50,9 @@ curl http://127.0.0.1:8090/v1/capacity
 | Tình huống | Nên làm |
 |---|---|
 | Timeout phía client | **Đặt dài: 10–30 phút.** Gateway có thể giữ request trong hàng chờ; timeout ngắn (vd 30 s) làm request bị huỷ rồi gửi lại, tốn công vô ích |
+| Muốn fail nhanh thay vì chờ lâu lúc hệ thống gần cạn | Gửi header `X-Max-Wait: 30s` — gateway chờ tối đa bấy nhiêu trong hàng đợi rồi trả 429, để client tự điều tiết. Không đặt = chờ tới MAX_WAIT (30 phút) |
 | HTTP 400 | Lỗi do request (sai định dạng, văn bản quá dài với model cố định): sửa request, **không retry** |
-| HTTP 429 | Hiếm: chỉ khi chờ quá 30 phút hoặc mọi đường mạng đều hết lượt. Chờ 30–60 s rồi gửi lại |
+| HTTP 429 | Hạn mức free trong ngày đã cạn (cả tài khoản). Đọc `Retry-After`; chờ tới mốc đó (thường là 00:00 UTC = 07:00 VN) rồi gửi lại. Gửi lại sớm cũng 429 |
 | HTTP 502/503, lỗi kết nối | Retry có backoff (2 s, 4 s, 8 s... tối đa ~30 s) |
 | `content` rỗng, `finish_reason: "length"` | Phần suy nghĩ ăn hết `max_tokens`: **tăng `max_tokens`** (xem mục 5) |
 
@@ -86,6 +90,7 @@ qua đường khác). Kết quả vẫn đúng. Nếu cần xong nhanh cả lô,
 ```
 
 - Model **không bao giờ bị đổi**. Cho phép đổi khi model đó hết đường: thêm header `X-Model-Fallback: allow`.
+- Chờ tối đa bao lâu trong hàng đợi: header `X-Max-Wait` (vd `60s`); quá thì nhận 429.
 - **Suy nghĩ**: `"reasoning_effort": "none" | "low" | "medium" | "high"`. `none` được gateway dịch sang đúng công tắc
   của từng model. Tham số gốc (`thinking`, `reasoning`) cũng dùng được.
 - **Bật suy nghĩ + output dài ⇒ `max_tokens` ≥ 16 000.** Phần suy nghĩ tính chung vào `max_tokens`: với deepseek, đặt

@@ -33,10 +33,10 @@ type coolState struct {
 }
 
 type Egress struct {
-	Name      string
-	Kind      string
-	daemon    string // tên daemon ("tor-1", "tor-2", "direct"...)
-	canRotate bool // Tor: đổi được exit bằng cách đổi thông tin xác thực SOCKS (IsolateSOCKSAuth)
+	Name       string
+	Kind       string
+	daemon     string // tên daemon ("tor-1", "tor-2", "direct"...)
+	canRotate  bool   // Tor: đổi được exit bằng cách đổi thông tin xác thực SOCKS (IsolateSOCKSAuth)
 	tier       int
 	refreshURL string
 	expired    atomic.Bool
@@ -63,14 +63,15 @@ type Egress struct {
 	mu   sync.Mutex
 	cool map[string]*coolState
 
-	limit     atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
-	errRun    atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
-	okRun     atomic.Int32
-	sess      sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
-	renewing  atomic.Bool
-	renews    atomic.Int64
+	limit      atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
+	errRun     atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
+	okRun      atomic.Int32
+	sess       sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
+	renewing   atomic.Bool
+	renews     atomic.Int64
 	renewTries atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
-	container string // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
+	downUntil  atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
+	container  string       // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
 }
 
 func newTransport(proxy func(*http.Request) (*url.URL, error)) *http.Transport {
@@ -229,6 +230,9 @@ func (e *Egress) available(model string) bool {
 	if !e.ready.Load() {
 		return false
 	}
+	if time.Now().UnixNano() < e.downUntil.Load() {
+		return false
+	}
 	if cfg.SessionIDMode == "egress" && !e.sess.usable() {
 		return false
 	}
@@ -280,6 +284,12 @@ func (e *Egress) clearAll() {
 	e.mu.Unlock()
 }
 
+// coolEgress cho CẢ egress nghỉ d (lỗi TCP/transport không gắn với model nào). Backoff theo số lỗi liên tiếp.
+func (e *Egress) coolEgress(d time.Duration) {
+	if until := time.Now().Add(d).UnixNano(); until > e.downUntil.Load() {
+		e.downUntil.Store(until)
+	}
+}
 
 // transient: lỗi tạm thời (502, lỗi mạng), nghỉ ngắn, không tăng strike.
 func (e *Egress) transient(model string, d time.Duration) {
@@ -393,11 +403,11 @@ type Manager struct {
 	dirMu  sync.Mutex
 	dirWin map[string]*rateWindow
 
-	torSpawned  int
-	torSeq      int
-	torStarting int
-	ctx         context.Context
-	wg          sync.WaitGroup
+	torSpawned   int
+	torSeq       int
+	torStarting  int
+	ctx          context.Context
+	wg           sync.WaitGroup
 	proxyRefMu   sync.Mutex
 	proxyRefLast time.Time
 
@@ -630,6 +640,7 @@ func splitList(s string) []string {
 	}
 	return out
 }
+
 var (
 	renewMu       sync.Mutex
 	isRenewing    atomic.Bool
@@ -689,7 +700,6 @@ func renewWarpProxy(egressName string) {
 		}
 	}()
 }
-
 
 // pick chọn egress cho model: proxy dân cư trước, rồi WARP, direct làm chốt cuối (PREFER_DIRECT=true thì direct trước);
 // mỗi egress không vượt trần in-flight thích ứng. nil nếu chưa có cái nào dùng được (request xếp hàng ở sched.go).
@@ -933,6 +943,11 @@ func (m *Manager) anyUsableWithin(models []string, within time.Duration) bool {
 // soonest: thời gian ngắn nhất cho tới khi có 1 egress dùng lại được cho 1 trong các model.
 func (m *Manager) soonest(models []string) time.Duration {
 	best := time.Duration(0)
+	if acctGate.tripped() {
+		if d := time.Until(acctGate.until_()); d > 0 {
+			best = d
+		}
+	}
 	for _, e := range m.snapshot() {
 		if !e.ready.Load() {
 			continue

@@ -477,7 +477,7 @@ func messagesHandler(w http.ResponseWriter, r *http.Request) {
 	inputEst := estimateTokens(oa["messages"]) + estimateTokens(oa["tools"])
 	t0 := time.Now()
 
-	up, gerr := forward(withFallback(withProfile(r.Context(), anthropicModel(modelIn)), r), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
+	up, gerr := forward(withMaxWait(withFallback(withProfile(r.Context(), anthropicModel(modelIn)), r), r), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
 		oa["model"] = m
 		oa["stream_options"] = map[string]any{"include_usage": true}
 		applyFingerprint(oa, m, cfg.InjectToolsAnthropic, stubDescription)

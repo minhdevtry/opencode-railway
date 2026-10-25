@@ -133,3 +133,18 @@ ngược lại (xem bảng trên), nên gateway dùng giới hạn tự học th
 
 Một model đơn lẻ vẫn tận dụng đủ 16 đường mạng (quota tính theo IP, không theo model), nên thông lượng token gần
 bằng chế độ auto; giới hạn chính là độ dài output mỗi request.
+
+## 7. Circuit breaker cấp tài khoản (2026-10-25, phản hồi review của client)
+
+Đo lúc 15:12 UTC (cuối ngày UTC): một IP WARP vừa `registration new` (IPv6 mới tinh), IP nhà, và proxy dân cư đều trả
+FreeUsageLimitError với retry-after ~8,8 h (đếm tới 00:00 UTC). Xác nhận: hạn mức cạn ở mức **cao hơn từng IP** — thêm
+hay đổi IP đều vô ích. Trước khi sửa, gateway đổi danh tính WARP **349–422 lần/3 h** một cách vô ích và fan-out mỗi
+request qua mọi egress.
+
+Sửa (`accountgate.go`): khi ≥3 egress khác nhau cùng báo "session CHƯA từng chạy cũng bị cạn, retry-after ≥30 phút"
+trong 2 phút → trip breaker: ngừng đổi IP WARP, một luồng nền thăm dò lại mỗi 20 s, tự mở khi có 1 request thành công.
+Không ép fast-fail toàn bộ (lúc cạn một phần vẫn phục vụ qua egress còn sống; lúc cạn hẳn thì logic session tự fast-fail).
+Quan sát trên prod: breaker trip/clear đúng theo trạng thái (trip khi một cụm egress báo cạn, clear ngay khi có 200).
+
+Lỗi TCP của proxy dân cư (`connection reset by peer`) giờ cho **cả egress** nghỉ (backoff 2–60 s) thay vì chỉ 1 model,
+nên bộ điều phối sidelined proxy hỏng nhanh hơn, giảm rò 502 về client.

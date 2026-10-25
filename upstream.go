@@ -282,6 +282,7 @@ func normalizeLastError(last *gwError) *gwError { // last==nil: mọi lần th�
 	}
 	return last
 }
+
 var (
 	dynamicAliasMu sync.RWMutex
 	dynamicAliases = map[string]string{}
@@ -375,7 +376,11 @@ func nextModelInPool(current string) string {
 // Retry khi 429/502/503/504/lỗi mạng bằng egress khác; không bao giờ retry sau khi đã có byte gửi về client
 // (hàm này chỉ trả về response khi header đã nhận, việc ghi cho client do caller làm).
 func forward(ctx context.Context, model string, isPool bool, url, accept, key string, prep func(model string) []byte) (*upstream, *gwError) {
-	deadline := time.Now().Add(cfg.MaxWait)
+	wait := cfg.MaxWait
+	if w := maxWaitFrom(ctx); w > 0 {
+		wait = w
+	}
+	deadline := time.Now().Add(wait)
 	// Auto: lọc pool theo profile (auto-fast/best/long) và giới hạn context đã học cho cỡ request này.
 	tokens := 0
 	if isPool {
@@ -457,8 +462,15 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			}
 			e.errs.Add(1)
 			e.adapt(false)
-			e.transient(m, 3*time.Second)
-			if e.tier == 1 && e.refreshURL != "" && e.errRun.Add(1) >= 5 {
+			// Lỗi TCP/transport không gắn với model: cho CẢ egress nghỉ (không chỉ model này), backoff 2s,4s,8s... tối đa 1 phút,
+			// để bộ điều phối sidelined egress hỏng thay vì cứ chọn lại và lại reset (tránh rò 502 về client).
+			run := e.errRun.Add(1)
+			back := 2 * time.Second << min(int(run), 5)
+			if back > time.Minute {
+				back = time.Minute
+			}
+			e.coolEgress(back)
+			if e.tier == 1 && e.refreshURL != "" && run >= 3 {
 				e.errRun.Store(0)
 				log.Printf("[%s] lỗi truyền tải liên tiếp, xoay IP dân cư", e.Name)
 				mgr.rotateResidentialProxy(e)
@@ -487,6 +499,9 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
 			}
 			if es != nil && freeLimit {
+				if !es.ok && ra >= 30*time.Minute {
+					acctGate.noteFreshCap(e.Name, ra) // session CHƯA từng chạy cũng bị cạn với retry-after dài
+				}
 				if !e.sess.blocked(es, ra) {
 					// Session của IP cũ (egress vừa đổi IP): kết quả không áp cho pool mới, thử lại ngay.
 					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
@@ -494,7 +509,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				}
 				// WARP đổi IP rẻ (~15-25s, không giới hạn): hễ egress không phục vụ được ngay (hết lượt mở session mới
 				// và session còn lại đều đang nghỉ) là đổi danh tính luôn, không ngồi chờ session hết nghỉ.
-				if e.container != "" && !e.sess.usable() {
+				if e.container != "" && !e.sess.usable() && !acctGate.tripped() {
 					mgr.renewIdentity(e)
 					avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
 					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
@@ -687,8 +702,10 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 		if resp.StatusCode == http.StatusOK {
 			e.sess.success(es)
 			e.errRun.Store(0)
+			e.downUntil.Store(0)
 			e.adapt(true)
 			okRate.add()
+			acctGate.clear()
 			e.oks.Add(1)
 			e.clear(m)
 			e.observeLatency(gen, ttfb)

@@ -187,7 +187,7 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 	if isPool || (fb && isFreeModelInPool(model)) {
 		models = freeModelPool
 	}
-	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && !m.anyRenewing() {
+	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.tripped()) {
 		m.wmu.Unlock()
 		return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 			msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
@@ -232,7 +232,7 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 		case <-tick.C:
 			m.growTor()
 			// Không đường nào có thể phục vụ trong thời gian còn lại (vd chỉ có direct đã cạn): báo sớm thay vì giữ.
-			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && !m.anyRenewing() {
+			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.tripped()) {
 				leave()
 				return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 					msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
@@ -342,6 +342,27 @@ func modelFallback(ctx context.Context) bool {
 		return v
 	}
 	return cfg.AutoModelFallback
+}
+
+// X-Max-Wait: client tự chọn chờ tối đa bao lâu trong hàng đợi (vd "30s") trước khi nhận 429, thay vì mặc định MAX_WAIT.
+// Dùng khi client thà fail nhanh và tự điều tiết còn hơn chờ lâu lúc hệ thống gần cạn sức.
+type maxWaitKey struct{}
+
+func withMaxWait(ctx context.Context, r *http.Request) context.Context {
+	if v := strings.TrimSpace(r.Header.Get("X-Max-Wait")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			if d > cfg.MaxWait {
+				d = cfg.MaxWait
+			}
+			return context.WithValue(ctx, maxWaitKey{}, d)
+		}
+	}
+	return ctx
+}
+
+func maxWaitFrom(ctx context.Context) time.Duration {
+	d, _ := ctx.Value(maxWaitKey{}).(time.Duration)
+	return d
 }
 
 // Egress cần tránh ngay từ lần thử đầu (lần gửi lại sau khi stream trên egress đó bị treo/đứt).

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	poolMu        sync.RWMutex
+	poolMu             sync.RWMutex
 	defaultSolidModels = []string{
 		"glm-5.3-flash-free",
 		"deepseek-v4.1-flash-free",
@@ -179,7 +179,6 @@ func syncCatalog() {
 	}
 }
 
-
 var (
 	cfg            Config
 	mgr            *Manager
@@ -307,6 +306,7 @@ func applyFingerprint(body map[string]any, model string, inject bool, stubDesc s
 		delete(body, "cache_control")
 	}
 }
+
 // envBlock là khối mô tả môi trường mà opencode luôn đặt trong system prompt. Cổng free tier của upstream dựa vào nó
 // (đo 2026-10-24: chỉ riêng khối này là qua; system prompt khác hoặc thiếu => 429 FreeUsageLimitError).
 func envBlock(model string) string {
@@ -359,7 +359,6 @@ func jsonMarshalNoEscape(v any) ([]byte, error) {
 	}
 	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 }
-
 
 func setCORS(w http.ResponseWriter) {
 	if cfg.CORSOrigin == "" {
@@ -633,7 +632,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	var aggErr error
 	excl := map[string]bool{}
 	for try := 0; ; try++ {
-		ctx := withFallback(withProfile(r.Context(), modelIn), r)
+		ctx := withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r)
 		if len(excl) > 0 {
 			ctx = withExclude(ctx, excl)
 		}
@@ -875,7 +874,6 @@ func capacityHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(out)
 }
 
-
 var modelList = []struct{ id, owner string }{
 	{"auto-free", "auto-dispatcher"},
 	{"auto", "auto-dispatcher"},
@@ -971,19 +969,19 @@ func modelObj(id, owner string) map[string]any {
 	}
 
 	return map[string]any{
-		"id":                 id,
-		"object":             "model",
-		"created":            1735689600,
-		"created_at":         "2025-01-01T00:00:00Z",
-		"owned_by":           owner,
-		"type":               "model",
-		"display_name":       name,
-		"name":               name,
-		"description":        desc,
-		"context_window":     contextWin,
-		"max_output_tokens":  maxOutput,
-		"input_modalities":   inputMods,
-		"output_modalities":  []string{"text"},
+		"id":                id,
+		"object":            "model",
+		"created":           1735689600,
+		"created_at":        "2025-01-01T00:00:00Z",
+		"owned_by":          owner,
+		"type":              "model",
+		"display_name":      name,
+		"name":              name,
+		"description":       desc,
+		"context_window":    contextWin,
+		"max_output_tokens": maxOutput,
+		"input_modalities":  inputMods,
+		"output_modalities": []string{"text"},
 		"capabilities": map[string]any{
 			"vision":    vision,
 			"tools":     clean != "jev" && clean != "jev-1.13",

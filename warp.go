@@ -153,11 +153,36 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 		if cfg.SessionIDMode != "egress" {
 			continue
 		}
+		if acctGate.tripped() {
+			m.probeAccount() // quota cạn cấp tài khoản: đừng đổi IP (vô ích), chỉ thăm dò để tự mở lại khi hồi
+			continue
+		}
 		for _, e := range m.snapshot() {
 			if e.container != "" && e.ready.Load() && !e.renewing.Load() && !e.sess.usable() {
 				log.Printf("[WARP] %s không còn session dùng được, đổi danh tính", e.Name)
 				m.renewIdentity(e)
 			}
 		}
+	}
+}
+
+// probeAccount gửi 1 request rất nhẹ qua 1 egress để xem quota tài khoản đã hồi chưa (acctGate.clear() tự gọi khi 200).
+func (m *Manager) probeAccount() {
+	for _, e := range m.snapshot() {
+		if !e.ready.Load() || e.expired.Load() || e.container == "" {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		up, gerr := forward(ctx, freeModelPool[0], true, infURL+"/chat/completions", "*/*", "acct-probe", func(mod string) []byte {
+			body := map[string]any{"model": mod, "messages": []any{map[string]any{"role": "user", "content": "hi"}}, "max_tokens": 1}
+			applyFingerprint(body, mod, true, stubDescription)
+			b, _ := jsonMarshalNoEscape(body)
+			return b
+		})
+		if gerr == nil && up != nil {
+			up.close()
+		}
+		cancel()
+		return
 	}
 }
