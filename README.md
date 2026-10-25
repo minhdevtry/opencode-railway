@@ -5,7 +5,21 @@ chịu tải đồng thời lớn bằng cách tự chia request qua nhiều đ�
 
 Không cần API key trả phí. Client chỉ việc gửi request; gateway lo chọn đường, chọn model, xếp hàng, thử lại.
 
-> Tài liệu nghiên cứu (vì sao hệ thống được thiết kế như thế này, kèm số đo): [`research/README.md`](research/README.md)
+## Thông lượng (đo trên hệ thống thật)
+
+| Cách dùng | Thông lượng | Ghi chú |
+|---|---|---|
+| **Không quan tâm model** (`auto`), việc ngắn | **13–14 request/s**, ~4 000 token ra/s | 3000/3000 request không lỗi; bắn dồn 1 000 request cùng lúc: 999/1000 |
+| **Cố định 1 model** (`deepseek`, bật suy nghĩ), báo cáo dài | **~8 700 token ra/s** ở 200 request đồng thời | 100% đúng model đã chọn |
+| Văn bản rất dài (`auto-long`) | ~300k token/request | đọc đúng, quá giới hạn thì tự chuyển model |
+| Lô cực lớn (`/v1/batches`) | gateway tự chạy hết tốc độ | lưu bền Redis, không mất job khi khởi động lại |
+
+Gửi bao nhiêu request cùng lúc cũng được: phần vượt sức chứa xếp hàng chờ, không trả lỗi.
+
+**Viết chương trình gọi gateway với thông lượng cao: đọc [`docs/CLIENT_GUIDE.md`](docs/CLIENT_GUIDE.md)** (chọn chế độ,
+mức đồng thời, timeout/retry, ví dụ Python/TypeScript chạy được trong `examples/`).
+
+Vì sao hệ thống được thiết kế như vậy, kèm toàn bộ số đo: [`research/README.md`](research/README.md).
 
 ---
 
@@ -106,6 +120,7 @@ curl 'http://127.0.0.1:8090/v1/batches/batch_.../results?offset=0&limit=1000'
 ```
 
 Số đo trên hệ thống thật (16 WARP + 3 proxy dân cư + IP máy, workload gán nhãn ticket thật): xem mục 7.
+Hướng dẫn đầy đủ cho client (mức đồng thời, timeout, retry, ví dụ code): [`docs/CLIENT_GUIDE.md`](docs/CLIENT_GUIDE.md).
 
 ---
 
@@ -135,6 +150,9 @@ docker logs -f orw-prod
 ```
 
 Mọi container đều giới hạn log 3 × 10 MB. Gateway mount `/var/run/docker.sock` để tự đổi danh tính WARP.
+
+`scripts/warp_watch.sh` (chạy bằng systemd user timer `warp-watch.timer`, 2 phút/lần) khởi động lại container WARP
+bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` không tự phát hiện).
 
 ### Biến môi trường chính
 
@@ -229,4 +247,6 @@ research/ceiling.sh                       # đo trần theo bậc concurrency (n
 | `profiles.go` | Profile auto-fast/best/long, giới hạn context tự học |
 | `jobs.go`, `redis.go` | Hàng đợi job bền, client Redis tối giản |
 | `capacity.go` | `/v1/capacity` |
+| `examples/` | Client mẫu thông lượng cao (Python, TypeScript, batch) |
+| `docs/CLIENT_GUIDE.md` | Hướng dẫn client |
 | `anthropic.go`, `responses.go` | Chuyển đổi Anthropic / Responses ↔ OpenAI |

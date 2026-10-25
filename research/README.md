@@ -34,9 +34,13 @@ Bằng chứng (thư mục `probe/`, `utlsprobe/`):
 | 1 session cố định, 300 request tuần tự | 81 × 200, ~200 × 429, rồi 200 trở lại (cửa sổ tốc độ, không phải trần ngày) |
 | 8 request song song cùng 1 session | cả 8 × 200 (chậm hơn ~2×), không bị xếp tuần tự |
 
-=> Mỗi IP mở được ~50 session/ngày (UTC); mỗi session có cửa sổ tốc độ (~80 request) rồi hồi lại. IPv6 của WARP bị
-đếm theo dải /64 dùng chung với người dùng WARP khác: các container rơi vào `2a09:bac1:7ac0:50::/64` hết lượt ngay từ đầu.
-`warp-cli registration new` đổi sang IP mới trong ~13–25 s mà không cần restart container.
+=> Mỗi IP mở được ~50 session/ngày (UTC). Một session chạy liền được 80–144 request rồi bị chặn tạm (Retry-After luôn
+báo "tới nửa đêm" nhưng có lúc hồi sau ~1–2 phút, nên gateway cho nghỉ rồi thăm dò lại chứ không bỏ). Đo tiếp ở mục 5:
+mở thêm session trên cùng IP WARP không giúp (direct mở 42 session vẫn bị chặn), tức giới hạn thực chất nằm ở **cấp IP**;
+cách tăng sức chứa là **thêm IP sạch** (đổi danh tính WARP, proxy dân cư), không phải thêm session.
+IPv6 của WARP bị đếm theo dải /64 dùng chung với người dùng WARP khác: các container rơi vào `2a09:bac1:7ac0:50::/64`
+hết lượt ngay từ đầu. `warp-cli registration new` đổi sang IP mới trong ~13–25 s mà không cần restart container.
+Proxy dân cư là nguồn sạch nhất (2 proxy phục vụ ~880 request mỗi cái, 0 lần 429).
 
 ## 3. Hành vi model khi chạy `auto` (workload gán nhãn ticket, `loadgen -workload label`)
 

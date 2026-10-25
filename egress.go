@@ -18,8 +18,8 @@ import (
 
 // ======================== EGRESS ========================
 // Egress = 1 đường ra Internet: IP trực tiếp của container, hoặc 1 SOCKS5/HTTP proxy (Tor...).
-// Quota của upstream tính theo (IP × model) nên cooldown cũng lưu theo (egress × model):
-// direct hết quota deepseek không ảnh hưởng direct dùng cho model khác.
+// Quota "client thật" của upstream tính theo (IP, session) (sessions.go); cooldown ngắn hạn (lỗi mạng, 5xx, rate limit
+// ngắn) vẫn lưu theo (egress × model) vì có nhà cung cấp phía sau chỉ nghẽn ở 1 model.
 
 const (
 	kindDirect = "direct"
@@ -116,7 +116,7 @@ func newTorEgress(name, socksAddr string) *Egress {
 }
 
 // newTorGroup tạo k "identity" trên cùng 1 daemon Tor. Mỗi identity có username SOCKS riêng nên có circuit/exit IP riêng,
-// tức hạn mức upstream riêng (quota tính theo IP): dung lượng tăng theo số identity chứ không chỉ theo số daemon.
+// (Tor hiện bị upstream chặn "abusive traffic", giữ lại cho tương thích; production dùng WARP + proxy dân cư.)
 func newTorGroup(name, socksAddr string, k int) []*Egress {
 	if k < 1 {
 		k = 1
@@ -338,8 +338,8 @@ func (e *Egress) exhausted(model string, retryAfter time.Duration, fresh bool) t
 			d = cfg.CooldownMax
 		}
 	default:
-		// Retry-After dài (vd 22h) không đáng tin: đo thực tế IP direct hồi phục sau ~1–2 phút (cửa sổ trượt).
-		// Direct IP nghỉ đủ lâu theo DirectCooldown (mặc định 2m) để hồi phục 100% quota, trong thời gian này toàn bộ request vào thẳng Tor.
+		// Retry-After dài (luôn đếm tới nửa đêm UTC) không đáng tin: nghỉ ngắn rồi thăm dò lại. Hết lượt session thật sự
+		// thì sessions.go chặn egress (và warp.go đổi IP cho WARP), không dựa vào cooldown này.
 		if e.Kind == kindDirect && cfg.DirectCooldown > 0 {
 			d = cfg.DirectCooldown
 		} else {
@@ -691,8 +691,8 @@ func renewWarpProxy(egressName string) {
 }
 
 
-// pick chọn egress cho model (cache của upstream theo prefix chứ không theo IP/session nên không cần gắn hội thoại với egress): mặc định Tor/proxy trước (PREFER_DIRECT=true thì direct trước); hết thì ưu tiên egress Tor đã phục vụ hội thoại này (giữ cache) nếu nó còn khỏe,
-// sau đó Tor/proxy khỏe nhất/rảnh nhất. nil nếu chưa có cái nào dùng được.
+// pick chọn egress cho model: proxy dân cư trước, rồi WARP, direct làm chốt cuối (PREFER_DIRECT=true thì direct trước);
+// mỗi egress không vượt trần in-flight thích ứng. nil nếu chưa có cái nào dùng được (request xếp hàng ở sched.go).
 func (m *Manager) pick(model string) *Egress {
 	return m.pickAvoid(model)
 }

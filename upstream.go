@@ -70,8 +70,8 @@ func randomHex(n int) string {
 	return fmt.Sprintf("%x", b)
 }
 
-// setUpstreamHeaders: mỗi lần gọi đều tạo session/project/request ID mới.
-// Quota upstream tính theo IP chứ không theo session; cache nằm ở phía server chạy model nên đổi ID không mất cache.
+// ID dùng khi SESSION_ID_MODE=stable. Mặc định (egress) session lấy từ pool của từng egress (sessions.go) vì quota
+// upstream tính theo cặp (IP, session). Cache prompt nằm ở phía server chạy model nên đổi ID không mất cache.
 var (
 	stableSession = newSessionID()
 	stableProject = newProjectID()
