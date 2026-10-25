@@ -619,7 +619,7 @@ func TestSessionIDsStablePerConversationAndValidShape(t *testing.T) {
 	assertDecodesToNow(newSessionID())
 	req := httptest.NewRequest("POST", "/", nil)
 	setUpstreamHeaders(req, "*/*", "conv-1")
-	if req.Header.Get("x-opencode-session") != a1 || req.Header.Get("x-session-id") != a1 {
+	if req.Header.Get("x-opencode-session") != a1 || req.Header.Get("x-opencode-session-id") != a1 {
 		t.Error("header phải dùng session ổn định")
 	}
 	r2 := httptest.NewRequest("POST", "/", nil)
@@ -805,8 +805,8 @@ func TestTorFirstSpreadsAcrossIdentities(t *testing.T) {
 	gw, m := setup(t, func(w http.ResponseWriter, r *http.Request) {
 		v, _ := hits.LoadOrStore(r.Header.Get("X-Test-Egress"), new(atomic.Int32))
 		v.(*atomic.Int32).Add(1)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"id":"x","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`))
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Write([]byte("data: {\"id\":\"x\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}\n\ndata: [DONE]\n\n"))
 	}, false)
 	cfg.PreferDirect = false
 	for _, e := range newTorGroup("tor-1", "127.0.0.1:1", 3) {

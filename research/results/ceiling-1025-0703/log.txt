@@ -1,0 +1,13 @@
+== c050 c=50 n=300 label 07:03:00
+   ok=300/300  1.83 ok/s  610 tok/s  p50=4.1s p95=20.1s  errors={}
+== c100 c=100 n=600 label 07:05:44
+   ok=600/600  2.83 ok/s  912 tok/s  p50=3.7s p95=18.9s  errors={}
+== c200 c=200 n=1000 label 07:09:16
+   ok=1000/1000  13.09 ok/s  4065 tok/s  p50=6.2s p95=23.8s  errors={}
+== c400 c=400 n=1600 label 07:10:32
+   ok=1600/1600  3.22 ok/s  1052 tok/s  p50=17.0s p95=313.9s  errors={}
+== c800 c=800 n=2400 label 07:18:49
+   ok=2176/2400  0.73 ok/s  228 tok/s  p50=631.0s p95=1419.9s  errors={'0 Post "http://127.0.0.1:8090/v1/chat/completions": context deadline exceeded (Client.Time': 175, '429 {"type":"error","error":{"message":"All egress paths are busy or rate limited. Max wai': 10, '502 {"type":"error","error":{"message":"Upstream transport error","type":"upstream_error"}': 39}
+== long24k c=100 n=300 long 08:08:34
+   ok=208/300  0.28 ok/s  134 tok/s  p50=93.3s p95=492.9s  errors={'429 {"type":"error","error":{"message":"Rate limited on all egress paths. Retry shortly.",': 68, '502 {"type":"error","error":{"message":"Upstream transport error","type":"upstream_error"}': 24}
+xong 08:21:08

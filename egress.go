@@ -62,9 +62,21 @@ type Egress struct {
 
 	mu   sync.Mutex
 	cool map[string]*coolState
+
+	limit     atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
+	errRun    atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
+	okRun     atomic.Int32
+	sess      sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
+	renewing  atomic.Bool
+	renews    atomic.Int64
+	renewTries atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
+	container string // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
 }
 
 func newTransport(proxy func(*http.Request) (*url.URL, error)) *http.Transport {
+	if cfg.UpstreamTLS == "bun" {
+		return newFingerprintTransport(proxy)
+	}
 	return &http.Transport{
 		Proxy: proxy,
 		DialContext: (&net.Dialer{
@@ -217,6 +229,9 @@ func (e *Egress) available(model string) bool {
 	if !e.ready.Load() {
 		return false
 	}
+	if cfg.SessionIDMode == "egress" && !e.sess.usable() {
+		return false
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	c, ok := e.cool[model]
@@ -362,6 +377,9 @@ func (e *Egress) rotate(seen uint64) {
 	}
 	if e.gen.CompareAndSwap(seen, seen+1) {
 		log.Printf("[%s] đổi circuit (gen=%d)", e.Name, seen+1)
+		if t, ok := e.Client().Transport.(*http.Transport); ok && cfg.UpstreamTLS == "bun" {
+			t.CloseIdleConnections()
+		}
 	}
 }
 
@@ -382,14 +400,22 @@ type Manager struct {
 	wg          sync.WaitGroup
 	proxyRefMu   sync.Mutex
 	proxyRefLast time.Time
+
+	// bộ điều phối (sched.go)
+	wmu      sync.Mutex
+	waitHigh []*waiter
+	waitLow  []*waiter
+	kick     chan struct{}
 }
 
 func newManager(ctx context.Context) *Manager {
-	m := &Manager{ctx: ctx, dirWin: map[string]*rateWindow{}}
+	m := &Manager{ctx: ctx, dirWin: map[string]*rateWindow{}, kick: make(chan struct{}, 1)}
 	direct := newEgress("direct", kindDirect, http.ProxyFromEnvironment)
 	direct.daemon = "direct"
 	direct.ready.Store(!cfg.ForceTor)
+	initLimit(direct)
 	m.egresses = []*Egress{direct}
+	go m.dispatcher(ctx)
 	return m
 }
 
@@ -422,6 +448,7 @@ func (m *Manager) snapshot() []*Egress {
 }
 
 func (m *Manager) add(e *Egress) {
+	initLimit(e)
 	m.mu.Lock()
 	m.egresses = append(m.egresses, e)
 	m.mu.Unlock()
@@ -472,6 +499,7 @@ func (m *Manager) addStatic(torInstances, proxyPool, resProxies, resRefresh stri
 		e := newEgress(fmt.Sprintf("proxy%d", i+1), kindProxy, http.ProxyURL(u))
 		e.tier = 2
 		e.daemon = fmt.Sprintf("proxy%d", i+1)
+		e.container = warpContainerFor(e, i)
 		e.ready.Store(true)
 		m.add(e)
 		log.Printf("[ProxyWARP] Tier 2 nạp proxy WARP: %s (%s)", e.Name, p)
@@ -480,7 +508,6 @@ func (m *Manager) addStatic(torInstances, proxyPool, resProxies, resRefresh stri
 
 var (
 	resRotMu       sync.Mutex
-	isResRotating  atomic.Bool
 	lastResRotTime = map[string]time.Time{}
 )
 
@@ -488,25 +515,21 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 	if e.refreshURL == "" || e.expired.Load() {
 		return
 	}
-	if !isResRotating.CompareAndSwap(false, true) {
+	// Cờ riêng từng egress (không dùng cờ chung): lịch xoay lại của proxy này không bị proxy khác chặn mất.
+	if !e.renewing.CompareAndSwap(false, true) {
 		return
 	}
-	defer func() {
-		time.AfterFunc(10*time.Second, func() {
-			isResRotating.Store(false)
-		})
-	}()
-
 	resRotMu.Lock()
 	if time.Since(e.lastRotate) < 60*time.Second {
 		resRotMu.Unlock()
-		isResRotating.Store(false)
+		e.renewing.Store(false)
 		return
 	}
 	e.lastRotate = time.Now()
 	resRotMu.Unlock()
 
 	go func() {
+		defer e.renewing.Store(false)
 		e.ready.Store(false)
 		defer e.ready.Store(true)
 
@@ -535,9 +558,24 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 				return
 			}
 			if res.Status == 101 {
-				// 101 là cooldown ("Còn N giây mới có thể đổi proxy"), KHÔNG PHẢI HẾT HẠN!
-				// Giữ nguyên proxy hiện tại để tiếp tục phục vụ traffic.
+				// 101 là cooldown ("Con N s moi co the doi proxy"), KHÔNG PHẢI HẾT HẠN! Giữ IP hiện tại; nếu IP này đã hết
+				// lượt session thì hẹn đổi lại ngay khi hết cooldown (không còn request nào đi qua để tự kích hoạt nữa).
 				log.Printf("[ProxyXoay] %s đang trong cooldown đổi IP (%s), giữ nguyên IP hiện tại để phục vụ.", e.Name, res.Message)
+				if cfg.SessionIDMode == "egress" && e.sess.exhausted() {
+					wait := 60 * time.Second
+					if n := firstInt(res.Message); n > 0 {
+						wait = time.Duration(n+2) * time.Second
+					}
+					resRotMu.Lock()
+					e.lastRotate = time.Time{}
+					resRotMu.Unlock()
+					time.AfterFunc(wait, func() {
+						for !e.renewing.CompareAndSwap(false, false) { // đợi lượt xoay hiện tại kết thúc
+							time.Sleep(time.Second)
+						}
+						m.rotateResidentialProxy(e)
+					})
+				}
 				return
 			}
 			log.Printf("[ProxyXoay] %s đổi IP thành công (%s), chờ warmup 7s...", e.Name, res.Message)
@@ -548,6 +586,11 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 		}
 		time.Sleep(warmup)
 		e.clearAll()
+		e.sess.reset() // IP mới => ngân sách session mới
+		if t, ok := e.Client().Transport.(*http.Transport); ok {
+			t.CloseIdleConnections()
+		}
+		m.kickSched()
 		log.Printf("[ProxyXoay] %s đã sẵn sàng với IP dân cư mới!", e.Name)
 	}()
 }
@@ -663,39 +706,30 @@ func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
 	}
 	list := m.snapshot()
 	direct := list[0]
-	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.claim(model) {
+	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && direct.claim(model) {
 		return direct
 	}
 	start := int(atomic.AddUint32(&m.rr, 1))
 
-	// Vòng 1: Dàn đều an toàn (Tier 1 tối đa 3 in-flight/proxy, Tier 2 tối đa 2 in-flight/proxy)
-	// Đảm bảo không proxy nào bị dồn cục quá 2-3 request cùng lúc!
-	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start, 3); e != nil {
+	// Dân cư trước, rồi WARP; mỗi egress không vượt trần in-flight thích ứng của nó (limit, xem sched.go).
+	// Hết slot thì trả nil để request xếp hàng ở bộ điều phối thay vì dồn thêm vào egress đã đầy.
+	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start, -1); e != nil {
 		return e
 	}
-	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start, 2); e != nil {
+	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start, -1); e != nil {
 		return e
 	}
-
-	// Vòng 2: Khi toàn bộ 19 proxy đều đã bận, nới lỏng trần lên 6 / 4 trước khi cho xếp hàng chờ
-	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start, 6); e != nil {
-		return e
-	}
-	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start, 4); e != nil {
-		return e
-	}
-
 	if len(avoidMap) > 0 {
-		if e := m.pickTierAvoid(list[1:], 1, model, nil, start, 3); e != nil {
+		if e := m.pickTierAvoid(list[1:], 1, model, nil, start, -1); e != nil {
 			return e
 		}
-		if e := m.pickTierAvoid(list[1:], 2, model, nil, start, 2); e != nil {
+		if e := m.pickTierAvoid(list[1:], 2, model, nil, start, -1); e != nil {
 			return e
 		}
 	}
 
-	// Direct làm chốt chặn cuối (tối đa 2 in-flight)
-	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < 2 && direct.claim(model) {
+	// Direct làm chốt chặn cuối
+	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && direct.claim(model) {
 		return direct
 	}
 	return nil
@@ -720,8 +754,11 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 		if len(avoidMap) > 0 && avoidMap[e.daemon] {
 			continue
 		}
+		if maxInflight < 0 && e.inflight.Load() >= e.limit.Load() {
+			continue // đã đạt trần thích ứng -> dàn sang egress khác
+		}
 		if maxInflight > 0 && int(e.inflight.Load()) >= maxInflight {
-			continue // Đã đạt trần an toàn -> dàn tải sang proxy khác!
+			continue
 		}
 		if !e.available(model) || (e.canRotate && int(e.inflight.Load()) >= cfg.TorMaxInflight) {
 			continue
@@ -878,8 +915,11 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 // trong khoảng `within` không. Nếu có thì nên chờ thay vì báo 429 (tránh báo nhầm khi cooldown vừa hết giữa lúc pick và kiểm tra).
 func (m *Manager) anyUsableWithin(models []string, within time.Duration) bool {
 	for _, e := range m.snapshot() {
-		if !e.ready.Load() {
+		if !e.ready.Load() || e.expired.Load() {
 			continue
+		}
+		if cfg.SessionIDMode == "egress" && !e.sess.readyWithin(within) {
+			continue // IP đã hết lượt session và chưa tới lúc thăm dò lại
 		}
 		for _, mod := range models {
 			if d := e.cooldownLeft(mod); d <= within {
@@ -1034,4 +1074,17 @@ func (m *Manager) removeTor(e *Egress) {
 	if e.dataDir != "" {
 		_ = os.RemoveAll(e.dataDir)
 	}
+}
+
+// firstInt lấy số nguyên đầu tiên trong chuỗi (vd "Con 37s moi co the doi proxy" -> 37).
+func firstInt(s string) int {
+	n, seen := 0, false
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			n, seen = n*10+int(r-'0'), true
+		} else if seen {
+			break
+		}
+	}
+	return n
 }

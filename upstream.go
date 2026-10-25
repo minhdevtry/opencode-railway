@@ -134,10 +134,10 @@ func idsFromKey(key string) (ses, proj string) {
 	return sessionIDAt(firstSeenMs(key), h), hex.EncodeToString(p[:20])
 }
 
-// setUpstreamHeaders đặt bộ header giả danh opencode. Quota upstream tính theo IP chứ không theo session/device
-// (đã thử cả 4 tổ hợp đổi/giữ ID trên IP đã hết quota: đều 429), nên ID chỉ để trông như client thật và để giữ prompt
-// cache: mặc định mỗi hội thoại của client có 1 session/project ID ổn định; không biết hội thoại thì dùng ID mới.
-func setUpstreamHeaders(req *http.Request, accept, key string) {
+// setUpstreamHeaders đặt bộ header giả danh opencode theo cfg.ClientProfile. Header chỉ là 1 phần của cổng phân loại:
+// TLS fingerprint (tlsfp.go) và khối <env> trong system prompt (withEnvBlock) mới quyết định request vào quota
+// "client thật" hay quota chung. Mặc định mỗi hội thoại của client có 1 session ID ổn định để giữ prompt cache.
+func setUpstreamHeaders(req *http.Request, accept, key string, es ...*egSession) {
 	ses, proj := newSessionID(), newProjectID()
 	ks, kp := idsFromKey(key)
 	switch cfg.SessionIDMode {
@@ -146,6 +146,10 @@ func setUpstreamHeaders(req *http.Request, accept, key string) {
 	case "client":
 		if key != "" {
 			ses = ks
+		}
+	case "egress":
+		if len(es) > 0 && es[0] != nil {
+			ses = es[0].id
 		}
 	}
 	switch cfg.ProjectIDMode {
@@ -158,13 +162,31 @@ func setUpstreamHeaders(req *http.Request, accept, key string) {
 	}
 	req.Header.Set("Authorization", "Bearer public")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "opencode/2.1.1")
-	req.Header.Set("x-opencode-client", "CLI")
-	req.Header.Set("x-opencode-project", proj)
-	req.Header.Set("x-opencode-request", newRequestID())
+	req.Header.Set("x-opencode-client", "cli")
 	req.Header.Set("x-opencode-session", ses)
 	req.Header.Set("x-opencode-session-id", ses)
-	req.Header.Set("x-session-id", ses)
+	switch cfg.ClientProfile {
+	case "2.1":
+		// opencode 2.1.4 (bắt bằng mitmproxy): UA 3 đoạn, không có x-opencode-request, thêm affinity + trace.
+		tid, sid := randomHex(32), randomHex(16)
+		req.Header.Set("User-Agent", "opencode/latest/2.1.4/cli")
+		req.Header.Set("x-opencode-project", proj)
+		req.Header.Set("x-session-affinity", ses)
+		req.Header.Set("x-session-id", ses)
+		req.Header.Set("traceparent", "00-"+tid+"-"+sid+"-01")
+		req.Header.Set("b3", tid+"-"+sid+"-1-"+randomHex(16))
+	case "legacy":
+		req.Header.Set("User-Agent", "opencode/2.1.1")
+		req.Header.Set("x-opencode-client", "CLI")
+		req.Header.Set("x-opencode-project", proj)
+		req.Header.Set("x-opencode-request", newRequestID())
+		req.Header.Set("x-session-id", ses)
+	default:
+		// opencode 1.18.35 (bắt bằng mitmproxy, đã đo 200 qua direct/WARP/dân cư khi đi kèm TLS Bun + khối <env>).
+		req.Header.Set("User-Agent", "opencode/1.18.35 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14")
+		req.Header.Set("x-opencode-project", "global")
+		req.Header.Set("x-opencode-request", newRequestID())
+	}
 	req.Header.Set("Accept", accept)
 }
 
@@ -183,6 +205,7 @@ func (e *gwError) Error() string { return e.msg }
 type upstream struct {
 	resp   *http.Response
 	egress *Egress
+	ses    *egSession
 	model  string
 	ttfb   time.Duration
 	cancel context.CancelFunc
@@ -193,7 +216,8 @@ func (u *upstream) close() {
 	u.once.Do(func() {
 		u.resp.Body.Close()
 		u.cancel()
-		u.egress.inflight.Add(-1)
+		u.egress.sess.done(u.ses)
+		u.egress.release()
 	})
 }
 
@@ -244,7 +268,7 @@ func appendAvoid(list []string, d string) []string {
 	}
 	return list
 }
-func normalizeLastError(last *gwError) *gwError {
+func normalizeLastError(last *gwError) *gwError { // last==nil: mọi lần thử đều bị bỏ qua trước khi gửi được
 	if last == nil {
 		return &gwError{status: http.StatusBadGateway, typ: "upstream_error", msg: "No upstream attempt made"}
 	}
@@ -352,9 +376,16 @@ func nextModelInPool(current string) string {
 // (hàm này chỉ trả về response khi header đã nhận, việc ghi cho client do caller làm).
 func forward(ctx context.Context, model string, isPool bool, url, accept, key string, prep func(model string) []byte) (*upstream, *gwError) {
 	deadline := time.Now().Add(cfg.MaxWait)
+	// Auto: lọc pool theo profile (auto-fast/best/long) và giới hạn context đã học cho cỡ request này.
+	tokens := 0
+	if isPool {
+		tokens = estTokens(len(prep(model)))
+		ctx = withExclude(ctx, routeExclusions(profileFrom(ctx), tokens, excludedModels(ctx)))
+	}
 	var last *gwError
-	var avoidDaemons []string
+	avoidDaemons := avoidFrom(ctx)
 	currentModel := model
+	canSwitch := isPool || modelFallback(ctx) // model cụ thể ở chế độ cố định: không bao giờ đổi model
 	var modelFailures int
 
 	for attempt := 0; attempt < cfg.MaxAttempts; attempt++ {
@@ -369,21 +400,31 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				return nil, &gwError{status: 499, typ: "client_closed", msg: "client closed request"}
 			}
 		}
-		m, e, gerr := mgr.routeAvoid(ctx, currentModel, isPool, deadline, avoidDaemons...)
+		m, e, gerr := mgr.acquire(ctx, currentModel, isPool, deadline, avoidDaemons...) // đã giữ chỗ (inflight++)
 		if gerr != nil {
 			return nil, gerr
 		}
 
+		var es *egSession
+		if cfg.SessionIDMode == "egress" {
+			if es = e.sess.acquire(cfg.SessionsPerEgress, cfg.SessionInflight); es == nil {
+				// Egress vừa hết session giữa lúc pick: bỏ qua, chọn đường khác.
+				e.release()
+				avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
+				continue
+			}
+		}
+		relE := func() { e.sess.done(es); e.release() } // trả slot egress + chỗ trên session
 		payload := prep(m)
 		actx, cancel := context.WithCancel(ctx)
 		req, err := http.NewRequestWithContext(actx, http.MethodPost, url, bytes.NewReader(payload))
 		if err != nil {
 			cancel()
+			relE()
 			return nil, &gwError{status: http.StatusInternalServerError, typ: "internal_error", msg: "build request"}
 		}
-		setUpstreamHeaders(req, accept, key)
+		setUpstreamHeaders(req, accept, key, es)
 
-		e.inflight.Add(1)
 		e.reqs.Add(1)
 		e.lastUsed.Store(time.Now().UnixNano())
 		if e.Kind == kindDirect {
@@ -410,12 +451,18 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 		}
 		if err != nil {
 			cancel()
-			e.inflight.Add(-1)
+			relE()
 			if ctx.Err() != nil {
 				return nil, &gwError{status: 499, typ: "client_closed", msg: "client closed request"}
 			}
 			e.errs.Add(1)
+			e.adapt(false)
 			e.transient(m, 3*time.Second)
+			if e.tier == 1 && e.refreshURL != "" && e.errRun.Add(1) >= 5 {
+				e.errRun.Store(0)
+				log.Printf("[%s] lỗi truyền tải liên tiếp, xoay IP dân cư", e.Name)
+				mgr.rotateResidentialProxy(e)
+			}
 			e.rotate(gen)
 			avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
 			if slow.Load() {
@@ -433,8 +480,40 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			ra := parseRetryAfter(resp.Header)
 			resp.Body.Close()
 			cancel()
-			e.inflight.Add(-1)
+			relE()
 			e.r429.Add(1)
+			freeLimit := bytes.Contains(snippet, []byte("FreeUsageLimitError")) || bytes.Contains(snippet, []byte("Free usage limit"))
+			if !freeLimit {
+				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
+			}
+			if es != nil && freeLimit {
+				if !e.sess.blocked(es, ra) {
+					// Session của IP cũ (egress vừa đổi IP): kết quả không áp cho pool mới, thử lại ngay.
+					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
+					continue
+				}
+				// WARP đổi IP rẻ (~15-25s, không giới hạn): hễ egress không phục vụ được ngay (hết lượt mở session mới
+				// và session còn lại đều đang nghỉ) là đổi danh tính luôn, không ngồi chờ session hết nghỉ.
+				if e.container != "" && !e.sess.usable() {
+					mgr.renewIdentity(e)
+					avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
+					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
+					continue
+				}
+				if !e.sess.exhausted() {
+					// Chỉ session này cạn (hoặc vừa hết lượt mở session mới nhưng còn session sống): egress vẫn dùng được.
+					log.Printf("[%s] attempt=%d model=%s session %s bị từ chối, egress còn session khác", e.Name, attempt, m, es.id[:16])
+					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
+					continue
+				}
+				// IP hết session hôm nay: đổi danh tính WARP để lấy IP mới (nếu là WARP), không thì nghỉ tới khi reset.
+				if e.container != "" {
+					mgr.renewIdentity(e)
+					avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
+					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
+					continue
+				}
+			}
 			d := e.exhausted(m, ra, e.gen.Load() == gen)
 			if e.Kind == kindDirect {
 				mgr.prewarmTor("direct vừa bị 429", 2)
@@ -442,8 +521,8 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if e.Kind == kindProxy {
 				if e.tier == 1 && e.refreshURL != "" {
 					mgr.rotateResidentialProxy(e)
-				} else if e.tier == 2 {
-					if bytes.Contains(snippet, []byte("FreeUsageLimitError")) || bytes.Contains(snippet, []byte("Free usage limit reached")) || ra > 30*time.Minute {
+				} else if e.tier == 2 && cfg.SessionIDMode != "egress" {
+					if freeLimit || ra > 30*time.Minute {
 						renewWarpProxy(e.Name)
 					}
 				}
@@ -455,7 +534,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 				msg: "Rate limited on all egress paths. Retry shortly.", retryAfter: d}
 			modelFailures++
-			if modelFailures >= 3 && isFreeModelInPool(currentModel) {
+			if canSwitch && modelFailures >= 3 && isFreeModelInPool(currentModel) {
 				next := nextModelInPool(currentModel)
 				if next != currentModel {
 					log.Printf("[Router] model=%s bị 429, tự động chuyển ngay sang model=%s", currentModel, next)
@@ -470,8 +549,9 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusGatewayTimeout:
 			resp.Body.Close()
 			cancel()
-			e.inflight.Add(-1)
+			relE()
 			e.errs.Add(1)
+			e.adapt(false)
 			e.transient(m, 5*time.Second)
 			e.rotate(gen)
 			avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
@@ -483,7 +563,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 			resp.Body.Close()
 			cancel()
-			e.inflight.Add(-1)
+			relE()
 			e.errs.Add(1)
 			coolDuration := 30 * time.Second
 			if e.Kind == kindDirect {
@@ -501,7 +581,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			log.Printf("[%s] attempt=%d model=%s 403 (exit bị chặn hoặc FreeTierError), đổi egress body=%q", e.Name, attempt, m, string(snippet))
 			last = &gwError{status: http.StatusForbidden, typ: "permission_error", msg: "Egress blocked: " + strings.TrimSpace(string(snippet))}
 			modelFailures++
-			if modelFailures >= 3 && isFreeModelInPool(currentModel) {
+			if canSwitch && modelFailures >= 3 && isFreeModelInPool(currentModel) {
 				next := nextModelInPool(currentModel)
 				if next != currentModel {
 					log.Printf("[Router] model=%s bị lỗi liên tiếp, tự động failover sang model=%s", currentModel, next)
@@ -515,7 +595,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 			resp.Body.Close()
 			cancel()
-			e.inflight.Add(-1)
+			relE()
 			replacement := parseReplacement(snippet)
 			if replacement == "" {
 				replacement = nextModelInPool(currentModel)
@@ -532,10 +612,32 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 
 		case resp.StatusCode == http.StatusBadRequest:
 			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+			if isContextError(snippet) {
+				// Model này không đọc nổi request cỡ này: ghi nhớ giới hạn; với auto thì chuyển sang model khác ngay.
+				resp.Body.Close()
+				cancel()
+				relE()
+				est := tokens
+				if est == 0 {
+					est = estTokens(len(payload))
+				}
+				noteContextLimit(m, est)
+				log.Printf("[Context] model=%s không nhận ~%d token, ghi nhớ giới hạn", m, est)
+				if isPool {
+					ex := map[string]bool{m: true}
+					for k, v := range excludedModels(ctx) {
+						ex[k] = v
+					}
+					ctx = withExclude(ctx, ex)
+					continue
+				}
+				last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error", msg: "Upstream HTTP 400: " + strings.TrimSpace(string(snippet))}
+				return nil, last
+			}
 			if isModelDeprecated(resp.StatusCode, snippet) {
 				resp.Body.Close()
 				cancel()
-				e.inflight.Add(-1)
+				relE()
 				replacement := parseReplacement(snippet)
 				if replacement == "" {
 					replacement = nextModelInPool(currentModel)
@@ -550,12 +652,22 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				}
 				continue
 			}
-			if isModelParamError(snippet) && isFreeModelInPool(currentModel) {
+			if p := unsupportedParam(snippet); p != "" && autoParamSet(p) {
+				// Tham số do gateway tự thêm cho auto (vd reasoning) mà nhà cung cấp phía sau không nhận: tạm ngừng gửi
+				// tham số đó cho model này rồi gửi lại ngay, không tính là lỗi của egress.
 				resp.Body.Close()
 				cancel()
-				e.inflight.Add(-1)
+				relE()
+				markParamUnsupported(m, p)
+				log.Printf("[Auto] model=%s không nhận tham số %q, bỏ tham số và gửi lại", m, p)
+				continue
+			}
+			if canSwitch && isModelParamError(snippet) && isFreeModelInPool(currentModel) {
+				resp.Body.Close()
+				cancel()
+				relE()
 				e.errs.Add(1)
-				log.Printf("[Router] model=%s bị lỗi tham số hoặc backend (400), tự động failover sang model khác: %s", currentModel, string(snippet))
+				log.Printf("[Router] model=%s bị lỗi tham số hoặc backend (400), tự động failover sang model khác: %s", m, string(snippet))
 				next := nextModelInPool(currentModel)
 				if next != currentModel {
 					currentModel = next
@@ -566,19 +678,24 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			}
 			resp.Body.Close()
 			cancel()
-			e.inflight.Add(-1)
+			relE()
+			log.Printf("[%s] attempt=%d model=%s HTTP 400: %s", e.Name, attempt, m, string(snippet))
 			last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error", msg: "Upstream HTTP 400: " + strings.TrimSpace(string(snippet))}
 			return nil, last
 		}
 
 		if resp.StatusCode == http.StatusOK {
+			e.sess.success(es)
+			e.errRun.Store(0)
+			e.adapt(true)
+			okRate.add()
 			e.oks.Add(1)
 			e.clear(m)
 			e.observeLatency(gen, ttfb)
 			mgr.retireIfSlow(e, gen)
 		}
 		resp.Body = &idleBody{rc: resp.Body, d: cfg.StreamIdle, t: time.AfterFunc(cfg.StreamIdle, cancel)}
-		return &upstream{resp: resp, egress: e, model: m, ttfb: ttfb, cancel: cancel}, nil
+		return &upstream{resp: resp, egress: e, ses: es, model: m, ttfb: ttfb, cancel: cancel}, nil
 	}
 	return nil, normalizeLastError(last)
 }

@@ -1,0 +1,28 @@
+{
+  "by_model": {
+    "beam-free": 69,
+    "big-pickle": 88,
+    "deepseek-v4.1-flash-free": 83,
+    "glm-5.3-flash-free": 65,
+    "mimo-v2.6-flash-free": 88,
+    "nemotron-3.5-lightning-free": 103,
+    "nemotron-3.5-super-vl-free": 121
+  },
+  "c": 1000,
+  "egress_used": 17,
+  "elapsed_s": 214.75,
+  "errors": {
+    "429 {\"type\":\"error\",\"error\":{\"message\":\"Per-IP rate limit exceeded\",\"type\":\"rate_limit_err": 383
+  },
+  "max_s": 214.64,
+  "n": 1000,
+  "ok": 617,
+  "ok_per_s": 2.87,
+  "out": "research/results/1025-000807-label-n1000-c1000.jsonl",
+  "out_tok_per_s": 883.16,
+  "p50_s": 24.67,
+  "p95_s": 50.8,
+  "success_rate": 0.62,
+  "valid_json": 614,
+  "workload": "label"
+}

@@ -1,0 +1,26 @@
+{
+  "by_model": {
+    "beam-free": 3,
+    "big-pickle": 8,
+    "deepseek-v4.1-flash-free": 10,
+    "glm-5.3-flash-free": 13,
+    "mimo-v2.6-flash-free": 21,
+    "nemotron-3.5-lightning-free": 21,
+    "nemotron-3.5-super-vl-free": 24
+  },
+  "c": 50,
+  "egress_used": 11,
+  "elapsed_s": 31.43,
+  "errors": {},
+  "max_s": 26.65,
+  "n": 100,
+  "ok": 100,
+  "ok_per_s": 3.18,
+  "out": "research/results/1025-005643-label-n100-c50.jsonl",
+  "out_tok_per_s": 598.41,
+  "p50_s": 4.32,
+  "p95_s": 16.19,
+  "success_rate": 1,
+  "valid_json": 92,
+  "workload": "label"
+}

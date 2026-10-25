@@ -194,13 +194,7 @@ var (
 	started = time.Now()
 )
 
-func isAutoModel(name string) bool {
-	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "auto", "auto-free", "free", "pool", "free-pool", "fast-free":
-		return true
-	}
-	return false
-}
+func isAutoModel(name string) bool { return profileOf(name) != "" }
 
 func resolveModelName(name string) (resolved string, isPool bool) {
 	clean := strings.ToLower(strings.TrimSpace(name))
@@ -261,6 +255,9 @@ func resolveModelName(name string) (resolved string, isPool bool) {
 // nếu client chưa khai báo. inject=false thì giữ nguyên tools của client.
 func applyFingerprint(body map[string]any, model string, inject bool, stubDesc string) {
 	body["stream"] = true
+	if cfg.EnvBlock {
+		withEnvBlock(body, model)
+	}
 	if !inject {
 		if strings.HasPrefix(model, "cat-jam") || strings.HasPrefix(model, "beam") || strings.HasPrefix(model, "space-bunny") || strings.HasPrefix(model, "glm") {
 			delete(body, "cache_control")
@@ -310,6 +307,49 @@ func applyFingerprint(body map[string]any, model string, inject bool, stubDesc s
 		delete(body, "cache_control")
 	}
 }
+// envBlock là khối mô tả môi trường mà opencode luôn đặt trong system prompt. Cổng free tier của upstream dựa vào nó
+// (đo 2026-10-24: chỉ riêng khối này là qua; system prompt khác hoặc thiếu => 429 FreeUsageLimitError).
+func envBlock(model string) string {
+	return "You are powered by the model named " + model + ". The exact model ID is opencode/" + model + "\n" +
+		"Here is some useful information about the environment you are running in:\n<env>\n" +
+		"  Working directory: /home/user/project\n  Workspace root folder: /home/user/project\n" +
+		"  Is directory a git repo: no\n  Platform: linux\n  Today's date: " + time.Now().UTC().Format("Mon Jan 02 2006") + "\n</env>"
+}
+
+// withEnvBlock ghép khối <env> vào CUỐI system message đầu tiên (giữ nguyên prompt của client ở đầu để prefix cache
+// phía upstream vẫn trúng), hoặc thêm 1 system message nếu client không có. Không ghép lại nếu đã có <env>.
+func withEnvBlock(body map[string]any, model string) {
+	msgs, _ := body["messages"].([]any)
+	env := envBlock(model)
+	for i, raw := range msgs {
+		m, ok := raw.(map[string]any)
+		if !ok || (m["role"] != "system" && m["role"] != "developer") {
+			continue
+		}
+		switch c := m["content"].(type) {
+		case string:
+			if strings.Contains(c, "<env>") {
+				return
+			}
+			m["content"] = c + "\n\n" + env
+		case []any:
+			for _, p := range c {
+				if pm, ok := p.(map[string]any); ok {
+					if t, _ := pm["text"].(string); strings.Contains(t, "<env>") {
+						return
+					}
+				}
+			}
+			m["content"] = append(c, map[string]any{"type": "text", "text": env})
+		default:
+			m["content"] = env
+		}
+		msgs[i] = m
+		return
+	}
+	body["messages"] = append([]any{map[string]any{"role": "system", "content": env}}, msgs...)
+}
+
 func jsonMarshalNoEscape(v any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
@@ -342,14 +382,25 @@ type oaToolCall struct {
 	} `json:"function"`
 }
 
+// reasoningText: một số backend gửi cả 2 field cùng nội dung, chỉ lấy 1.
+func (d oaDelta) reasoningText() string {
+	if d.ReasoningContent != "" {
+		return d.ReasoningContent
+	}
+	return d.Reasoning
+}
+
+type oaDelta struct {
+	Content          string       `json:"content"`
+	ReasoningContent string       `json:"reasoning_content"`
+	Reasoning        string       `json:"reasoning"` // endpoint /inference (kiểu OpenRouter) dùng field này
+	ToolCalls        []oaToolCall `json:"tool_calls"`
+}
+
 type oaChunk struct {
 	ID      string `json:"id"`
 	Choices []struct {
-		Delta struct {
-			Content          string       `json:"content"`
-			ReasoningContent string       `json:"reasoning_content"`
-			ToolCalls        []oaToolCall `json:"tool_calls"`
-		} `json:"delta"`
+		Delta        oaDelta `json:"delta"`
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage *struct {
@@ -424,7 +475,7 @@ func aggregateSSE(r io.Reader) (*aggregate, error) {
 		}
 		c := ch.Choices[0]
 		agg.content.WriteString(c.Delta.Content)
-		agg.reasoning.WriteString(c.Delta.ReasoningContent)
+		agg.reasoning.WriteString(c.Delta.reasoningText())
 		if c.FinishReason != nil && *c.FinishReason != "" {
 			agg.finishReason = *c.FinishReason
 		}
@@ -570,22 +621,111 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	clientStream, _ := reqData["stream"].(bool)
 	target, isPool := resolveModelName(modelIn)
 	t0 := time.Now()
+	guard := isPool && cfg.AutoGuard && !hasClientTools(reqData)
+	// Model cụ thể: không đổi model, nhưng stream treo/đứt thì gửi lại đúng model đó qua egress khác.
+	resilient := !isPool && cfg.AutoGuard
 
-	up, gerr := forward(r.Context(), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, reqData), func(m string) []byte {
-		reqData["model"] = m
-		applyFingerprint(reqData, m, true, stubDescription)
-		b, _ := jsonMarshalNoEscape(reqData)
-		return b
-	})
-	if gerr != nil {
-		writeGWError(w, gerr)
-		return
+	var up *upstream
+	var avoid []string
+	var dropped []string // tham số client gửi nhưng nhà cung cấp phía sau không nhận (đã gỡ), báo lại qua header
+	var droppedMu sync.Mutex
+	var agg *aggregate
+	var aggErr error
+	excl := map[string]bool{}
+	for try := 0; ; try++ {
+		ctx := withFallback(withProfile(r.Context(), modelIn), r)
+		if len(excl) > 0 {
+			ctx = withExclude(ctx, excl)
+		}
+		if len(avoid) > 0 {
+			ctx = withAvoid(ctx, avoid)
+		}
+		var gerr *gwError
+		up, gerr = forward(ctx, target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, reqData), func(m string) []byte {
+			body := make(map[string]any, len(reqData)+2)
+			for k, v := range reqData {
+				body[k] = v
+			}
+			normalizeThinking(body, m)
+			if guard {
+				applyAutoExtras(body, m)
+			}
+			if d := dropUnsupported(body, m); len(d) > 0 {
+				droppedMu.Lock()
+				dropped = d
+				droppedMu.Unlock()
+			}
+			body["model"] = m
+			applyFingerprint(body, m, true, stubDescription)
+			b, _ := jsonMarshalNoEscape(body)
+			return b
+		})
+		if gerr != nil {
+			writeGWError(w, gerr)
+			return
+		}
+		if up.resp.StatusCode != http.StatusOK {
+			break
+		}
+		if resilient {
+			firstTok := cfg.AutoFirstToken*2 + time.Duration(r.ContentLength/1024)*200*time.Millisecond
+			consumed, rest, good := sniffContent(up.resp.Body, firstTok, true)
+			if good && !clientStream {
+				a, err := aggregateSSE(io.MultiReader(bytes.NewReader(consumed), rest))
+				if a.finishReason == "" && try < cfg.AutoRetries {
+					log.Printf("[Retry] model=%s egress=%s stream đứt giữa chừng (%v), gửi lại cùng model qua egress khác", up.model, up.egress.Name, err)
+					avoid = append(avoid, up.egress.daemon)
+					up.close()
+					continue
+				}
+				agg, aggErr = a, err
+			}
+			if good || try >= cfg.AutoRetries {
+				up.resp.Body = &replayBody{Reader: io.MultiReader(bytes.NewReader(consumed), rest), orig: up.resp.Body}
+				break
+			}
+			log.Printf("[Retry] model=%s egress=%s treo không ra token, gửi lại cùng model qua egress khác", up.model, up.egress.Name)
+			avoid = append(avoid, up.egress.daemon)
+			up.close()
+			continue
+		}
+		if !guard {
+			break
+		}
+		// Hạn chờ token đầu: cơ bản + theo kích thước prompt (prompt dài cần upstream đọc lâu hơn).
+		firstTok := cfg.AutoFirstToken + time.Duration(r.ContentLength/1024)*200*time.Millisecond
+		consumed, rest, good := sniffContent(up.resp.Body, firstTok)
+		if good && !clientStream {
+			// Non-stream: gom luôn tại đây để stream bị ngắt giữa chừng (chưa có finish_reason) được thử lại bằng model khác.
+			a, err := aggregateSSE(io.MultiReader(bytes.NewReader(consumed), rest))
+			if a.finishReason == "" && try < cfg.AutoRetries {
+				log.Printf("[Auto] model=%s egress=%s stream bị ngắt giữa chừng (%v), thử model khác", up.model, up.egress.Name, err)
+				noteModel(up.model, false)
+				excl[up.model] = true
+				up.close()
+				continue
+			}
+			agg, aggErr = a, err
+		}
+		noteModel(up.model, good)
+		if good || try >= cfg.AutoRetries {
+			up.resp.Body = &replayBody{Reader: io.MultiReader(bytes.NewReader(consumed), rest), orig: up.resp.Body}
+			break
+		}
+		log.Printf("[Auto] model=%s egress=%s trả rỗng/gọi tool, thử model khác (lần %d)", up.model, up.egress.Name, try+1)
+		excl[up.model] = true
+		up.close()
 	}
 	defer up.close()
 	if up.resp.StatusCode != http.StatusOK {
 		passthroughError(w, up)
 		return
 	}
+	droppedMu.Lock()
+	if len(dropped) > 0 {
+		w.Header().Set("X-Gateway-Dropped-Params", strings.Join(dropped, ","))
+	}
+	droppedMu.Unlock()
 	setGWHeaders(w, up)
 
 	if clientStream {
@@ -616,8 +756,15 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agg, err := aggregateSSE(up.resp.Body)
-	if err != nil && agg.chunks == 0 {
+	if agg == nil {
+		agg, aggErr = aggregateSSE(up.resp.Body)
+	}
+	// Không có finish_reason (stream đứt, kể cả EOF "sạch" không có [DONE]) => nội dung có thể bị cụt: báo 502 để
+	// client/job thử lại, không trả 200 cụt.
+	if agg.chunks == 0 || agg.finishReason == "" {
+		if aggErr != nil {
+			log.Printf("[chat] stream đứt: %v", aggErr)
+		}
 		writeJSONError(w, http.StatusBadGateway, "upstream_error", "Upstream stream interrupted")
 		return
 	}
@@ -627,6 +774,9 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		"reasoning_content": agg.reasoning.String(),
 	}
 	finish := "stop"
+	if agg.finishReason == "length" {
+		finish = "length"
+	}
 	if tools := agg.orderedTools(); len(tools) > 0 {
 		var list []any
 		for i, t := range tools {
@@ -729,6 +879,9 @@ func capacityHandler(w http.ResponseWriter, r *http.Request) {
 var modelList = []struct{ id, owner string }{
 	{"auto-free", "auto-dispatcher"},
 	{"auto", "auto-dispatcher"},
+	{"auto-fast", "auto-dispatcher"},
+	{"auto-best", "auto-dispatcher"},
+	{"auto-long", "auto-dispatcher"},
 	{"deepseek", "deepseek"},
 	{"deepseek-v4.1-flash", "deepseek"},
 	{"glm-5.3-flash", "zhipu"},
@@ -802,11 +955,14 @@ func modelObj(id, owner string) map[string]any {
 		maxOutput = 8192
 		reasoning = false
 		efforts = nil
-	case "auto", "auto-free":
-		name = "Auto Free Dispatcher"
-		desc = "Automated load-balanced proxy routing across the best available free models"
-		contextWin = 1048576
-		maxOutput = 65536
+	case "auto", "auto-free", "auto-fast", "auto-best", "auto-long":
+		// Số đo thực (research/README.md): ~300k token đọc đúng trên nemotron/glm/deepseek/mimo/beam; ~380k bị từ chối.
+		name = map[string]string{"auto": "Auto (mọi model, tải cao)", "auto-free": "Auto (mọi model, tải cao)",
+			"auto-fast": "Auto Fast (model nhanh nhất)", "auto-best": "Auto Best (model trả lời kỹ nhất)",
+			"auto-long": "Auto Long (văn bản dài)"}[clean]
+		desc = "Gateway tự chọn model free, tự đổi model khi lỗi/rỗng, tự học giới hạn context từng model"
+		contextWin = 300000
+		maxOutput = 32000
 	default:
 		if strings.Contains(clean, "vision") || strings.Contains(clean, "vl") || strings.Contains(clean, "image") {
 			inputMods = []string{"text", "image"}
@@ -894,11 +1050,18 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		RateLimit int64              `json:"rate_limited"`
 		Errors    int64              `json:"errors"`
 		Cooldown  map[string]float64 `json:"cooldown_seconds,omitempty"`
+		Sessions  int                `json:"sessions_alive"`
+		Opened    int                `json:"sessions_opened_today"`
+		NoNewSes  bool               `json:"new_sessions_denied,omitempty"`
+		SesUses   int64              `json:"session_requests_today"`
+		Renews    int64              `json:"identity_renews,omitempty"`
+		Limit     int32              `json:"inflight_limit,omitempty"`
 	}
 	var list []egStat
 	for _, e := range mgr.snapshot() {
 		s := egStat{Name: e.Name, Kind: e.Kind, Ready: e.ready.Load(), Inflight: e.inflight.Load(),
-			Requests: e.reqs.Load(), OK: e.oks.Load(), RateLimit: e.r429.Load(), Errors: e.errs.Load()}
+			Requests: e.reqs.Load(), OK: e.oks.Load(), RateLimit: e.r429.Load(), Errors: e.errs.Load(), Renews: e.renews.Load(), Limit: e.limit.Load()}
+		s.Sessions, s.Opened, s.NoNewSes, s.SesUses = e.sess.stats()
 		e.mu.Lock()
 		for model, c := range e.cool {
 			if d := time.Until(c.until); d > 0 {
@@ -915,6 +1078,11 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"uptime_seconds": int(time.Since(started).Seconds()),
 		"inflight":       inflightTotal.Load(),
 		"max_inflight":   cfg.MaxConcurrency,
+		"jobs":           jobStats(r.Context()),
+		"context_limits": contextLimits(),
+		"queued_sync":    queuedHigh.Load(),
+		"queued_jobs":    queuedLow.Load(),
+		"model_quality":  modelQualitySnapshot(),
 		"egress":         list,
 	})
 	w.Header().Set("Content-Type", "application/json")
@@ -934,6 +1102,11 @@ func buildMux() *http.ServeMux {
 	mux.HandleFunc("/v1/messages/count_tokens", grd.wrap(countTokensHandler, false))
 	mux.HandleFunc("/v1/models", grd.wrap(modelsHandler, false))
 	mux.HandleFunc("/v1/models/", grd.wrap(modelsHandler, false))
+	mux.HandleFunc("/v1/capacity", grd.wrap(liveCapacityHandler, false))
+	mux.HandleFunc("/v1/batches", grd.wrap(batchesHandler, false))
+	mux.HandleFunc("/v1/batches/", grd.wrap(batchesHandler, false))
+	mux.HandleFunc("/v1/jobs", grd.wrap(jobsHandler, false))
+	mux.HandleFunc("/v1/jobs/", grd.wrap(jobsHandler, false))
 	mux.HandleFunc("/status", grd.wrap(statusHandler, false))
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/", healthHandler)
@@ -942,6 +1115,9 @@ func buildMux() *http.ServeMux {
 
 func main() {
 	cfg = loadConfig()
+	infURL = cfg.UpstreamBase
+	renewSem = make(chan struct{}, cfg.WarpRenewParallel)
+	log.Printf("[Upstream] %s, TLS=%s, profile=%s, env-block=%v", infURL, cfg.UpstreamTLS, cfg.ClientProfile, cfg.EnvBlock)
 	// Dọn dẹp các thư mục tạm tor cũ từ phiên trước nếu có
 	if matches, err := filepath.Glob(filepath.Join(os.TempDir(), "tor-gw-*")); err == nil {
 		for _, d := range matches {
@@ -1002,6 +1178,8 @@ func main() {
 		go mgr.autoscaleTor()
 	}
 	go startCatalogSync(ctx)
+	go mgr.warpJanitor(ctx)
+	startJobs(ctx)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

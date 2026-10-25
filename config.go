@@ -55,6 +55,32 @@ type Config struct {
 	ResidentialRefreshURLs string
 	AutoModels             string
 
+	// Giả danh client opencode thật (cổng phân loại free tier của upstream, đo 2026-10-24, xem research/README.md)
+	UpstreamTLS   string // bun (mặc định: uTLS giả ClientHello của Bun) | go (crypto/tls, bị dồn vào quota chung)
+	UpstreamBase  string // endpoint chat của client thật
+	ClientProfile string // bộ header: 1.18 (opencode 1.18.35, đã đo qua) | 2.1 (opencode 2.1.4)
+	EnvBlock      bool   // ghép khối <env> của opencode vào system prompt (thiếu khối này => 429 FreeUsageLimitError)
+	SessionsPerEgress int           // trần số session mở trên mỗi egress/ngày (SESSION_ID_MODE=egress); upstream cho ~50
+	SessionInflight   int           // số request đồng thời trên 1 session trước khi mở session mới
+	SessionCoolMax    time.Duration // Retry-After tối đa được tin để cho session nghỉ (dài hơn => nghỉ SessionReprobe rồi thử lại)
+	SessionReprobe    time.Duration // session/IP bị chặn với Retry-After dài: thử lại sau khoảng này
+	WarpContainers    string // tên container WARP theo đúng thứ tự PROXY_POOL (trống => warp-proxy, warp-proxy-2, ...)
+	WarpRenewParallel int    // số container được đổi danh tính cùng lúc
+
+	AutoGuard   bool // model auto: tool_choice=none, tắt reasoning ở model hỗ trợ, đổi model khi kết quả rỗng/gọi tool
+	AutoRetries int
+	AutoFirstToken time.Duration // auto: quá hạn này chưa có token đầu thì bỏ, thử egress/model khác
+	AutoFastModels, AutoBestModels, AutoLongModels string // ghi đè danh sách model của auto-fast/best/long
+
+	// Trần in-flight thích ứng mỗi egress (AIMD)
+	LimitWarp, LimitRes, LimitDirect, LimitMin, LimitMax int
+
+	// Hàng đợi job bền
+	RedisURL       string
+	JobWorkers     int
+	JobMaxAttempts int
+	JobMaxBackoff  time.Duration
+
 	// /v1/messages: bơm 4 tool stub của opencode (bash/glob/grep/read). Upstream (FreeTier gate) bắt buộc có.
 	DefaultModel         string
 	InjectToolsAnthropic bool
@@ -117,8 +143,8 @@ func loadConfig() Config {
 		MaxBodyBytes:         int64(envInt("MAX_BODY_MB", 32, 1)) << 20,
 		MaxWait:              envDur("MAX_WAIT", 300*time.Second),
 		MaxAttempts:          envInt("MAX_ATTEMPTS", 30, 1),
-		StreamIdle:           envDur("STREAM_IDLE_TIMEOUT", 180*time.Second),
-		SessionIDMode:        strings.ToLower(envStr("SESSION_ID_MODE", "client")),
+		StreamIdle:           envDur("STREAM_IDLE_TIMEOUT", 60*time.Second),
+		SessionIDMode:        strings.ToLower(envStr("SESSION_ID_MODE", "egress")),
 		ProjectIDMode:        strings.ToLower(envStr("PROJECT_ID_MODE", "client")),
 		ImageModels:          map[string]bool{},
 		CooldownMax:          envDur("COOLDOWN_MAX", 2*time.Minute),
@@ -130,7 +156,7 @@ func loadConfig() Config {
 		DirectWarnInflight:   envInt("DIRECT_WARN_INFLIGHT", 60, 1),
 		DirectCooldown:       envDur("DIRECT_COOLDOWN", 2*time.Minute),
 		QueueWait:            envDur("QUEUE_WAIT", 30*time.Second),
-		AutoModelFallback:    envBoolDef("AUTO_MODEL_FALLBACK", true),
+		AutoModelFallback:    envBool("AUTO_MODEL_FALLBACK"),
 		DisableTor:           envBool("DISABLE_TOR"),
 		ForceTor:             envBool("FORCE_TOR"),
 		TorMax:               torMax,
@@ -149,6 +175,31 @@ func loadConfig() Config {
 		ResidentialProxies:     envStr("RESIDENTIAL_PROXIES", ""),
 		ResidentialRefreshURLs: envStr("RESIDENTIAL_REFRESH_URLS", ""),
 		AutoModels:             envStr("AUTO_MODELS", ""),
+		UpstreamTLS:            strings.ToLower(envStr("UPSTREAM_TLS", "bun")),
+		UpstreamBase:           strings.TrimRight(envStr("UPSTREAM_BASE", "https://opencode.ai/inference/openai/v1"), "/"),
+		ClientProfile:          envStr("CLIENT_PROFILE", "1.18"),
+		EnvBlock:               envBoolDef("ENV_BLOCK", true),
+		SessionsPerEgress:      envInt("SESSIONS_PER_EGRESS", 8, 1),
+		SessionInflight:        envInt("SESSION_INFLIGHT", 4, 1),
+		SessionCoolMax:         envDur("SESSION_COOL_MAX", 30*time.Minute),
+		SessionReprobe:         envDur("SESSION_REPROBE", 10*time.Minute),
+		WarpContainers:         envStr("WARP_CONTAINERS", ""),
+		WarpRenewParallel:      envInt("WARP_RENEW_PARALLEL", 2, 1),
+		AutoGuard:              envBoolDef("AUTO_GUARD", true),
+		AutoRetries:            envInt("AUTO_RETRIES", 3, 0),
+		AutoFirstToken:         envDur("AUTO_FIRST_TOKEN", 25*time.Second),
+		AutoFastModels:         envStr("AUTO_FAST_MODELS", ""),
+		AutoBestModels:         envStr("AUTO_BEST_MODELS", ""),
+		AutoLongModels:         envStr("AUTO_LONG_MODELS", ""),
+		LimitWarp:              envInt("LIMIT_WARP", 4, 1),
+		LimitRes:               envInt("LIMIT_RES", 4, 1),
+		LimitDirect:            envInt("LIMIT_DIRECT", 2, 1),
+		LimitMin:               envInt("LIMIT_MIN", 1, 1),
+		LimitMax:               envInt("LIMIT_MAX", 32, 1),
+		RedisURL:               envStr("REDIS_URL", ""),
+		JobWorkers:             envInt("JOB_WORKERS", 256, 1),
+		JobMaxAttempts:         envInt("JOB_MAX_ATTEMPTS", 200, 1),
+		JobMaxBackoff:          envDur("JOB_MAX_BACKOFF", 60*time.Second),
 	}
 	for _, m := range splitList(os.Getenv("IMAGE_MODELS")) {
 		c.ImageModels[strings.ToLower(m)] = true

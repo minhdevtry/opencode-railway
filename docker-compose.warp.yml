@@ -3,6 +3,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -15,6 +20,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-2
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -27,6 +37,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-3
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -39,6 +54,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-4
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -51,6 +71,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-5
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -63,6 +88,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-6
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -75,6 +105,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-7
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -87,6 +122,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-8
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -99,6 +139,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-9
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -111,6 +156,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-10
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -123,6 +173,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-11
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -135,6 +190,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-12
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -147,6 +207,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-13
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -159,6 +224,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-14
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -171,6 +241,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-15
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -183,6 +258,11 @@ services:
     image: caomingjun/warp:latest
     container_name: warp-proxy-16
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_add:
       - NET_ADMIN
     devices:
@@ -191,6 +271,20 @@ services:
       - "1095:1080"
     mem_limit: 256m
 
+  redis:
+    image: redis:7.4-alpine
+    container_name: orw-redis
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "400mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - orw-redis:/data
+    mem_limit: 512m
+
   gateway:
     build:
       context: .
@@ -198,7 +292,13 @@ services:
     image: orw-new:latest
     container_name: orw-prod
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
+      - redis
       - warp
       - warp2
       - warp3
@@ -225,10 +325,19 @@ services:
       RESIDENTIAL_PROXIES: "socks5://160.250.166.13:11448,socks5://160.250.166.17:11577,socks5://160.250.166.35:11198"
       RESIDENTIAL_REFRESH_URLS: "https://proxyxoay.shop/api/get.php?key=ePrWbeBkpFZCfpMFITFuvB&nhamang=random&tinhthanh=0&whitelist=222.252.17.4%2C117.4.246.227,https://proxyxoay.shop/api/get.php?key=HJZiXQfSCXYWItgEDzSYBZ&nhamang=random&tinhthanh=0&whitelist=222.252.17.4%2C117.4.246.227,https://proxyxoay.shop/api/get.php?key=RmGMTwAhalcnAyYBbhrKoM&nhamang=random&tinhthanh=0&whitelist=222.252.17.4%2C117.4.246.227"
       AUTO_MODELS: "${AUTO_MODELS:-}"
-      MAX_ATTEMPTS: "4"
+      MAX_ATTEMPTS: "8"
       DEFAULT_MODEL: "deepseek"
-      AUTO_MODEL_FALLBACK: "true"
-      MAX_WAIT: "300s"
+      # Gọi đích danh model thì giữ nguyên model đó (client muốn cho đổi: header X-Model-Fallback: allow)
+      AUTO_MODEL_FALLBACK: "false"
+      # Request đồng bộ xếp hàng chờ egress tối đa 30 phút thay vì báo lỗi; job nền thì không giới hạn (Redis)
+      MAX_WAIT: "1800s"
+      QUEUE_WAIT: "1800s"
       DIRECT_COOLDOWN: "2m"
-      MAX_CONCURRENCY: "1000"
+      MAX_CONCURRENCY: "20000"
+      RATE_LIMIT_RPM: "0" # gateway nội bộ: không giới hạn tốc độ theo IP client (đã có ALLOWED_IPS)
+      REDIS_URL: "redis://redis:6379"
+      JOB_WORKERS: "256"
     mem_limit: 1024m
+
+volumes:
+  orw-redis:

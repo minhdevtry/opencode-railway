@@ -1,0 +1,21 @@
+{
+  "by_model": {
+    "big-pickle": 1,
+    "nemotron-3.5-lightning-free": 3
+  },
+  "c": 2,
+  "egress_used": 2,
+  "elapsed_s": 71.99,
+  "errors": {},
+  "max_s": 71.99,
+  "n": 4,
+  "ok": 4,
+  "ok_per_s": 0.06,
+  "out": "research/results/1025-004529-long-n4-c2.jsonl",
+  "out_tok_per_s": 27.05,
+  "p50_s": 5.54,
+  "p95_s": 19.91,
+  "success_rate": 1,
+  "valid_json": 3,
+  "workload": "long"
+}

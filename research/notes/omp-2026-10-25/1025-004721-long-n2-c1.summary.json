@@ -1,0 +1,21 @@
+{
+  "by_model": {
+    "mimo-v2.6-flash-free": 1,
+    "nemotron-3.5-lightning-free": 1
+  },
+  "c": 1,
+  "egress_used": 1,
+  "elapsed_s": 33.25,
+  "errors": {},
+  "max_s": 27.03,
+  "n": 2,
+  "ok": 2,
+  "ok_per_s": 0.06,
+  "out": "research/results/1025-004721-long-n2-c1.jsonl",
+  "out_tok_per_s": 26.73,
+  "p50_s": 6.21,
+  "p95_s": 6.21,
+  "success_rate": 1,
+  "valid_json": 2,
+  "workload": "long"
+}

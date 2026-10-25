@@ -218,7 +218,7 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 	chat := responsesToChat(req)
 	target, isPool := resolveModelName(modelIn)
 	t0 := time.Now()
-	up, gerr := forward(r.Context(), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
+	up, gerr := forward(withFallback(withProfile(r.Context(), modelIn), r), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
 		chat["model"] = m
 		applyFingerprint(chat, m, true, stubDescription)
 		b, _ := json.Marshal(chat)
@@ -404,7 +404,7 @@ func completionsHandler(w http.ResponseWriter, r *http.Request) {
 	clientStream, _ := req["stream"].(bool)
 	target, isPool := resolveModelName(modelIn)
 	t0 := time.Now()
-	up, gerr := forward(r.Context(), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
+	up, gerr := forward(withFallback(withProfile(r.Context(), modelIn), r), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
 		chat["model"] = m
 		applyFingerprint(chat, m, true, stubDescription)
 		b, _ := json.Marshal(chat)

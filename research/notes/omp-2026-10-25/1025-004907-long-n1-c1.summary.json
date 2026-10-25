@@ -1,0 +1,20 @@
+{
+  "by_model": {
+    "beam-free": 1
+  },
+  "c": 1,
+  "egress_used": 1,
+  "elapsed_s": 7.51,
+  "errors": {},
+  "max_s": 7.5,
+  "n": 1,
+  "ok": 1,
+  "ok_per_s": 0.13,
+  "out": "research/results/1025-004907-long-n1-c1.jsonl",
+  "out_tok_per_s": 136.43,
+  "p50_s": 7.5,
+  "p95_s": 7.5,
+  "success_rate": 1,
+  "valid_json": 0,
+  "workload": "long"
+}

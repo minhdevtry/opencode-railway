@@ -1,0 +1,25 @@
+{
+  "by_model": {
+    "beam-free": 2,
+    "deepseek-v4.1-flash-free": 1,
+    "glm-5.3-flash-free": 2,
+    "mimo-v2.6-flash-free": 1,
+    "nemotron-3.5-lightning-free": 1,
+    "nemotron-3.5-super-vl-free": 1
+  },
+  "c": 4,
+  "egress_used": 1,
+  "elapsed_s": 24.34,
+  "errors": {},
+  "max_s": 24.34,
+  "n": 8,
+  "ok": 8,
+  "ok_per_s": 0.33,
+  "out": "research/results/1025-004455-long-n8-c4.jsonl",
+  "out_tok_per_s": 257.15,
+  "p50_s": 8.31,
+  "p95_s": 11.23,
+  "success_rate": 1,
+  "valid_json": 4,
+  "workload": "long"
+}

@@ -1,0 +1,20 @@
+{
+  "by_model": {
+    "mimo-v2.6-flash-free": 1
+  },
+  "c": 1,
+  "egress_used": 1,
+  "elapsed_s": 59.4,
+  "errors": {},
+  "max_s": 59.39,
+  "n": 1,
+  "ok": 1,
+  "ok_per_s": 0.02,
+  "out": "research/results/1025-005024-long-n1-c1.jsonl",
+  "out_tok_per_s": 17.24,
+  "p50_s": 59.39,
+  "p95_s": 59.39,
+  "success_rate": 1,
+  "valid_json": 0,
+  "workload": "long"
+}

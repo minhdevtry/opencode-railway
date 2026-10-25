@@ -1,0 +1,20 @@
+{
+  "by_model": {
+    "glm-5.3-flash-free": 1
+  },
+  "c": 1,
+  "egress_used": 1,
+  "elapsed_s": 19.61,
+  "errors": {},
+  "max_s": 19.6,
+  "n": 1,
+  "ok": 1,
+  "ok_per_s": 0.05,
+  "out": "research/results/1025-004921-long-n1-c1.jsonl",
+  "out_tok_per_s": 35.91,
+  "p50_s": 19.6,
+  "p95_s": 19.6,
+  "success_rate": 1,
+  "valid_json": 1,
+  "workload": "long"
+}

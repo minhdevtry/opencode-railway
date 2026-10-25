@@ -1,0 +1,20 @@
+{
+  "by_model": {
+    "nemotron-3.5-lightning-free": 1
+  },
+  "c": 1,
+  "egress_used": 1,
+  "elapsed_s": 22.16,
+  "errors": {},
+  "max_s": 22.16,
+  "n": 1,
+  "ok": 1,
+  "ok_per_s": 0.05,
+  "out": "research/results/1025-004952-long-n1-c1.jsonl",
+  "out_tok_per_s": 4.56,
+  "p50_s": 22.16,
+  "p95_s": 22.16,
+  "success_rate": 1,
+  "valid_json": 1,
+  "workload": "long"
+}

@@ -1,0 +1,15 @@
+data/
+results/*.jsonl
+__pycache__/
+run/
+probe/capture*.jsonl
+probe/real_*.json
+probe/d*.json
+probe/__pycache__/
+utlsprobe/*.json
+utlsprobe/utlsprobe
+results/**/*.json
+results/*.txt
+results/**/*.jsonl
+results/**/progress.txt
+results/*.ses

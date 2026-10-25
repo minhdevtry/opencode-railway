@@ -1,0 +1,25 @@
+{
+  "by_model": {
+    "big-pickle": 1,
+    "deepseek-v4.1-flash-free": 1,
+    "glm-5.3-flash-free": 1,
+    "mimo-v2.6-flash-free": 3,
+    "nemotron-3.5-lightning-free": 5,
+    "nemotron-3.5-super-vl-free": 1
+  },
+  "c": 4,
+  "egress_used": 3,
+  "elapsed_s": 71.04,
+  "errors": {},
+  "max_s": 71.04,
+  "n": 12,
+  "ok": 12,
+  "ok_per_s": 0.17,
+  "out": "research/results/1025-004325-long-n12-c4.jsonl",
+  "out_tok_per_s": 89.02,
+  "p50_s": 8.8,
+  "p95_s": 28.99,
+  "success_rate": 1,
+  "valid_json": 7,
+  "workload": "long"
+}
