@@ -1090,6 +1090,8 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		Budget     int                `json:"session_budget_left"` // số session MỚI còn mở được trên IP này hôm nay (-1 = không giới hạn)
 		Expired    bool               `json:"expired,omitempty"`   // bị loại khỏi routing (vd key proxy hết hạn)
 		ExpiredWhy string             `json:"expired_reason,omitempty"`
+		IP         string             `json:"ip,omitempty"`      // IP thoát thật mà upstream nhìn thấy
+		IPKind     string             `json:"ip_kind,omitempty"` // own = IPv6 riêng của container, shared = IPv4 WARP dùng chung
 		NoNewSes   bool               `json:"new_sessions_denied,omitempty"`
 		SesUses    int64              `json:"session_requests_today"`
 		Renews     int64              `json:"identity_renews,omitempty"`
@@ -1104,6 +1106,15 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		s.Expired = e.expired.Load()
 		if w, ok := e.expiredWhy.Load().(string); ok {
 			s.ExpiredWhy = w
+		}
+		if ip, ok := e.ipAddr.Load().(string); ok {
+			s.IP = ip
+		}
+		switch e.ipKind.Load() {
+		case ipKindOwn:
+			s.IPKind = "own"
+		case ipKindShared:
+			s.IPKind = "shared"
 		}
 		e.mu.Lock()
 		for model, c := range e.cool {
