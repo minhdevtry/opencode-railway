@@ -24,19 +24,24 @@ import (
 //
 // NGUYÊN TẮC: con số trần là GỢI Ý, không bao giờ là thứ chặn traffic.
 //   - Trần quá thấp  -> auto bị đẩy xuống cuối bảng xếp hạng (ít hiệu quả hơn, KHÔNG sập).
-//   - Trần quá cao   -> auto dùng hơn mức thật, gặp 429, và cơ chế leo thang (2 lần 429 liên tiếp)
+//   - Trần quá cao   -> auto dùng hơn mức thật, gặp 429, và cơ chế leo thang (2 SỰ KIỆN 429)
 //     xử lý như sự kiện quan sát được, không dựa vào trần.
 //   - Gọi thẳng KHÔNG BAO GIỜ bị trần chặn.
 // Thứ duy nhất chặn traffic là 429 quan sát được từ upstream.
 //
+// LƯU Ý VỀ PHẦN DÀNH CHO GỌI THẲNG: cơ chế bảo vệ phần của gọi thẳng là GIỚI HẠN của auto (auto ăn
+// tối đa QUOTA_AUTO_SHARE), không phải việc chặn gọi thẳng. Gọi thẳng vẫn được dùng mọi cặp còn sức chứng
+// và tự ưu tiên cặp ít dùng (quotaRankWeight).
+//
 // GIỚI HẠN ĐÃ BIẾT: sổ này nằm trong RAM của tiến trình, còn ngân sách thật của upstream thì KHÔNG reset
 // khi ta restart. Restart gateway => ta tưởng cặp (IP, model) còn nguyên trong khi upstream đã dùng một phần.
-// Cơ chế leo thang theo 429 là thứ bảo vệ ta trong tình huống đó (và trần được học lại từ 429 quan sát được).
+// Cơ chế leo thang theo 429 là thứ bảo vệ ta trong tình huống đó.
 
 type quotaState struct {
-	attemptsAuto   int // request đã gửi lên upstream qua kênh auto
-	attemptsDirect int // request đã gửi lên upstream qua kênh gọi thẳng model
-	limit429       int // số 429 hạn mức liên tiếp (reset khi có 1 request thành công)
+	attemptsAuto   int       // request đã gửi lên upstream qua kênh auto
+	attemptsDirect int       // request đã gửi lên upstream qua kênh gọi thẳng model
+	limit429       int       // số SỰ KIỆN 429 hạn mức liên tiếp (không phải số response)
+	lastLimitAt    time.Time // lúc sự kiện 429 gần nhất
 }
 
 var (
@@ -93,21 +98,40 @@ func quotaAttempt(model, egress string, auto bool) {
 	}
 }
 
-// quotaSuccess: 1 request thành công -> sự kiện 429 trước đó của cặp này không còn ý nghĩa.
+// quotaSuccess: 1 request thành công trên cặp (model, egress).
+//   - Bằng chứng TÍCH CỰC cho trần: cặp này đã phục vụ được N request -> trần của model trên IP đó >= N.
+//     (Không học trần từ 429: 429 rời rạc không chứng minh trần - đo được 429 ở request 59/69 nhưng
+//     cặp vẫn phục vụ thêm 102/104 request sau đó.)
+//   - Reset đếm sự kiện 429: chỉ reset khi thành công KHÁC sự kiện 429 gần nhất, còn thì đó là
+//     response của request đã bay từ trước sự kiện, không phải bằng chứng cặp đã hồi.
 func quotaSuccess(model, egress string) {
 	if model == "" || egress == "" {
 		return
 	}
 	quotaMu.Lock()
 	defer quotaMu.Unlock()
-	if st := quotaMap[model][egress]; st != nil {
+	st := quotaMap[model][egress]
+	if st == nil {
+		return
+	}
+	if used := st.attemptsAuto + st.attemptsDirect; used > quotaCaps[model] {
+		quotaCaps[model] = used
+	}
+	if time.Since(st.lastLimitAt) >= quotaLimitEventWindow {
 		st.limit429 = 0
 	}
 }
 
-// quotaNoteLimit: 1 lần 429 hạn mức trên cặp (model, egress).
-// Trả về số lần 429 hạn mức LIÊN TIẾP của cặp này (dùng để leo thang: 1 lần = rời rạc,
-// từ lần thứ N thì mới coi là cặp đó thật sự cạn).
+// quotaLimitEventWindow: các response 429 trong khoảng này được coi là CÙNG 1 sự kiện.
+// Gateway chạy nhiều request song song trên cùng cặp (IP, model), nên MỘT sự kiện 429 của upstream
+// sinh ra K response 429 -> nếu đếm theo response thì ngay lần đầu đã vượt ngưỡng leo thang
+// (khoá cứng + xoay WARP), đúng cái điều cần tránh. Sự kiện kế tiếp (sau khi cooldown + probe)
+// cách nhau hơn cửa sổ này nên vẫn được đếm là sự kiện mới.
+const quotaLimitEventWindow = 30 * time.Second
+
+// quotaNoteLimit: 1 response 429 hạn mức trên cặp (model, egress).
+// Trả về số SỰ KIỆN 429 hạn mức liên tiếp của cặp này (dùng để leo thang: 1 sự kiện = rời rạc,
+// từ sự kiện thứ N thì mới coi là cặp đó thật sự cạn).
 func quotaNoteLimit(model, egress string) int {
 	if model == "" || egress == "" {
 		return 0
@@ -115,24 +139,27 @@ func quotaNoteLimit(model, egress string) int {
 	quotaMu.Lock()
 	defer quotaMu.Unlock()
 	st := quotaStateFor(model, egress)
-	st.limit429++
-	// Học trần của model: lần 429 xảy ra SAU khi đã gửi N request => trần của model trên IP này ≈ N.
-	// Chỉ tăng, không giảm (mẫu khác nhau: 59 / 64 / 69 cùng model).
-	if used := st.attemptsAuto + st.attemptsDirect; used > quotaCaps[model] {
-		quotaCaps[model] = used
+	now := time.Now()
+	if now.Sub(st.lastLimitAt) < quotaLimitEventWindow {
+		return st.limit429 // cùng 1 sự kiện (nhiều request song song cùng bị 429)
 	}
+	st.lastLimitAt = now
+	st.limit429++
 	return st.limit429
 }
 
-// quotaCapLocked: trần request/ngày của model. Thứ tự ưu tiên: đã học từ 429 thật > override > mặc định.
+// quotaCapLocked: trần request/ngày của model = MAX(mặc định, override, trần đã học).
+// Trần đã học chỉ có thể NÂNG lên (bằng chứng: cặp đó đã phục vụ được N request), không bao giờ
+// hạ xuống - một sự kiện 429 rời rạc không có quyền ghi đè trần của người vận hành.
 func quotaCapLocked(model string) int {
-	if c := quotaCaps[model]; c > 0 {
-		return c
+	c := cfg.QuotaDefault
+	if o, ok := cfg.QuotaOverrides[model]; ok && o > c {
+		c = o
 	}
-	if c, ok := cfg.QuotaOverrides[model]; ok && c > 0 {
-		return c
+	if l := quotaCaps[model]; l > c {
+		c = l
 	}
-	return cfg.QuotaDefault
+	return c
 }
 
 // quotaCap: trần request/ngày của model (ước tính).
@@ -226,21 +253,25 @@ func quotaSnapshot(egresses []string) map[string]any {
 			continue
 		}
 		out[model] = map[string]any{
-			"cap":             cap,
-			"used_auto":       auto,
-			"used_direct":     direct,
-			"auto_share_left": int(float64(cap)*cfg.QuotaAutoShare) - auto,
-			"pairs_used":      pairs,
-			"pairs_soft_full": softFull,
-			"reset_at":        time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339),
+			"cap":              cap,
+			"used_auto":        auto,
+			"used_direct":      direct,
+			"auto_share_left":  int(float64(cap)*cfg.QuotaAutoShare) - auto,
+			"pairs_used":       pairs,
+			"pairs_recent_429": softFull, // số cặp vừa gặp 429 hạn mức (KHÔNG có nghĩa là cặp đã cạn: 429 rời rạc)
+			"reset_at":         time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339),
 		}
 	}
 	return out
 }
 
-// quotaModelCapacities: sức chứng còn lại của NHIỀU model, gộp trong 1 lần khoá (đường nóng:
-// mỗi request đều xếp lại pool, không thể khoá 7 lần cho 7 model).
+// quotaModelCapacities: số cặp (IP, model) CÒN NGÂN SÁCH của mỗi model, gộp trong 1 lần khoá
+// (đường nóng: mỗi request đều xếp lại pool, không thể khoá 7 lần cho 7 model).
 // auto=true: tính theo phần share dành cho auto; auto=false: tính theo trần đầy đủ (gọi thẳng).
+//
+// Xếp hạng theo SỐ CẶP CÒN SỐNG chứ không theo TỔNG sức chứng: mỗi model có bucket RIÊNG trên mỗi IP,
+// nên xếp theo tổng sẽ dồn hết traffic auto vào model có trần lớn nhất (nemotron 256) và bỏ lãng
+// phần sức chứng của các model khác. Số cặp còn sống + xoay vòng round-robin thì trải đều.
 func quotaModelCapacities(models []string, auto bool, egresses []string) map[string]int {
 	quotaMu.Lock()
 	defer quotaMu.Unlock()
@@ -252,7 +283,7 @@ func quotaModelCapacities(models []string, auto bool, egresses []string) map[str
 		if auto {
 			limit = int(float64(cap) * cfg.QuotaAutoShare)
 		}
-		total := 0
+		alive := 0
 		for _, e := range egresses {
 			var used int
 			if st := quotaMap[model][e]; st != nil {
@@ -262,11 +293,47 @@ func quotaModelCapacities(models []string, auto bool, egresses []string) map[str
 					used = st.attemptsAuto + st.attemptsDirect
 				}
 			}
-			if r := limit - used; r > 0 {
-				total += r
+			if limit-used > 0 {
+				alive++
 			}
 		}
-		out[model] = total
+		out[model] = alive
+	}
+	return out
+}
+
+// quotaPairInfo: số liệu ngân sách của 1 cặp (model, egress).
+type quotaPairInfo struct {
+	rank       int // số request đã gửi hôm nay trên cặp này
+	shareLeft  int // phần share của auto còn lại (0 = đã ăn hết, hoặc không áp giới hạn share)
+	shareTotal int // tổng share của auto cho cặp này (0 = không áp giới hạn share)
+}
+
+// quotaPairInfos: lấy số liệu của NHIỀU cặp trong 1 lần khoá (đường nóng: mỗi request duyệt hết
+// danh sách egress, không thể khoá cho từng cặp).
+func quotaPairInfos(model string, egresses []string) []quotaPairInfo {
+	quotaMu.Lock()
+	defer quotaMu.Unlock()
+	quotaResetDayLocked()
+	cap := quotaCapLocked(model)
+	total := int(float64(cap) * cfg.QuotaAutoShare)
+	out := make([]quotaPairInfo, len(egresses))
+	for i, e := range egresses {
+		st := quotaMap[model][e]
+		if st != nil {
+			out[i].rank = st.attemptsAuto + st.attemptsDirect
+		}
+		if total > 0 {
+			used := 0
+			if st != nil {
+				used = st.attemptsAuto
+			}
+			out[i].shareTotal = total
+			out[i].shareLeft = total - used
+			if out[i].shareLeft < 0 {
+				out[i].shareLeft = 0
+			}
+		}
 	}
 	return out
 }
@@ -338,3 +405,8 @@ func quotaPenaltyFor(model, egress string, auto bool) float64 {
 	}
 	return 0
 }
+
+// quotaRankWeight: trọng số của số request đã dùng trong xếp hạng egress. Nhỏ hơn hình phạt của
+// IP dùng chung (1e9) và của share đã ăn hết (1e6), nhưng lớn hơn chênh lệch độ trễ thường gặp
+// -> ưu tiên cặp (IP, model) còn nhiều ngân sách mà vẫn không bỏ qua độ trễ.
+const quotaRankWeight = 10

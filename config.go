@@ -149,15 +149,15 @@ func envDur(key string, def time.Duration) time.Duration {
 	return def
 }
 
-// envFloat đọc số thực; sai định dạng thì dùng def.
-func envFloat(key string, def float64) float64 {
+// envFloat đọc số thực trong [min, max]; sai định dạng hoặc ngoài khoảng thì dùng def.
+func envFloat(key string, def, min, max float64) float64 {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
 		return def
 	}
 	f, err := strconv.ParseFloat(v, 64)
-	if err != nil {
-		log.Printf("[Config] %s=%q không hợp lệ, dùng mặc định %v", key, v, def)
+	if err != nil || f < min || f > max {
+		log.Printf("[Config] %s=%q không hợp lệ (cần trong [%g, %g]), dùng mặc định %v", key, v, min, max, def)
 		return def
 	}
 	return f
@@ -239,7 +239,7 @@ func loadConfig() Config {
 		WarpRenewParallel:      envInt("WARP_RENEW_PARALLEL", 2, 1),
 		QuotaDefault:           envInt("MODEL_QUOTA_DEFAULT", 64, 0),
 		QuotaOverrides:         envMap("MODEL_QUOTA_OVERRIDES"),
-		QuotaAutoShare:         envFloat("QUOTA_AUTO_SHARE", 0.6),
+		QuotaAutoShare:         envFloat("QUOTA_AUTO_SHARE", 0.6, 0, 1),
 		QuotaHardAfter:         envInt("QUOTA_HARD_AFTER", 2, 1),
 		AutoGuard:              envBoolDef("AUTO_GUARD", true),
 		AutoRetries:            envInt("AUTO_RETRIES", 3, 0),

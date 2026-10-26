@@ -71,8 +71,10 @@ func TestQuotaAutoShareSplit(t *testing.T) {
 	}
 }
 
-// Trần của model học từ 429 quan sát được, và CHỈ tăng (không giảm khi gặp mẫu nhỏ hơn).
-func TestQuotaCapLearnedFromLimit(t *testing.T) {
+// Trần ước tính: 429 rời rạc KHÔNG được quyền hạ trần (đo được 429 ở request 59/69 nhưng cặp vẫn phục vụ
+// thêm 102/104 request sau đó -> 429 không chứng minh trần). Trần chỉ NÂNG lên khi có bằng chứng tích cực:
+// cặp đó đã phục vụ được N request. Override của người vận hành không bị ghi đè.
+func TestQuotaCapOnlyRisesFromPositiveEvidence(t *testing.T) {
 	setupQuotaCfg(t)
 
 	const model = "glm-5.3-flash-free"
@@ -82,36 +84,70 @@ func TestQuotaCapLearnedFromLimit(t *testing.T) {
 	if got := quotaCap(model); got != 64 {
 		t.Fatalf("trần mặc định phải là 64, got %d", got)
 	}
+	// 429 ở request thứ 64 KHÔNG được hạ trần xuống 64 hay bất kỳ con số nào thấp hơn.
 	quotaNoteLimit(model, "proxy1")
 	if got := quotaCap(model); got != 64 {
-		t.Fatalf("sau 429 ở request thứ 64 thì trần học được phải = 64, got %d", got)
+		t.Fatalf("429 rời rạc không được hạ trần, got %d", got)
 	}
-	// Mẫu nhỏ hơn ở IP khác không được làm trần đi xuống.
-	quotaAttempt("glm-5.3-flash-free", "proxy2", false)
-	quotaNoteLimit(model, "proxy2")
-	if got := quotaCap(model); got != 64 {
-		t.Fatalf("trần đã học không được giảm, got %d", got)
+	// Cặp phục vụ được NONG HƠN trần ước tính -> trần nâng lên (bằng chứng tích cực).
+	for i := 0; i < 100; i++ {
+		quotaAttempt(model, "proxy2", false)
 	}
-	// Override env được dùng khi chưa học được gì từ 429.
+	quotaSuccess(model, "proxy2")
+	if got := quotaCap(model); got != 100 {
+		t.Fatalf("cặp phục vụ 100 request thì trần phải nâng lên 100, got %d", got)
+	}
+	// Override của người vận hành không bị trần đã học ghi đè.
 	if got := quotaCap("big-model"); got != 256 {
 		t.Fatalf("model có override phải dùng trần override, got %d", got)
 	}
+	quotaAttempt("big-model", "proxy1", false)
+	quotaNoteLimit("big-model", "proxy1")
+	if got := quotaCap("big-model"); got != 256 {
+		t.Fatalf("429 không được ghi đè override, got %d", got)
+	}
 }
 
-// 429 liên tiếp đếm tăng; một request thành công thì reset (sự kiện 429 cũ không còn ý nghĩa).
+// 429 đếm theo SỰ KIỆN, không theo response: nhiều request song song trên cùng cặp bị 429 cùng lúc
+// (1 sự kiện của upstream) chỉ tính 1 lần, nếu không thì lần đầu tiên đã vượt ngưỡng leo thang
+// (khoá cứng + xoay WARP) - đúng cái điều cần tránh.
 func TestQuotaLimit429Consecutive(t *testing.T) {
 	setupQuotaCfg(t)
 
 	const model = "glm-5.3-flash-free"
 	if n := quotaNoteLimit(model, "proxy1"); n != 1 {
-		t.Fatalf("lần 429 đầu phải = 1, got %d", n)
+		t.Fatalf("sự kiện 429 đầu phải = 1, got %d", n)
 	}
-	if n := quotaNoteLimit(model, "proxy1"); n != 2 {
-		t.Fatalf("lần 429 thứ hai phải = 2, got %d", n)
+	// 5 response 429 cùng lúc (nhiều request song song) -> vẫn là 1 sự kiện.
+	for i := 0; i < 5; i++ {
+		if n := quotaNoteLimit(model, "proxy1"); n != 1 {
+			t.Fatalf("các response 429 cùng lúc phải tính là 1 sự kiện, got %d", n)
+		}
 	}
-	quotaSuccess(model, "proxy1") // thành công -> reset
+	// Thành công ngay sau đó (response của request bay từ trước sự kiện) KHÔNG reset được bộ đếm.
+	quotaSuccess(model, "proxy1")
 	if n := quotaNoteLimit(model, "proxy1"); n != 1 {
-		t.Fatalf("sau khi thành công thì bộ đếm 429 phải reset, got %d", n)
+		t.Fatalf("thành công ngay sau sự kiện không được reset bộ đếm, got %d", n)
+	}
+	// Sự kiện mới sau cửa sổ -> tăng lên 2 (đủ ngưỡng leo thang).
+	quotaMu.Lock()
+	quotaMap[model]["proxy1"].lastLimitAt = time.Now().Add(-2 * quotaLimitEventWindow)
+	quotaMu.Unlock()
+	if n := quotaNoteLimit(model, "proxy1"); n != 2 {
+		t.Fatalf("sự kiện 429 mới (sau cửa sổ) phải = 2, got %d", n)
+	}
+	// Thành công ngay sau sự kiện thì KHÔNG reset (chưa chứng minh cặp hồi) -> vẫn 2.
+	quotaSuccess(model, "proxy1")
+	if n := quotaNoteLimit(model, "proxy1"); n != 2 {
+		t.Fatalf("thành công ngay sau sự kiện không được reset bộ đếm, got %d", n)
+	}
+	// Thành công ở thời điểm khác sự kiện -> reset (cặp đã hồi).
+	quotaMu.Lock()
+	quotaMap[model]["proxy1"].lastLimitAt = time.Now().Add(-2 * quotaLimitEventWindow)
+	quotaMu.Unlock()
+	quotaSuccess(model, "proxy1")
+	if n := quotaNoteLimit(model, "proxy1"); n != 1 {
+		t.Fatalf("sau khi cặp hồi thì bộ đếm phải reset, got %d", n)
 	}
 }
 
@@ -133,28 +169,30 @@ func TestQuotaClearEgressOnIPChange(t *testing.T) {
 	}
 }
 
-// Sức chứng còn lại của model: auto tính theo share, gọi thẳng tính theo trần đầy đủ.
+// Số cặp (IP, model) còn ngân sách: auto tính theo share, gọi thẳng tính theo trần đầy đủ.
+// Đây là điểm xếp hạng model của kênh auto: nhiều cặp còn sống = model còn nhiều đường.
 func TestQuotaModelCapacity(t *testing.T) {
 	setupQuotaCfg(t)
 
 	const model = "glm-5.3-flash-free"
 	egs := []string{"proxy1", "proxy2"}
-	if c := quotaModelCapacities([]string{model}, true, egs)[model]; c != 2*38 {
-		t.Fatalf("sức chứng auto ban đầu = 2 x 38, got %d", c)
+	if c := quotaModelCapacities([]string{model}, true, egs)[model]; c != 2 {
+		t.Fatalf("mới khởi động phải còn 2 cặp, got %d", c)
 	}
-	if c := quotaModelCapacities([]string{model}, false, egs)[model]; c != 2*64 {
-		t.Fatalf("sức chứng gọi thẳng ban đầu = 2 x 64, got %d", c)
+	if c := quotaModelCapacities([]string{model}, false, egs)[model]; c != 2 {
+		t.Fatalf("mới khởi động phải còn 2 cặp, got %d", c)
 	}
-	// Auto ăn hết share của proxy1 -> sức chứng auto chỉ còn proxy2.
+	// Auto ăn hết share của proxy1 -> cặp đó không còn sống cho auto.
 	for i := 0; i < 38; i++ {
 		quotaAttempt(model, "proxy1", true)
 	}
-	if c := quotaModelCapacities([]string{model}, true, egs)[model]; c != 38 {
-		t.Fatalf("sức chứng auto sau khi ăn hết share proxy1 phải = 38, got %d", c)
+	if c := quotaModelCapacities([]string{model}, true, egs)[model]; c != 1 {
+		t.Fatalf("auto ăn hết share proxy1 thì còn 1 cặp, got %d", c)
 	}
-	// Gọi thẳng vẫn thấy cả 2 cặp (dùng chung bucket với auto nên sức chứng bị trừ theo tổng).
-	if c := quotaModelCapacities([]string{model}, false, egs)[model]; c != 2*64-38 {
-		t.Fatalf("sức chứng gọi thẳng phải trừ phần auto đã dùng, got %d", c)
+	// Gọi thẳng dùng chung bucket: auto đã ăn 38 trong 64 request của cặp -> cặp đó còn 26 cho gọi
+	// thẳng nên vẫn còn sống (khác với auto, đã hết share của mình).
+	if c := quotaModelCapacities([]string{model}, false, egs)[model]; c != 2 {
+		t.Fatalf("gọi thẳng vẫn còn 2 cặp (cặp 1 còn 26/64 request), got %d", c)
 	}
 }
 
@@ -170,14 +208,14 @@ func TestQuotaResetOnNewDay(t *testing.T) {
 	if a, d := quotaUsed(model, "proxy1"); a != 0 || d != 0 {
 		t.Fatalf("sang ngày UTC mới thì bộ đếm phải về 0, got auto=%d direct=%d", a, d)
 	}
-	// Trần đã học thì giữ (đặc tính của model, không phụ thuộc ngày).
+	// Trần đã học (từ bằng chứng tích cực) thì giữ qua ngày (đặc tính của model, không theo ngày).
 	quotaAttempt(model, "proxy1", false)
-	quotaNoteLimit(model, "proxy1")
+	quotaSuccess(model, "proxy1")
 	quotaMu.Lock()
 	quotaDay = "2000-01-02"
 	quotaMu.Unlock()
-	if got := quotaCap(model); got != 1 {
-		t.Fatalf("trần đã học phải được giữ qua ngày, got %d", got)
+	if got := quotaCap(model); got != 64 {
+		t.Fatalf("trần phải giữ nguyên qua ngày, got %d", got)
 	}
 }
 
@@ -347,5 +385,41 @@ func TestAutoShareFullIsDeprioritizedNotBlocked(t *testing.T) {
 	}
 	if got := m.pickAvoid(model, false); got == nil {
 		t.Fatal("gọi thẳng phải chọn được egress")
+	}
+}
+
+// Thứ tự ưu tiên trong bộ chọn egress: cặp RIÊNG còn share > cặp RIÊNG đã hết share > IP DÙNG CHUNG.
+// (IP dùng chung bị phạt nặng nhất vì hạn mức của nó dùng chung với container khác.)
+func TestPenaltyOrderPrivateThenShared(t *testing.T) {
+	setupQuotaCfg(t)
+	_, m := setup(t, func(w http.ResponseWriter, r *http.Request) {}, false)
+	oldPrefer := cfg.PreferDirect
+	cfg.PreferDirect = false
+	defer func() { cfg.PreferDirect = oldPrefer }()
+
+	private := newEgress("proxy-private", kindProxy, nil)
+	private.tier = 2
+	private.daemon = "proxy-private"
+	private.ipKind.Store(ipKindOwn)
+	private.ready.Store(true)
+	m.add(private)
+	shared := newEgress("proxy-shared", kindProxy, nil)
+	shared.tier = 2
+	shared.daemon = "proxy-shared"
+	shared.ipKind.Store(ipKindShared)
+	shared.ready.Store(true)
+	m.add(shared)
+
+	const model = "glm-5.3-flash-free"
+	// Auto ăn hết share của cặp RIÊNG -> nó bị phạt, nhưng vẫn phải thắng IP dùng chung.
+	for i := 0; i < 38; i++ {
+		quotaAttempt(model, "proxy-private", true)
+	}
+	picked := m.pickAvoid(model, true)
+	if picked == nil {
+		t.Fatal("auto phải chọn được egress")
+	}
+	if picked.Name != "proxy-private" {
+		t.Fatalf("cặp riêng (dù đã hết share) phải thắng IP dùng chung, chọn %s", picked.Name)
 	}
 }

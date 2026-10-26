@@ -808,9 +808,11 @@ func (m *Manager) pickAvoid(model string, auto bool, avoid ...string) *Egress {
 		}
 	}
 
-	// Direct làm chốt chặn cuối. Không áp hạn mức share ở đây: đây là đường cuối cùng, không có gì khác
-	// thì cứ dùng (thà mất 1 phần ngân sách còn hơn không phục vụ được).
-	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
+	// Direct làm chốt chặn cuối - KHÔNG áp hạn mức share ở đây: đây là đường cuối cùng, không có gì
+	// khác thì cứ dùng (thà mất 1 phần ngân sách còn hơn không phục vụ được). Chạy cả khi
+	// PreferDirect=true, nếu không thì khi direct hết share của auto mà các đường khác cũng hết
+	// slot thì request sẽ xếp hàng chờ vô ích.
+	if !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
 		return direct
 	}
 	return nil
@@ -822,11 +824,17 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 	}
 	var best *Egress
 	var bestStrikes int
-	var bestQuota int
 	var bestScore float64
 	med := m.medianLatency()
+	// Số liệu ngân sách của các cặp (model, egress): lấy theo lô trong 1 lần khoá (đường nóng).
+	names := make([]string, len(rest))
+	for i, e := range rest {
+		names[i] = e.Name
+	}
+	infos := quotaPairInfos(model, names)
 	for i := range rest {
 		e := rest[(start+i)%len(rest)]
+		info := infos[(start+i)%len(rest)]
 		if e.tier != tier && (tier != 2 || e.tier != 0) {
 			continue
 		}
@@ -849,19 +857,22 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 			continue // cặp (model, IP) này đã hết ngân sách -> thử IP khác cho model đó
 		}
 		st := e.strikes(model)
-		// Ngân sách còn lại của cặp (model, IP): ưu tiên cặp ít dùng hơn để trải đều, không dồn hết
-		// vào một IP (mỗi IP có trần request/ngày riêng - đo 2026-10-26). Đây là tiêu chí CUỐI:
-		// độ trễ/cân bằng tải vẫn quan trọng hơn, còn ngân sách chỉ phá thế hoà.
-		qr := quotaRank(model, e.Name)
 		sc := e.loadScore(med)
 		if e.ipKind.Load() == ipKindShared {
 			// IP dùng chung: hạn mức phía upstream cũng dùng chung với container khác -> chỉ dùng khi không còn
 			// egress nào có IP riêng.
 			sc += 1e9
 		}
-		sc += quotaPenaltyFor(model, e.Name, auto)
-		if best == nil || st < bestStrikes || (st == bestStrikes && (sc < bestScore || (sc == bestScore && qr < bestQuota))) {
-			best, bestStrikes, bestQuota, bestScore = e, st, qr, sc
+		// Ưu tiên cặp (IP, model) còn nhiều ngân sách: mỗi IP có trần request/ngày riêng (đo 2026-10-26),
+		// dồn hết vào một IP là nhanh nhất để cạn.
+		sc += quotaRankWeight * float64(info.rank)
+		if auto && info.shareTotal > 0 && info.shareLeft <= 0 {
+			// Auto đã ăn hết phần share của cặp này -> đẩy xuống (HÌNH PHẠT, không phải cấm: nếu không
+			// còn đường nào khác thì vẫn dùng, chỉ là ưu tiên thấp hơn).
+			sc += quotaSharePenalty
+		}
+		if best == nil || st < bestStrikes || (st == bestStrikes && sc < bestScore) {
+			best, bestStrikes, bestScore = e, st, sc
 		}
 	}
 	if best != nil && !best.claim(model) {
