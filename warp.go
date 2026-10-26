@@ -224,12 +224,17 @@ func (m *Manager) checkResidentialLiveness(ctx context.Context) {
 		if e.expired.Load() {
 			continue
 		}
-		c, cancel := context.WithTimeout(ctx, 4*time.Second)
-		d := net.Dialer{}
-		conn, err := d.DialContext(c, "tcp", e.proxyAddr)
+		// Phải thử một request THẬT qua proxy: proxy hết hạn vẫn mở cổng TCP (dial thành công) nhưng không
+		// chuyển được traffic -> dial không đủ để kết luận sống/chết.
+		c, cancel := context.WithTimeout(ctx, 12*time.Second)
+		req, _ := http.NewRequestWithContext(c, http.MethodGet, "https://opencode.ai/cdn-cgi/trace", nil)
+		resp, err := e.Client().Do(req)
+		if err == nil {
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+		}
 		cancel()
 		if err == nil {
-			conn.Close()
 			e.ready.Store(true) // còn sống -> dùng bình thường
 			continue
 		}
