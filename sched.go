@@ -112,8 +112,8 @@ func initLimit(e *Egress) {
 
 // pickAny chọn (model, egress) cho 1 yêu cầu và giữ chỗ. Gọi khi đang giữ m.wmu.
 func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[string]bool, fallback bool, vision bool) (string, *Egress) {
-	try := func(cand string) *Egress {
-		if e := m.pickAvoid(cand, avoid...); e != nil {
+	try := func(cand string, auto bool) *Egress {
+		if e := m.pickAvoid(cand, auto, avoid...); e != nil {
 			e.inflight.Add(1)
 			return e
 		}
@@ -125,7 +125,8 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 		if n == 0 {
 			return "", nil
 		}
-		start := int(atomic.AddUint32(&poolIndex, 1))
+		// Auto: ưu tiên model còn nhiều sức chứng (sức chứng = tổng ngân sách còn lại trên các IP).
+		ordered := m.orderModelsByCapacity(pool, true)
 		allPoor := true
 		for _, c := range pool {
 			if !excl[c] && !modelPoor(c) {
@@ -133,39 +134,38 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 				break
 			}
 		}
-		// Vong 1: chi model nhan anh. Vong 2: moi model (ke ca text-only) de khong chet dung.
+		// Auto: ưu tiên model còn nhiều sức chứng. Vòng 1 chỉ model nhận ảnh, vòng 2 mới tới model text-only
+		// (model text-only bị upstream trả 400 "not supported for vision").
 		for pass := 0; pass < 2; pass++ {
-			for i := range n {
-				cand := pool[(start+i)%n]
+			for _, cand := range ordered {
 				if excl[cand] || (!allPoor && modelPoor(cand)) {
 					continue
 				}
 				if pass == 0 && vision && modelRejectsImages(cand) {
 					continue
 				}
-				if e := try(cand); e != nil {
+				if e := try(cand, true); e != nil {
 					return cand, e
 				}
 			}
 		}
 		return "", nil
 	}
-	if e := try(model); e != nil {
+	if e := try(model, false); e != nil {
 		return model, e
 	}
 	if fallback && isFreeModelInPool(model) && len(pool) > 0 {
-		n := len(pool)
-		start := int(atomic.AddUint32(&poolIndex, 1))
+		// Failover sang model khác: gọi thẳng của client -> không giới hạn share của auto.
+		// Vòng 1 chỉ model nhận ảnh, vòng 2 mới tới model text-only.
 		for pass := 0; pass < 2; pass++ {
-			for i := range n {
-				cand := pool[(start+i)%n]
+			for _, cand := range m.orderModelsByCapacity(pool, false) {
 				if cand == model {
 					continue
 				}
 				if pass == 0 && vision && modelRejectsImages(cand) {
 					continue
 				}
-				if e := try(cand); e != nil {
+				if e := try(cand, false); e != nil {
 					return cand, e
 				}
 			}

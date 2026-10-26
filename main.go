@@ -1201,7 +1201,8 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"queued_sync":            queuedHigh.Load(),
 		"queued_jobs":            queuedLow.Load(),
 		"model_quality":          modelQualitySnapshot(),
-		"model_budget_exhausted": modelBudgetSnapshot(), // model đã hết ngân sách free -> mốc reset
+		"model_budget_exhausted": modelBudgetSnapshot(),            // model đã hết ngân sách free -> mốc reset
+		"quota":                  quotaSnapshot(mgr.egressNames()), // ngân sách per (IP, model): đã dùng / còn lại
 		"egress":                 list,
 	})
 	w.Header().Set("Content-Type", "application/json")

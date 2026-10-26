@@ -29,7 +29,7 @@ func TestPickerPrefersDedicatedIP(t *testing.T) {
 	m.add(own)
 
 	// Không có yêu cầu nào cả -> chọn egress nào?
-	picked := m.pickAvoid("deepseek")
+	picked := m.pickAvoid("deepseek", false)
 	if picked == nil {
 		t.Fatal("phải chọn được egress")
 	}
@@ -52,7 +52,7 @@ func TestPickerFallsBackToSharedIP(t *testing.T) {
 	shared.ready.Store(true)
 	m.add(shared)
 
-	picked := m.pickAvoid("deepseek")
+	picked := m.pickAvoid("deepseek", false)
 	if picked == nil || picked.Name != "proxy-shared" {
 		t.Fatalf("phải dùng được egress IP chung khi không còn lựa chọn nào khác, got %v", picked)
 	}

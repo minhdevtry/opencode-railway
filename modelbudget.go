@@ -156,6 +156,8 @@ func clearBudgetForEgress(egress string) {
 	if len(budgetPairs) == 0 {
 		budgetAll = map[string]time.Time{}
 	}
+	// IP mới của egress này => ngân sách (IP, model) cũ hết hiệu lực, bộ đếm request về 0.
+	quotaClearEgress(egress)
 }
 
 // modelResetAt: mốc hết hạn sớm nhất của model trên bất kỳ egress nào (dùng cho Retry-After).

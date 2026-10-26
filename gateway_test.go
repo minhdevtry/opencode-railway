@@ -42,9 +42,11 @@ func setup(t *testing.T, upstreamHandler http.HandlerFunc, withTor bool) (*httpt
 	t.Cleanup(up.Close)
 
 	resetModelBudget() // registry ngân sách model là global -> mỗi test bắt đầu sạch
+	resetQuota()       // sổ ngân sách (model, egress) cũng là global -> mỗi test bắt đầu sạch
 	cfg = Config{MaxConcurrency: 8, MaxBodyBytes: 1 << 20, MaxWait: 5 * time.Second, MaxAttempts: 10,
 		CooldownMax: 10 * time.Minute, StreamIdle: time.Minute, TorRotateCooldown: 50 * time.Millisecond, InjectToolsAnthropic: true, SessionIDMode: "client", ProjectIDMode: "client", TorBackoffMax: 2 * time.Minute, ImageModels: map[string]bool{},
-		PreferDirect: true, TorIdentities: 2, TorMaxInflight: 24, QueueWait: 2 * time.Second, DirectWarnReqs: 200, DirectWarnInflight: 60}
+		PreferDirect: true, TorIdentities: 2, TorMaxInflight: 24, QueueWait: 2 * time.Second, DirectWarnReqs: 200, DirectWarnInflight: 60,
+		QuotaDefault: 64, QuotaAutoShare: 0.6, QuotaHardAfter: 2, QuotaOverrides: map[string]int{}}
 	concurrencySem = make(chan struct{}, cfg.MaxConcurrency)
 	infURL, zenURL = up.URL, up.URL
 	torAvailable = false
@@ -920,12 +922,12 @@ func TestPickAvoidDaemon(t *testing.T) {
 		m.add(e)
 	}
 	// Khi tránh tor-1, phải chọn ra tor-2
-	e := m.pickAvoid("deepseek-v4.1-flash-free", "tor-1")
+	e := m.pickAvoid("deepseek-v4.1-flash-free", false, "tor-1")
 	if e == nil || e.daemon != "tor-2" {
 		t.Fatalf("phải chọn tor-2 khi tránh tor-1, got %v", e)
 	}
 	// Khi tránh tor-2, phải chọn ra tor-1
-	e2 := m.pickAvoid("deepseek-v4.1-flash-free", "tor-2")
+	e2 := m.pickAvoid("deepseek-v4.1-flash-free", false, "tor-2")
 	if e2 == nil || e2.daemon != "tor-1" {
 		t.Fatalf("phải chọn tor-1 khi tránh tor-2, got %v", e2)
 	}

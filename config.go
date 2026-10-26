@@ -65,12 +65,21 @@ type Config struct {
 	SessionsPerEgress  int    // trần số session SỐNG CÙNG LẤP trên mỗi egress (SESSION_ID_MODE=egress); upstream cho ~50 session/IP/ngày
 	SessionInflight    int    // số request đồng thời trên 1 session trước khi mở session mới
 	SessionDailyBudget int    // trần số session MỚI mở trên 1 IP trong ngày UTC (0 = không giới hạn).
-	// Đo 2026-10-24: upstream cho ~50 cặp (IP, session) mới mỗi IP mỗi ngày. Hết ngân sách thì IP đó chết tới
-	// 00:00 UTC -> gateway phải ĐỔI IP (không phải cứ thử lại). Nhỏ hơn con số thật để chừa biên.
+	// Đo 2026-10-24 tưởng ngân sách là theo cặp (IP, session). Đo lại 2026-10-26 (research/limit-shape)
+	// thì ĐƠN VỊ TIÊU THỤ THẬT là SỐ REQUEST của cặp (IP, model): 1 session cố định phục vụ 64 request
+	// rồi mới 429, còn ô đo mở session mới mỗi request thì 429 khi TỔNG request vượt trần. Nên giới hạn
+	// "số session mới/IP/ngày" chỉ gây thiếu sức chứng, mặc định tắt (0).
 	SessionCoolMax    time.Duration // Retry-After tối đa được tin để cho session nghỉ (dài hơn => nghỉ SessionReprobe rồi thử lại)
 	SessionReprobe    time.Duration // session/IP bị chặn với Retry-After dài: thử lại sau khoảng này
 	WarpContainers    string        // tên container WARP theo đúng thứ tự PROXY_POOL (trống => warp-proxy, warp-proxy-2, ...)
 	WarpRenewParallel int           // số container được đổi danh tính cùng lúc
+
+	// Ngân sách theo cặp (IP, model) - đo 2026-10-26 (research/limit-shape/model-dim).
+	// Trần là GỢI Ý để xếp hạng và chia phần, KHÔNG bao giờ chặn traffic: thứ duy nhất chặn là 429 quan sát được.
+	QuotaDefault   int            // trần request/ngày của 1 model trên 1 IP khi chưa biết (đo được: glm ~60-70)
+	QuotaOverrides map[string]int // trần riêng theo model (đo được: nemotron >203)
+	QuotaAutoShare float64        // phần ngân sách mỗi cặp dành cho kênh auto; phần còn lại dành cho gọi thẳng
+	QuotaHardAfter int            // số 429 hạn mức liên tiếp của 1 cặp thì mới coi là cặp đó thật sự cạn
 
 	AutoGuard                                      bool // model auto: tool_choice=none, tắt reasoning ở model hỗ trợ, đổi model khi kết quả rỗng/gọi tool
 	AutoRetries                                    int
@@ -140,6 +149,41 @@ func envDur(key string, def time.Duration) time.Duration {
 	return def
 }
 
+// envFloat đọc số thực; sai định dạng thì dùng def.
+func envFloat(key string, def float64) float64 {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		log.Printf("[Config] %s=%q không hợp lệ, dùng mặc định %v", key, v, def)
+		return def
+	}
+	return f
+}
+
+// envMap đọc "k=v,k2=v2" thành map[string]int (giá trị sai định dạng thì bỏ qua).
+func envMap(key string) map[string]int {
+	out := map[string]int{}
+	for _, part := range strings.Split(os.Getenv(key), ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(part, "=")
+		if !ok {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil || n <= 0 {
+			continue
+		}
+		out[strings.TrimSpace(k)] = n
+	}
+	return out
+}
+
 func loadConfig() Config {
 	torMax := envInt("TOR_MAX", envInt("TOR_COUNT", 10, 0), 0)
 	c := Config{
@@ -188,11 +232,15 @@ func loadConfig() Config {
 		EnvBlock:               envBoolDef("ENV_BLOCK", true),
 		SessionsPerEgress:      envInt("SESSIONS_PER_EGRESS", 8, 1),
 		SessionInflight:        envInt("SESSION_INFLIGHT", 4, 1),
-		SessionDailyBudget:     envInt("SESSION_DAILY_BUDGET", 40, 0),
+		SessionDailyBudget:     envInt("SESSION_DAILY_BUDGET", 0, 0),
 		SessionCoolMax:         envDur("SESSION_COOL_MAX", 30*time.Minute),
 		SessionReprobe:         envDur("SESSION_REPROBE", 10*time.Minute),
 		WarpContainers:         envStr("WARP_CONTAINERS", ""),
 		WarpRenewParallel:      envInt("WARP_RENEW_PARALLEL", 2, 1),
+		QuotaDefault:           envInt("MODEL_QUOTA_DEFAULT", 64, 0),
+		QuotaOverrides:         envMap("MODEL_QUOTA_OVERRIDES"),
+		QuotaAutoShare:         envFloat("QUOTA_AUTO_SHARE", 0.6),
+		QuotaHardAfter:         envInt("QUOTA_HARD_AFTER", 2, 1),
 		AutoGuard:              envBoolDef("AUTO_GUARD", true),
 		AutoRetries:            envInt("AUTO_RETRIES", 3, 0),
 		AutoFirstToken:         envDur("AUTO_FIRST_TOKEN", 25*time.Second),

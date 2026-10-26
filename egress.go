@@ -771,10 +771,13 @@ func renewWarpProxy(egressName string) {
 // pick chọn egress cho model: proxy dân cư trước, rồi WARP, direct làm chốt cuối (PREFER_DIRECT=true thì direct trước);
 // mỗi egress không vượt trần in-flight thích ứng. nil nếu chưa có cái nào dùng được (request xếp hàng ở sched.go).
 func (m *Manager) pick(model string) *Egress {
-	return m.pickAvoid(model)
+	return m.pickAvoid(model, false)
 }
 
-func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
+// pickAvoid: chọn 1 egress cho model.
+// auto=true nghĩa là request đi qua kênh auto (model được chọn từ pool) -> kênh này chỉ được ăn
+// QUOTA_AUTO_SHARE phần ngân sách của mỗi cặp (IP, model), phần còn lại dành cho gọi thẳng model đó.
+func (m *Manager) pickAvoid(model string, auto bool, avoid ...string) *Egress {
 	avoidMap := make(map[string]bool, len(avoid))
 	for _, a := range avoid {
 		if a != "" {
@@ -783,41 +786,43 @@ func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
 	}
 	list := m.snapshot()
 	direct := list[0]
-	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
+	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && quotaPenaltyFor(model, direct.Name, auto) == 0 && direct.claim(model) {
 		return direct
 	}
 	start := int(atomic.AddUint32(&m.rr, 1))
 
 	// Dân cư trước, rồi WARP; mỗi egress không vượt trần in-flight thích ứng của nó (limit, xem sched.go).
 	// Hết slot thì trả nil để request xếp hàng ở bộ điều phối thay vì dồn thêm vào egress đã đầy.
-	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start, -1); e != nil {
+	if e := m.pickTierAvoid(list[1:], 1, model, avoidMap, start, -1, auto); e != nil {
 		return e
 	}
-	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start, -1); e != nil {
+	if e := m.pickTierAvoid(list[1:], 2, model, avoidMap, start, -1, auto); e != nil {
 		return e
 	}
 	if len(avoidMap) > 0 {
-		if e := m.pickTierAvoid(list[1:], 1, model, nil, start, -1); e != nil {
+		if e := m.pickTierAvoid(list[1:], 1, model, nil, start, -1, auto); e != nil {
 			return e
 		}
-		if e := m.pickTierAvoid(list[1:], 2, model, nil, start, -1); e != nil {
+		if e := m.pickTierAvoid(list[1:], 2, model, nil, start, -1, auto); e != nil {
 			return e
 		}
 	}
 
-	// Direct làm chốt chặn cuối
+	// Direct làm chốt chặn cuối. Không áp hạn mức share ở đây: đây là đường cuối cùng, không có gì khác
+	// thì cứ dùng (thà mất 1 phần ngân sách còn hơn không phục vụ được).
 	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
 		return direct
 	}
 	return nil
 }
 
-func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap map[string]bool, start int, maxInflight int) *Egress {
+func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap map[string]bool, start int, maxInflight int, auto bool) *Egress {
 	if len(rest) == 0 {
 		return nil
 	}
 	var best *Egress
 	var bestStrikes int
+	var bestQuota int
 	var bestScore float64
 	med := m.medianLatency()
 	for i := range rest {
@@ -844,14 +849,19 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 			continue // cặp (model, IP) này đã hết ngân sách -> thử IP khác cho model đó
 		}
 		st := e.strikes(model)
+		// Ngân sách còn lại của cặp (model, IP): ưu tiên cặp ít dùng hơn để trải đều, không dồn hết
+		// vào một IP (mỗi IP có trần request/ngày riêng - đo 2026-10-26). Đây là tiêu chí CUỐI:
+		// độ trễ/cân bằng tải vẫn quan trọng hơn, còn ngân sách chỉ phá thế hoà.
+		qr := quotaRank(model, e.Name)
 		sc := e.loadScore(med)
 		if e.ipKind.Load() == ipKindShared {
 			// IP dùng chung: hạn mức phía upstream cũng dùng chung với container khác -> chỉ dùng khi không còn
 			// egress nào có IP riêng.
 			sc += 1e9
 		}
-		if best == nil || st < bestStrikes || (st == bestStrikes && sc < bestScore) {
-			best, bestStrikes, bestScore = e, st, sc
+		sc += quotaPenaltyFor(model, e.Name, auto)
+		if best == nil || st < bestStrikes || (st == bestStrikes && (sc < bestScore || (sc == bestScore && qr < bestQuota))) {
+			best, bestStrikes, bestQuota, bestScore = e, st, qr, sc
 		}
 	}
 	if best != nil && !best.claim(model) {
@@ -861,7 +871,7 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 }
 
 func (m *Manager) pickRest(rest []*Egress, model string) *Egress {
-	return m.pickTierAvoid(rest, 2, model, nil, int(atomic.AddUint32(&m.rr, 1)), 0)
+	return m.pickTierAvoid(rest, 2, model, nil, int(atomic.AddUint32(&m.rr, 1)), 0, false)
 }
 
 // loadScore: càng thấp càng nên chọn. Circuit chưa đủ mẫu coi như bằng trung vị (để được thử), mỗi request đang chạy
@@ -884,6 +894,7 @@ func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[strin
 	start := int(atomic.AddUint32(&m.rr, 1))
 	var best *Egress
 	var bestStrikes int
+	var bestQuota int
 	var bestScore float64
 	med := m.medianLatency()
 	for i := range rest {
@@ -898,14 +909,15 @@ func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[strin
 			continue // cặp (model, IP) này đã hết ngân sách -> thử IP khác cho model đó
 		}
 		st := e.strikes(model)
+		qr := quotaRank(model, e.Name)
 		sc := e.loadScore(med)
 		if e.ipKind.Load() == ipKindShared {
 			// IP dùng chung: hạn mức phía upstream cũng dùng chung với container khác -> chỉ dùng khi không còn
 			// egress nào có IP riêng.
 			sc += 1e9
 		}
-		if best == nil || st < bestStrikes || (st == bestStrikes && sc < bestScore) {
-			best, bestStrikes, bestScore = e, st, sc
+		if best == nil || st < bestStrikes || (st == bestStrikes && (sc < bestScore || (sc == bestScore && qr < bestQuota))) {
+			best, bestStrikes, bestQuota, bestScore = e, st, qr, sc
 		}
 	}
 	if best != nil && !best.claim(model) {
@@ -943,36 +955,32 @@ func (m *Manager) triggerEmergencyWarpRenew() {
 func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, deadline time.Time, avoid ...string) (string, *Egress, *gwError) {
 	for {
 		if isPool {
-			pool := poolSnapshot()
-			n := len(pool)
-			start := int(atomic.AddUint32(&poolIndex, 1))
-			for i := range n {
-				cand := pool[(start+i)%n]
-				if e := m.pickAvoid(cand, avoid...); e != nil {
+			// Auto: xếp model theo sức chứng còn lại (ưu tiên model còn nhiều ngân sách trên các IP).
+			pool := m.orderModelsByCapacity(poolSnapshot(), true)
+			for _, cand := range pool {
+				if e := m.pickAvoid(cand, true, avoid...); e != nil {
 					return cand, e, nil
 				}
 			}
 		} else {
-			if e := m.pickAvoid(model, avoid...); e != nil {
+			if e := m.pickAvoid(model, false, avoid...); e != nil {
 				return model, e, nil
 			}
 			if cfg.AutoModelFallback && isFreeModelInPool(model) {
-				pool := poolSnapshot()
-				n := len(pool)
-				start := int(atomic.AddUint32(&poolIndex, 1))
-				// Request mang ảnh: ưu tiên model nhận ảnh (model text-only sẽ bị upstream trả 400
-				// "not supported for vision"). Vòng 2 mới chấp nhận model text-only.
+				// Failover sang model khác: đây vẫn là gọi THẲNG của client (không phải kênh auto)
+				// -> không giới hạn theo share, và ưu tiên model còn sức chứng.
+				// Vòng 1 chỉ model nhận ảnh, vòng 2 mới tới model text-only.
+				pool := m.orderModelsByCapacity(poolSnapshot(), false)
 				vision := needsVision(ctx)
 				for pass := 0; pass < 2; pass++ {
-					for i := range n {
-						cand := pool[(start+i)%n]
+					for _, cand := range pool {
 						if cand == model {
 							continue
 						}
 						if pass == 0 && vision && modelRejectsImages(cand) {
 							continue
 						}
-						if e := m.pickAvoid(cand, avoid...); e != nil {
+						if e := m.pickAvoid(cand, false, avoid...); e != nil {
 							log.Printf("[Router] model=%s cạn quota trên mọi đường, tự động failover sang model=%s", model, cand)
 							return cand, e, nil
 						}

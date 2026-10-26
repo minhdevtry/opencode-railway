@@ -528,6 +528,9 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 
 		e.reqs.Add(1)
 		e.lastUsed.Store(time.Now().UnixNano())
+		// Sổ ngân sách của cặp (model, egress): đếm request ĐÃ GỬI lên upstream (kể cả request lỗi -
+		// nó vẫn nằm trên IP đó). isPool = kênh auto, còn lại là gọi thẳng 1 model.
+		quotaAttempt(m, e.Name, isPool)
 		if e.Kind == kindDirect {
 			mgr.noteDirect(m, int(e.inflight.Load()))
 		}
@@ -639,10 +642,28 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if !freeLimit {
 				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
 			}
+			if freeLimit {
+				// Hạn mức free là CỦA CẶP (model, IP) và đếm theo REQUEST (đo 2026-10-26,
+				// research/limit-shape/model-dim). Sự kiện 429 hạn mức là RỜI RẠC: sau đó cùng cặp đó
+				// vẫn phục vụ được (đo được 45/45 và 2/2 request 200 ngay sau sự kiện 429). Vì vậy
+				// KHÔNG khoá cặp tới 00:00 UTC ngay lần đầu - lần đầu chỉ để cơ chế cooldown sẵn có
+				// (e.exhausted + probe lease) nghỉ ngắn rồi thử lại. Từ lần thứ N (QUOTA_HARD_AFTER)
+				// mới coi là cặp đó thật sự cạn: khoá tới reset VÀ xoay danh tính WARP (IP mới = ngân sách mới).
+				n := quotaNoteLimit(m, e.Name)
+				if n >= cfg.QuotaHardAfter {
+					until := time.Now().Add(ra)
+					if ra <= 0 {
+						until = time.Now().Add(cfg.CooldownMax)
+					}
+					noteModelExhausted(m, e.Name, until, mgr.usableEgresses())
+					if e.container != "" && !acctGate.capped() && time.Since(e.lastIdentityChange) > 20*time.Second {
+						log.Printf("[%s] model %s cạn hạn mức %d lần liên tiếp -> xoay danh tính để lấy IP mới", e.Name, m, n)
+						e.lastIdentityChange = time.Now()
+						mgr.renewIdentity(e)
+					}
+				}
+			}
 			if freeLimit && ra >= acctGateMinCap {
-				// Hạn mức free là CỦA CẶP (model, IP): IP này hết lượt cho model này -> ghi lại để gateway
-				// không gửi thêm request vào nó (mỗi request 429 là vừa lãng phí vừa làm client chờ).
-				noteModelExhausted(m, e.Name, time.Now().Add(ra), mgr.usableEgresses())
 				// Nếu model này đã cạn trên MỌI IP đang có -> phải lấy IP mới: WARP luôn có thể đổi danh tính
 				// (mỗi lần ~6-13s) và IPv6 mới có ngân sách riêng. Cứ đổi tới khi được, rồi dùng IP đó tới hết
 				// ngân sách rồi lại đổi tiếp. Giới hạn tần suất để không xoay liên tục.
@@ -971,6 +992,8 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			okRate.add()
 			e.oks.Add(1)
 			e.clear(m)
+			// Thành công -> sự kiện 429 hạn mức trước đó của cặp này không còn ý nghĩa.
+			quotaSuccess(m, e.Name)
 			e.observeLatency(gen, ttfb)
 			mgr.retireIfSlow(e, gen)
 		}

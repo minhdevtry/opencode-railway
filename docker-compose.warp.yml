@@ -331,9 +331,19 @@ services:
       # Gọi đích danh model thì giữ nguyên model đó (client muốn cho đổi: header X-Model-Fallback: allow)
       AUTO_MODEL_FALLBACK: "false"
       # Request đồng bộ xếp hàng chờ egress tối đa 30 phút thay vì báo lỗi; job nền thì không giới hạn (Redis)
-      # Ngân sách session MỚI trên mỗi IP trong ngày UTC (upstream cho ~50 cặp (IP, session)/IP/ngày).
-      # Hết ngân sách thì IP đó chết tới 00:00 UTC -> gateway tự đổi IP (xoay WARP / proxy dân cư).
-      SESSION_DAILY_BUDGET: "40"
+      # Ngân sách session MỚI trên mỗi IP trong ngày UTC. Đo 2026-10-26 (research/limit-shape/model-dim):
+      # đơn vị tiêu thụ THẬT là số REQUEST của cặp (IP, model) - 1 session cố định phục vụ 64 request rồi mới
+      # 429, nên giới hạn "số session mới" chỉ gây thiếu sức chứng -> tắt (0 = không giới hạn).
+      SESSION_DAILY_BUDGET: "0"
+      # Ngân sách per (IP, model) - đo 2026-10-26:
+      #   MODEL_QUOTA_DEFAULT  : trần request/ngày của 1 model trên 1 IP khi chưa biết (glm đo được ~60-70)
+      #   MODEL_QUOTA_OVERRIDES: trần riêng theo model (nemotron đo được >203)
+      #   QUOTA_AUTO_SHARE     : phần ngân sách mỗi cặp dành cho kênh auto, phần còn lại cho gọi thẳng model đó
+      #   QUOTA_HARD_AFTER     : số 429 hạn mức liên tiếp thì mới coi cặp đó thật sự cạn (xoay danh tính WARP)
+      MODEL_QUOTA_DEFAULT: "64"
+      MODEL_QUOTA_OVERRIDES: "nemotron-3.5-lightning-free=256"
+      QUOTA_AUTO_SHARE: "0.6"
+      QUOTA_HARD_AFTER: "2"
       MAX_WAIT: "1800s"
       QUEUE_WAIT: "1800s"
       DIRECT_COOLDOWN: "2m"
