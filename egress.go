@@ -943,11 +943,6 @@ func (m *Manager) anyUsableWithin(models []string, within time.Duration) bool {
 // soonest: thời gian ngắn nhất cho tới khi có 1 egress dùng lại được cho 1 trong các model.
 func (m *Manager) soonest(models []string) time.Duration {
 	best := time.Duration(0)
-	if acctGate.tripped() {
-		if d := time.Until(acctGate.until_()); d > 0 {
-			best = d
-		}
-	}
 	for _, e := range m.snapshot() {
 		if !e.ready.Load() {
 			continue
@@ -956,6 +951,13 @@ func (m *Manager) soonest(models []string) time.Duration {
 			if d := e.cooldownLeft(mod); d > 0 && (best == 0 || d < best) {
 				best = d
 			}
+		}
+	}
+	// Khi quota tài khoản đang cạn, thời điểm "thử lại được" là lúc quota hồi (nửa đêm UTC), không phải lúc hết cooldown
+	// của 1 egress: client retry theo hạn cooldown sẽ lại nhận 429 ngay. Nên lấy mốc LỚN hơn.
+	if acctGate.capped() {
+		if d := time.Until(acctGate.resetTime()); d > best {
+			best = d
 		}
 	}
 	return best

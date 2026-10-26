@@ -190,6 +190,16 @@ func (p *sessionPool) success(s *egSession) {
 	p.mu.Unlock()
 }
 
+// freshSession: session này CHƯA từng chạy thành công (IP mới tinh). Đọc dưới khoá vì success() ghi s.ok từ goroutine khác.
+func (p *sessionPool) freshSession(s *egSession) bool {
+	if s == nil {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return !s.ok
+}
+
 // blocked: upstream trả FreeUsageLimitError cho session s. Session đã từng chạy => nghỉ (Retry-After ngắn thì theo nó,
 // dài thì thăm dò lại sau SessionReprobe, vì đo thấy có lúc hồi sớm); chưa chạy lần nào => IP hết lượt mở session.
 // Session của thế hệ cũ (IP đã đổi) thì bỏ qua. Trả về true nếu là session hiện hành.

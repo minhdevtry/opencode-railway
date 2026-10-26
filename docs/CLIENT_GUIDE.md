@@ -50,9 +50,9 @@ curl http://127.0.0.1:8090/v1/capacity
 | Tình huống | Nên làm |
 |---|---|
 | Timeout phía client | **Đặt dài: 10–30 phút.** Gateway có thể giữ request trong hàng chờ; timeout ngắn (vd 30 s) làm request bị huỷ rồi gửi lại, tốn công vô ích |
-| Muốn fail nhanh thay vì chờ lâu lúc hệ thống gần cạn | Gửi header `X-Max-Wait: 30s` — gateway chờ tối đa bấy nhiêu trong hàng đợi rồi trả 429, để client tự điều tiết. Không đặt = chờ tới MAX_WAIT (30 phút) |
+| Muốn fail nhanh thay vì chờ lâu lúc hệ thống gần cạn | Gửi header `X-Max-Wait: 30s` — gateway dùng đây làm **tổng ngân sách chờ của cả request** (hàng đợi + mọi lần thử lại qua các đường mạng), hết hạn thì trả 429, để client tự điều tiết. Không đặt = chờ tới MAX_WAIT (30 phút). Lưu ý: header này không áp dụng cho job chạy nền (`/v1/batches`, `/v1/jobs`) |
 | HTTP 400 | Lỗi do request (sai định dạng, văn bản quá dài với model cố định): sửa request, **không retry** |
-| HTTP 429 | Hạn mức free trong ngày đã cạn (cả tài khoản). Đọc `Retry-After`; chờ tới mốc đó (thường là 00:00 UTC = 07:00 VN) rồi gửi lại. Gửi lại sớm cũng 429 |
+| HTTP 429 | Hạn mức free trong ngày đã cạn (cả tài khoản). `Retry-After` là mốc quota hồi (thường 00:00 UTC = 07:00 VN) — chờ tới mốc đó rồi gửi lại; gửi lại sớm cũng 429. Lúc này gateway cũng ngừng đổi IP WARP (vô ích) và tự thăm dò lại để mở khi quota hồi |
 | HTTP 502/503, lỗi kết nối | Retry có backoff (2 s, 4 s, 8 s... tối đa ~30 s) |
 | `content` rỗng, `finish_reason: "length"` | Phần suy nghĩ ăn hết `max_tokens`: **tăng `max_tokens`** (xem mục 5) |
 
@@ -90,7 +90,8 @@ qua đường khác). Kết quả vẫn đúng. Nếu cần xong nhanh cả lô,
 ```
 
 - Model **không bao giờ bị đổi**. Cho phép đổi khi model đó hết đường: thêm header `X-Model-Fallback: allow`.
-- Chờ tối đa bao lâu trong hàng đợi: header `X-Max-Wait` (vd `60s`); quá thì nhận 429.
+- Chờ tối đa bao lâu: header `X-Max-Wait` (vd `60s`); đây là tổng ngân sách chờ của cả request (kể cả các lần thử lại),
+  hết hạn thì nhận 429.
 - **Suy nghĩ**: `"reasoning_effort": "none" | "low" | "medium" | "high"`. `none` được gateway dịch sang đúng công tắc
   của từng model. Tham số gốc (`thinking`, `reasoning`) cũng dùng được.
 - **Bật suy nghĩ + output dài ⇒ `max_tokens` ≥ 16 000.** Phần suy nghĩ tính chung vào `max_tokens`: với deepseek, đặt

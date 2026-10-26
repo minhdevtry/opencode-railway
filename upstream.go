@@ -376,10 +376,10 @@ func nextModelInPool(current string) string {
 // Retry khi 429/502/503/504/lỗi mạng bằng egress khác; không bao giờ retry sau khi đã có byte gửi về client
 // (hàm này chỉ trả về response khi header đã nhận, việc ghi cho client do caller làm).
 func forward(ctx context.Context, model string, isPool bool, url, accept, key string, prep func(model string) []byte) (*upstream, *gwError) {
-	wait := cfg.MaxWait
-	if w := maxWaitFrom(ctx); w > 0 {
-		wait = w
-	}
+	// Ngân sách chờ của 1 request: mặc định MAX_WAIT, nhưng client có thể tự hạn bằng header X-Max-Wait.
+	// Hạn của client là mốc TUYỆT ĐỐI (tính 1 lần lúc vào request) để các lần retry trong cùng request không
+	// cộng dồn thời gian chờ - client yêu cầu 15s thì tổng thời gian chờ cũng là 15s, không phải N x 15s.
+	wait := waitBudget(ctx)
 	deadline := time.Now().Add(wait)
 	// Auto: lọc pool theo profile (auto-fast/best/long) và giới hạn context đã học cho cỡ request này.
 	tokens := 0
@@ -499,8 +499,9 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
 			}
 			if es != nil && freeLimit {
-				if !es.ok && ra >= 30*time.Minute {
-					acctGate.noteFreshCap(e.Name, ra) // session CHƯA từng chạy cũng bị cạn với retry-after dài
+				if ra >= acctGateMinCap {
+					// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
+					acctGate.noteFreshCap(e.Name, ra, e.sess.freshSession(es))
 				}
 				if !e.sess.blocked(es, ra) {
 					// Session của IP cũ (egress vừa đổi IP): kết quả không áp cho pool mới, thử lại ngay.
@@ -509,7 +510,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				}
 				// WARP đổi IP rẻ (~15-25s, không giới hạn): hễ egress không phục vụ được ngay (hết lượt mở session mới
 				// và session còn lại đều đang nghỉ) là đổi danh tính luôn, không ngồi chờ session hết nghỉ.
-				if e.container != "" && !e.sess.usable() && !acctGate.tripped() {
+				if e.container != "" && !e.sess.usable() && !acctGate.capped() {
 					mgr.renewIdentity(e)
 					avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
 					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
@@ -705,7 +706,6 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			e.downUntil.Store(0)
 			e.adapt(true)
 			okRate.add()
-			acctGate.clear()
 			e.oks.Add(1)
 			e.clear(m)
 			e.observeLatency(gen, ttfb)

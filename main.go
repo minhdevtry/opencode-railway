@@ -631,8 +631,11 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	var agg *aggregate
 	var aggErr error
 	excl := map[string]bool{}
+	// Hạn chờ của client (X-Max-Wait) tính MỘT LẦN cho cả request: nếu tính lại ở mỗi vòng retry thì client
+	// chờ N x X-Max-Wait, tức vượt hạn client đã đặt (client yêu cầu 15s nhưng thực tế chờ 8 x 15s).
+	baseCtx := withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r)
 	for try := 0; ; try++ {
-		ctx := withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r)
+		ctx := baseCtx
 		if len(excl) > 0 {
 			ctx = withExclude(ctx, excl)
 		}
@@ -831,7 +834,7 @@ func systemoneHandler(w http.ResponseWriter, r *http.Request) {
 	body, _ := jsonMarshalNoEscape(reqData)
 	t0 := time.Now()
 
-	up, gerr := forward(r.Context(), resolved, false, zenURL+"/systemone", "application/json", sessionKey(r, reqData), func(string) []byte { return body })
+	up, gerr := forward(withMaxWait(r.Context(), r), resolved, false, zenURL+"/systemone", "application/json", sessionKey(r, reqData), func(string) []byte { return body })
 	if gerr != nil {
 		writeGWError(w, gerr)
 		return

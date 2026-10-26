@@ -187,7 +187,7 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 	if isPool || (fb && isFreeModelInPool(model)) {
 		models = freeModelPool
 	}
-	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.tripped()) {
+	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
 		m.wmu.Unlock()
 		return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 			msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
@@ -232,7 +232,7 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 		case <-tick.C:
 			m.growTor()
 			// Không đường nào có thể phục vụ trong thời gian còn lại (vd chỉ có direct đã cạn): báo sớm thay vì giữ.
-			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.tripped()) {
+			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
 				leave()
 				return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 					msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
@@ -346,6 +346,10 @@ func modelFallback(ctx context.Context) bool {
 
 // X-Max-Wait: client tự chọn chờ tối đa bao lâu trong hàng đợi (vd "30s") trước khi nhận 429, thay vì mặc định MAX_WAIT.
 // Dùng khi client thà fail nhanh và tự điều tiết còn hơn chờ lâu lúc hệ thống gần cạn sức.
+//
+// Hạn phải là MỐC TUYỆT ĐỐI, không phải "chờ thêm bao lâu": handler có thể gọi forward() nhiều lần (retry 429/502,
+// guard retry stream bị cụt). Nếu mỗi lần forward() tính lại hạn từ đầu thì client chờ N × X-Max-Wait, tức client
+// yêu cầu 15s nhưng thực tế chờ 8 × 15s = 2 phút - đúng cái điều client muốn tránh.
 type maxWaitKey struct{}
 
 func withMaxWait(ctx context.Context, r *http.Request) context.Context {
@@ -354,15 +358,31 @@ func withMaxWait(ctx context.Context, r *http.Request) context.Context {
 			if d > cfg.MaxWait {
 				d = cfg.MaxWait
 			}
-			return context.WithValue(ctx, maxWaitKey{}, d)
+			return context.WithValue(ctx, maxWaitKey{}, time.Now().Add(d))
 		}
 	}
 	return ctx
 }
 
-func maxWaitFrom(ctx context.Context) time.Duration {
-	d, _ := ctx.Value(maxWaitKey{}).(time.Duration)
-	return d
+// deadlineFrom: hạn chờ tuyệt đối của client (nếu client gửi X-Max-Wait).
+func deadlineFrom(ctx context.Context) (time.Time, bool) {
+	t, ok := ctx.Value(maxWaitKey{}).(time.Time)
+	return t, ok
+}
+
+// waitBudget: ngân sách chờ còn lại của request (giây). Mặc định là MAX_WAIT; nếu client đặt X-Max-Wait thì lấy phần
+// còn lại của hạn TUYỆT ĐỐI đó - nhờ vậy các lần retry trong cùng request không cộng dồn thời gian chờ.
+func waitBudget(ctx context.Context) time.Duration {
+	wait := cfg.MaxWait
+	if dl, ok := deadlineFrom(ctx); ok {
+		if d := time.Until(dl); d < wait {
+			wait = d
+		}
+	}
+	if wait < 0 {
+		wait = 0
+	}
+	return wait
 }
 
 // Egress cần tránh ngay từ lần thử đầu (lần gửi lại sau khi stream trên egress đó bị treo/đứt).

@@ -106,7 +106,10 @@ cho câu trả lời (rỗng, `finish_reason: length`); đặt 16 000 còn 2%.
 
 - Gửi bao nhiêu cũng được: phần vượt sức chứa **xếp hàng chờ** (tối đa `MAX_WAIT`, mặc định 30 phút), không bị lỗi.
 - Để chờ ít nhất: giữ số request đang gửi quanh `recommended_concurrency` của `GET /v1/capacity`.
-- Muốn fail nhanh thay vì chờ: header `X-Max-Wait: 30s` (mặc định chờ tới `MAX_WAIT`).
+- Muốn fail nhanh thay vì chờ: header `X-Max-Wait: 30s` (mặc định chờ tới `MAX_WAIT`). Đây là **tổng ngân sách chờ của
+  cả request** (hàng đợi + các lần thử lại), không phải thời gian chờ trong hàng đợi: client đặt `30s` thì gateway trả
+  429 trong khoảng 30 s kể cả khi phải thử nhiều đường. Không áp dụng cho job chạy nền (`/v1/batches`, `/v1/jobs`) —
+  job không mang header của client.
 - Lô rất lớn (hàng nghìn tới hàng trăm nghìn): dùng `/v1/batches`. Job lưu bền trong Redis, lỗi tạm thời tự thử lại có
   backoff, gateway khởi động lại vẫn chạy tiếp, lấy kết quả theo đúng thứ tự gửi:
 
@@ -146,10 +149,15 @@ Hướng dẫn đầy đủ cho client (mức đồng thời, timeout, retry, v�
 
 ```bash
 cd /home/minhdn3/Downloads/opencode-railway
+cp .env.example .env          # điền key proxy dân cư (KHÔNG commit file .env)
 docker compose -f docker-compose.warp.yml up -d            # 16 WARP + Redis + gateway (cổng 8090)
 docker compose -f docker-compose.warp.yml up -d --build --no-deps gateway   # chỉ build lại gateway
 docker logs -f orw-prod
 ```
+
+Key proxy dân cư **không có trong repo**: `docker-compose.warp.yml` chỉ khai báo `${RESIDENTIAL_PROXIES:-}` và
+`${RESIDENTIAL_REFRESH_URLS:-}`, đọc từ file `.env` cạnh compose (`.env` đã nằm trong `.gitignore`). Bỏ trống thì
+gateway chạy chỉ với WARP. Vì repo trước đây công khai, key đã từng nằm trong lịch sử git — hãy dùng key mới.
 
 Mọi container đều giới hạn log 3 × 10 MB. Gateway mount `/var/run/docker.sock` để tự đổi danh tính WARP.
 
@@ -187,7 +195,7 @@ bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` kh
 | `Failed to communicate with the WARP API` | log `[WARP]` | API đăng ký của Cloudflare tạm từ chối, gateway tự thử lại sau 30 s |
 | Proxy dân cư lỗi | log `[resN]`, `[ProxyXoay]` | Tự xoay IP sau 5 lỗi liên tiếp; key hết hạn thì tự loại |
 | Request lớn báo 400 vượt context | `/status` → `context_limits` | Với `auto`: tự chuyển model. Với model cố định: chọn model đọc dài hơn (mục 2.4) |
-| Hàng loạt 429, log `[AccountGate]` | toàn bộ quota free trong ngày đã cạn | Circuit breaker tự ngừng đổi IP (tránh xoay vô ích) và thăm dò lại định kỳ; tự mở khi quota hồi. Chờ 07:00 giờ VN |
+| Hàng loạt 429, log `[AccountGate]` | toàn bộ quota free trong ngày đã cạn | Circuit breaker ngừng đổi IP (đổi cũng vô ích khi quota cạn cả tài khoản) và thăm dò lại mỗi 20 s; chỉ prober thấy quota hồi mới mở lại. `Retry-After` trả về là mốc quota hồi (thường 00:00 UTC = 07:00 VN) |
 | 1 proxy dân cư lỗi TCP liên tục | log `[resN] ... transport error` | Gateway cho cả egress đó nghỉ (backoff 2–60 s), xoay IP sau 3 lỗi; request tự sang egress khác |
 
 **Không chạy quá 16 container WARP** trừ khi đã nâng giới hạn kernel

@@ -153,7 +153,7 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 		if cfg.SessionIDMode != "egress" {
 			continue
 		}
-		if acctGate.tripped() {
+		if acctGate.capped() {
 			m.probeAccount() // quota cạn cấp tài khoản: đừng đổi IP (vô ích), chỉ thăm dò để tự mở lại khi hồi
 			continue
 		}
@@ -166,7 +166,9 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 	}
 }
 
-// probeAccount gửi 1 request rất nhẹ qua 1 egress để xem quota tài khoản đã hồi chưa (acctGate.clear() tự gọi khi 200).
+// probeAccount gửi 1 request rất nhẹ để xem quota tài khoản đã hồi chưa.
+// Đây là CỐNG: chỉ prober được mở lại breaker. Request thường thành công KHÔNG được mở gate - lúc quota cạn một
+// phần, session cũ vẫn trả 200, mở gate lúc đó là quay lại bão xoay IP mà breaker sinh ra để chặn.
 func (m *Manager) probeAccount() {
 	for _, e := range m.snapshot() {
 		if !e.ready.Load() || e.expired.Load() || e.container == "" {
@@ -180,7 +182,13 @@ func (m *Manager) probeAccount() {
 			return b
 		})
 		if gerr == nil && up != nil {
+			ok := up.resp.StatusCode == http.StatusOK
 			up.close()
+			cancel()
+			if ok {
+				acctGate.clear() // quota hồi thật -> mở lại bình thường
+			}
+			return
 		}
 		cancel()
 		return
