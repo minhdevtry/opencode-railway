@@ -392,6 +392,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 	currentModel := model
 	canSwitch := isPool || modelFallback(ctx) // model cụ thể ở chế độ cố định: không bao giờ đổi model
 	var modelFailures int
+	paramErrors := 0 // số lần upstream báo 400 do tham số của client
 
 	for attempt := 0; attempt < cfg.MaxAttempts; attempt++ {
 		// Tổng thời gian tối đa cho 1 request (MaxWait): đã có lỗi và hết ngân sách thì trả lỗi cuối, không thử mãi.
@@ -645,6 +646,13 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 						ex[k] = v
 					}
 					ctx = withExclude(ctx, ex)
+					// Mọi model trong pool đều bị loại vì vượt context => request này không thể thành công với model nào.
+					// Trả 400 luôn, đừng xếp hàng tới MAX_WAIT (30 phút) rồi trả 429 - client cần biết để chia nhỏ văn bản.
+					if poolAllExcluded(ex) {
+						last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error",
+							msg: "Request vượt context của mọi model trong pool: hãy chia nhỏ văn bản"}
+						return nil, last
+					}
 					continue
 				}
 				last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error", msg: "Upstream HTTP 400: " + strings.TrimSpace(string(snippet))}
@@ -682,8 +690,16 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				resp.Body.Close()
 				cancel()
 				relE()
-				e.errs.Add(1)
+				// KHÔNG tính e.errs: lỗi do tham số của client, egress hoàn toàn ổn.
 				log.Printf("[Router] model=%s bị lỗi tham số hoặc backend (400), tự động failover sang model khác: %s", m, string(snippet))
+				paramErrors++
+				last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error",
+					msg: "Upstream HTTP 400: " + strings.TrimSpace(string(snippet))}
+				if paramErrors >= 2 {
+					// Tham số của client bị từ chối ở 2 model liên tiếp -> tham số sai, không phải model.
+					// Trả 400 luôn thay vì thử hết pool rồi ra 502 "No upstream attempt made".
+					return nil, last
+				}
 				next := nextModelInPool(currentModel)
 				if next != currentModel {
 					currentModel = next

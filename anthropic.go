@@ -510,7 +510,12 @@ func messagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !clientStream {
 		agg, err := aggregateSSE(up.resp.Body)
-		if err != nil && agg.chunks == 0 {
+		// Không có finish_reason (stream đứt giữa chừng, kể cả EOF "sạch" không có [DONE]) => nội dung có thể bị cụt:
+		// báo lỗi để client thử lại, KHÔNG trả 200 với câu trả lời cụt.
+		if agg.chunks == 0 || agg.finishReason == "" {
+			if err != nil {
+				log.Printf("[messages] stream đứt: %v", err)
+			}
 			writeAnthropicError(w, &gwError{status: http.StatusBadGateway, typ: "overloaded_error", msg: "Upstream stream interrupted"})
 			return
 		}
@@ -582,8 +587,12 @@ func messagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return st.chunk(&ch)
 	})
-	if err != nil && st.finish_ == "" {
-		// upstream đứt giữa chừng (chưa có finish_reason): báo lỗi để client retry, không giả làm câu trả lời hoàn chỉnh
+	if st.finish_ == "" {
+		// upstream đứt giữa chừng (chưa có finish_reason): báo lỗi để client retry, không giả làm câu trả lời hoàn chỉnh.
+		// Điều kiện KHÔNG phụ thuộc err: EOF "sạch" không có [DONE] cũng là stream đứt.
+		if err != nil {
+			log.Printf("[messages] stream đứt: %v", err)
+		}
 		st.fail("Upstream stream interrupted")
 	} else {
 		st.finish()

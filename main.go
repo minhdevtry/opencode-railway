@@ -737,11 +737,22 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		flusher, _ := w.(http.Flusher)
 		br := bufio.NewReaderSize(up.resp.Body, 32*1024)
 		var firstByte time.Duration
+		sawDone := false // upstream đã kết thúc stream đúng cách (finish_reason hoặc [DONE])?
 		for {
 			line, err := br.ReadBytes('\n')
 			if len(line) > 0 {
 				if firstByte == 0 {
 					firstByte = time.Since(t0)
+				}
+				if !sawDone {
+					if bytes.Contains(line, []byte("[DONE]")) {
+						sawDone = true
+					} else if bytes.Contains(line, []byte("finish_reason")) {
+						compact := bytes.ReplaceAll(line, []byte(" "), nil)
+						if !bytes.Contains(compact, []byte("\"finish_reason\":null")) {
+							sawDone = true
+						}
+					}
 				}
 				if _, werr := w.Write(line); werr != nil {
 					break
@@ -752,6 +763,14 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			if err != nil {
 				break
+			}
+		}
+		if !sawDone {
+			// Upstream đứt giữa chừng: client đã nhận status 200 nên chỉ còn cách báo lỗi qua frame SSE.
+			log.Printf("[chat] stream đứt giữa chừng (không có finish_reason/[DONE])")
+			_, _ = w.Write([]byte("data: {\"error\":{\"message\":\"Upstream stream interrupted\",\"type\":\"upstream_error\"}}\n\n"))
+			if flusher != nil {
+				flusher.Flush()
 			}
 		}
 		logReq("chat", "stream", up, t0, firstByte)
@@ -843,7 +862,10 @@ func systemoneHandler(w http.ResponseWriter, r *http.Request) {
 	setGWHeaders(w, up)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(up.resp.StatusCode)
-	_, _ = io.Copy(w, up.resp.Body)
+	if _, cerr := io.Copy(w, up.resp.Body); cerr != nil {
+		// Status đã gửi rồi nên không đổi được; chỉ log để biết body bị cụt.
+		log.Printf("[systemone] copy body lỗi (body có thể bị cụt): %v", cerr)
+	}
 	logReq("systemone", "json", up, t0, up.ttfb)
 }
 func capacityHandler(w http.ResponseWriter, r *http.Request) {

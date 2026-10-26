@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -242,7 +243,11 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !clientStream {
 		agg, err := aggregateSSE(up.resp.Body)
-		if err != nil && agg.chunks == 0 {
+		// Không có finish_reason => nội dung có thể bị cụt: báo lỗi, không trả 200 với status "completed".
+		if agg.chunks == 0 || agg.finishReason == "" {
+			if err != nil {
+				log.Printf("[responses] stream đứt: %v", err)
+			}
 			writeJSONError(w, http.StatusBadGateway, "upstream_error", "Upstream stream interrupted")
 			return
 		}
@@ -284,6 +289,7 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 	var items []*respItem
 	var msg *respItem
 	tools := map[int]*respItem{}
+	upFinish := "" // finish_reason của upstream: rỗng = stream bị cụt
 	agg := &aggregate{tools: map[int]*aggTool{}}
 	var first time.Duration
 	closeMsg := func() {
@@ -310,6 +316,9 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(ch.Choices) == 0 {
 			return nil
+		}
+		if fr := ch.Choices[0].FinishReason; fr != nil && *fr != "" {
+			upFinish = *fr // upstream đã kết thúc stream đúng cách
 		}
 		d := ch.Choices[0].Delta
 		if d.Content != "" {
@@ -352,7 +361,11 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 			emit("response.output_item.done", map[string]any{"output_index": it.outIndex, "item": it.json(true)})
 		}
 	}
-	if err != nil {
+	if err != nil || upFinish == "" {
+		// Không có finish_reason (kể cả EOF "sạch" không có [DONE]) => stream bị cụt: báo failed, không báo completed.
+		if err != nil {
+			log.Printf("[responses] stream đứt: %v", err)
+		}
 		emit("error", map[string]any{"code": "upstream_error", "message": "Upstream stream interrupted"})
 		emit("response.failed", map[string]any{"response": responseObject(respID, echoModel, "failed", items, agg)})
 	} else {
@@ -421,7 +434,11 @@ func completionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	setGWHeaders(w, up)
 	agg, err := aggregateSSE(up.resp.Body)
-	if err != nil && agg.chunks == 0 {
+	// Không có finish_reason => nội dung có thể bị cụt: báo lỗi thay vì trả 200 với finish_reason "stop".
+	if agg.chunks == 0 || agg.finishReason == "" {
+		if err != nil {
+			log.Printf("[completions] stream đứt: %v", err)
+		}
 		writeJSONError(w, http.StatusBadGateway, "upstream_error", "Upstream stream interrupted")
 		return
 	}

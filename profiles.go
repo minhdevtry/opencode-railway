@@ -111,6 +111,23 @@ func profileFrom(ctx context.Context) string {
 	return p
 }
 
+// poolAllExcluded: mọi model trong pool đều bị loại => không còn model nào phục vụ được request này.
+// Dùng để fail nhanh (400) thay vì xếp hàng tới MAX_WAIT rồi trả 429.
+func poolAllExcluded(excl map[string]bool) bool {
+	poolMu.RLock()
+	pool := append([]string(nil), freeModelPool...)
+	poolMu.RUnlock()
+	if len(pool) == 0 {
+		return false
+	}
+	for _, m := range pool {
+		if !excl[m] {
+			return false
+		}
+	}
+	return true
+}
+
 // routeExclusions: các model trong pool KHÔNG được dùng cho request (ngoài profile, hoặc context quá lớn với model đó).
 // Không bao giờ loại hết: nếu bộ lọc loại sạch pool thì chỉ áp phần context (thà thử còn hơn từ chối).
 func routeExclusions(profile string, tokens int, base map[string]bool) map[string]bool {

@@ -60,7 +60,7 @@ type Config struct {
 	UpstreamBase  string // endpoint chat của client thật
 	ClientProfile string // bộ header: 1.18 (opencode 1.18.35, đã đo qua) | 2.1 (opencode 2.1.4)
 	EnvBlock      bool   // ghép khối <env> của opencode vào system prompt (thiếu khối này => 429 FreeUsageLimitError)
-	SessionsPerEgress int           // trần số session mở trên mỗi egress/ngày (SESSION_ID_MODE=egress); upstream cho ~50
+	SessionsPerEgress int           // trần số session SỐNG CÙNG LẤP trên mỗi egress (SESSION_ID_MODE=egress); upstream cho ~50 session/IP/ngày
 	SessionInflight   int           // số request đồng thời trên 1 session trước khi mở session mới
 	SessionCoolMax    time.Duration // Retry-After tối đa được tin để cho session nghỉ (dài hơn => nghỉ SessionReprobe rồi thử lại)
 	SessionReprobe    time.Duration // session/IP bị chặn với Retry-After dài: thử lại sau khoảng này

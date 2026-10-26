@@ -75,8 +75,9 @@ func TestAccountGateRefreshWhileBlocked(t *testing.T) {
 	}
 }
 
-// capped() lâu hơn tripped(): quota cạn thì dừng xoay IP cho tới khi quota hồi, còn fast-fail thì chỉ trong cửa sổ chặn.
-func TestAccountGateCappedLongerThanTripped(t *testing.T) {
+// Mốc "quota hồi" (resetTime) phải xa hơn cửa sổ chặn: nó dùng cho Retry-After của client, còn cửa sổ chặn thì ngắn
+// (được gia hạn bằng bằng chứng quota mới) để không kẹt cứng khi prober hỏng vì lý do mạng.
+func TestAccountGateResetTimeBeyondBlockWindow(t *testing.T) {
 	g := &accountGate{recent: map[string]time.Time{}}
 	g.noteFreshCap("proxy1", 2*time.Hour, true)
 	g.noteFreshCap("proxy2", 2*time.Hour, true)
