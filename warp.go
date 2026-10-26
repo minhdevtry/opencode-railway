@@ -193,6 +193,38 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 	}
 }
 
+// checkResidentialLiveness kiểm tra proxy dân cư ngay lúc khởi động: proxy chết (IP hỏng / key hết hạn) thì
+// mỗi lần thử tốn 20-40 giây chờ timeout -> request đầu tiên của client sẽ treo. Kiểm tra sớm rồi loại luôn.
+func (m *Manager) checkResidentialLiveness(ctx context.Context) {
+	for _, e := range m.snapshot() {
+		if e.tier != 1 || e.proxyAddr == "" {
+			continue
+		}
+		if e.expired.Load() {
+			continue
+		}
+		c, cancel := context.WithTimeout(ctx, 4*time.Second)
+		d := net.Dialer{}
+		conn, err := d.DialContext(c, "tcp", e.proxyAddr)
+		cancel()
+		if err == nil {
+			conn.Close()
+			e.ready.Store(true) // còn sống -> dùng bình thường
+			continue
+		}
+		log.Printf("[%s] proxy không phản hồi lúc khởi động (%v) -> loại khỏi routing và xoay IP", e.Name, err)
+		e.ready.Store(false)
+		if !m.rotateResidentialProxy(e) {
+			time.AfterFunc(45*time.Second, func() {
+				if !e.expired.Load() {
+					e.ready.Store(true)
+					m.rotateResidentialProxy(e)
+				}
+			})
+		}
+	}
+}
+
 // detectWarpIPs dò IP thoát thật của từng container WARP lúc khởi động: IPv6 riêng hay IPv4 dùng chung.
 // Cần biết vì hạn mức phía upstream tính theo IP: 9 container dùng chung 1 IPv4 thì hạn mức cũng chung.
 func (m *Manager) detectWarpIPs(ctx context.Context) {

@@ -74,6 +74,7 @@ type Egress struct {
 	downUntil  atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
 	ipChanged  atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
 	ipAddr     atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
+	proxyAddr  string       // host:port của proxy (kiểm tra sống lúc khởi động)
 	ipKind     atomic.Int32 // 0 = chưa biết, 1 = IPv6 riêng (nguồn IP riêng), 2 = IPv4 WARP dùng chung (nhiều container
 	// dùng chung 1 IP => hạn mức phía upstream cũng dùng chung, nên ưu tiên egress có IPv6 riêng)
 	container string // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
@@ -530,10 +531,13 @@ func (m *Manager) addStatic(torInstances, proxyPool, resProxies, resRefresh stri
 		e := newEgress(fmt.Sprintf("res%d", i+1), kindProxy, http.ProxyURL(u))
 		e.tier = 1
 		e.daemon = fmt.Sprintf("res%d", i+1)
+		e.proxyAddr = u.Host
 		if i < len(refreshList) {
 			e.refreshURL = refreshList[i]
 		}
-		e.ready.Store(true)
+		// Chưa cho vào routing ngay: proxy chết (IP hỏng/key hết hạn) thì mỗi lần thử tốn 20-40 giây.
+		// checkResidentialLiveness sẽ bật lại nếu proxy còn sống, hoặc loại + xoay IP nếu chết.
+		e.ready.Store(false)
 		m.add(e)
 		log.Printf("[ProxyXoay] Tier 1 nạp proxy dân cư: %s (%s)", e.Name, p)
 	}
