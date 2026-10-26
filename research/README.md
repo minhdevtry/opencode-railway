@@ -141,10 +141,22 @@ FreeUsageLimitError với retry-after ~8,8 h (đếm tới 00:00 UTC). Xác nh�
 hay đổi IP đều vô ích. Trước khi sửa, gateway đổi danh tính WARP **349–422 lần/3 h** một cách vô ích và fan-out mỗi
 request qua mọi egress.
 
-Sửa (`accountgate.go`): khi ≥3 egress khác nhau cùng báo "session CHƯA từng chạy cũng bị cạn, retry-after ≥30 phút"
-trong 2 phút → trip breaker: ngừng đổi IP WARP, một luồng nền thăm dò lại mỗi 20 s, tự mở khi có 1 request thành công.
-Không ép fast-fail toàn bộ (lúc cạn một phần vẫn phục vụ qua egress còn sống; lúc cạn hẳn thì logic session tự fast-fail).
-Quan sát trên prod: breaker trip/clear đúng theo trạng thái (trip khi một cụm egress báo cạn, clear ngay khi có 200).
+Sửa (`accountgate.go`): trip breaker khi có **đủ bằng chứng cạn CẤP TÀI KHOẢN**, tức ≥3 egress khác nhau bị cạn với
+retry-after ≥30 phút trong cửa sổ 2 phút, **có ít nhất 1 egress vừa đổi IP** (IP mới tinh cũng cạn ⇒ không phải cạn
+riêng từng IP) và bằng chứng đến từ **≥2 họ đường mạng** (WARP / dân cư / direct — 3 container WARP có thể dùng chung
+1 IPv4 nên đếm 3 egress đó không khác gì 1 IP). Khi trip: ngừng đổi IP WARP, request fast-fail 429 kèm `Retry-After`
+là **mốc quota hồi** (thường 00:00 UTC), và một luồng nền thăm dò lại (mỗi 2 phút) để gia hạn bằng chứng.
+
+Mở lại breaker: **chỉ khi có 1 request 200 trên IP vừa đổi** (chứng minh cặp (IP, session) mới vẫn được chấp nhận ⇒
+quota đã hồi). Một request 200 của session CŨ **không** mở breaker — lúc quota cạn một phần thì session cũ vẫn trả 200,
+mở gate lúc đó là quay lại đúng cơn bão xoay IP mà breaker sinh ra để chặn (đo được 349–422 lần/3 h).
 
 Lỗi TCP của proxy dân cư (`connection reset by peer`) giờ cho **cả egress** nghỉ (backoff 2–60 s) thay vì chỉ 1 model,
-nên bộ điều phối sidelined proxy hỏng nhanh hơn, giảm rò 502 về client.
+nên bộ điều phối sidelined proxy hỏng nhanh hơn, giảm rò 502 về client. Cooldown toàn-egress này cũng được
+`anyUsableWithin` và `/v1/capacity` biết, và lỗi TCP của container WARP sẽ đổi danh tính sau 3 lỗi liên tiếp
+(trước đó chỉ bị "giấu" bằng cooldown, container hỏng thì không được sửa).
+
+> Sửa lại 2026-10-26: bản breaker đầu tiên (commit `c24ed75`) trip khi "3 egress cùng báo session chưa từng chạy bị
+> cạn", tự mở khi có **bất kỳ** request 200 nào, và dùng mốc quota hồi (24 h) làm cửa sổ chặn. Cả ba đều sai:
+> bằng chứng dính vĩnh viễn (một lần cạn cả ngày vẫn trip được các cụm sau), request 200 của session cũ mở nhầm
+> breaker, và cửa sổ 24 h kẹt cứng nếu prober hỏng vì lý do mạng. Xem `PRIVATE-BRANCH.md` để có đầy đủ danh sách.
