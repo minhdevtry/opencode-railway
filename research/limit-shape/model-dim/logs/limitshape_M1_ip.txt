@@ -1,0 +1,3 @@
+cell=M1 dump=gw1.json tls=bun proxy=127.0.0.1:1200 ses=fixed n=200 model=glm-5.3-flash-free
+ip_before=ip=2a09:bac5:d459:263c::3cf:14 at=2026-10-26T09:28:21Z
+ip_after=ip=2a09:bac5:d459:263c::3cf:14 at=2026-10-26T09:30:14Z

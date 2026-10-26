@@ -1,0 +1,6 @@
+# Ánh xạ container WARP đo riêng -> IPv6 upstream (opencode.ai/cdn-cgi/trace qua SOCKS5)
+# Ghi lúc 2026-10-26T09:27:18Z (giờ UTC của máy chủ; trong log probe là giờ local UTC+7)
+warp-meas-1  socks=127.0.0.1:1200  ipv6=2a09:bac5:d459:263c::3cf:14  checked_at=2026-10-26T09:27:19Z
+warp-meas-2  socks=127.0.0.1:1201  ipv6=2a09:bac5:d45b:e6::17:32b  checked_at=2026-10-26T09:27:19Z
+warp-meas-3  socks=127.0.0.1:1202  ipv6=2a09:bac5:d459:16d2::246:18  checked_at=2026-10-26T09:27:20Z
+warp-meas-4  socks=127.0.0.1:1203  ipv6=2a09:bac5:d45e:16d2::246:d4  checked_at=2026-10-26T09:27:21Z

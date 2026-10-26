@@ -1,0 +1,3 @@
+cell=M2 dump=gw1.json tls=bun proxy=127.0.0.1:1201 ses=fixed n=200 model=nemotron-3.5-lightning-free
+ip_before=ip=2a09:bac5:d45b:e6::17:32b at=2026-10-26T09:28:21Z
+ip_after=ip=2a09:bac5:d45b:e6::17:32b at=2026-10-26T09:37:45Z

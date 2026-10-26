@@ -1,0 +1,18 @@
+--- attempt 1 container=warp-meas-1 port=1200 model=glm-5.3-flash-free at=2026-10-26T09:24:42Z
+ip=2a09:bac1:7ac0:50::245:b2 out={"status":429,"secs":0.35,"ra":"52516","t":"16:24:44","text":"","err":"{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode"}
+DEAD -> xoay danh tinh
+--- attempt 2 container=warp-meas-1 port=1200 model=glm-5.3-flash-free at=2026-10-26T09:25:15Z
+ip=2a09:bac5:d459:263c::3cf:14 out={"status":200,"secs":1.47,"ra":"","t":"16:25:18","text":"Pong","err":""}
+ALIVE container=warp-meas-1 port=1200 ip=2a09:bac5:d459:263c::3cf:14 attempt=2
+--- attempt 1 container=warp-meas-4 port=1203 model=glm-5.3-flash-free at=2026-10-26T09:25:20Z
+ip=2a09:bac1:7aa0:50::247:f1 out={"status":429,"secs":0.47,"ra":"52479","t":"16:25:21","text":"","err":"{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode"}
+DEAD -> xoay danh tinh
+--- attempt 2 container=warp-meas-4 port=1203 model=glm-5.3-flash-free at=2026-10-26T09:25:53Z
+ip=2a09:bac1:7aa0:50::3d0:4b out={"status":429,"secs":0.38,"ra":"52446","t":"16:25:54","text":"","err":"{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode"}
+DEAD -> xoay danh tinh
+--- attempt 3 container=warp-meas-4 port=1203 model=glm-5.3-flash-free at=2026-10-26T09:26:26Z
+ip=2a09:bac1:7ac0:50::17:358 out={"status":429,"secs":0.40,"ra":"52413","t":"16:26:27","text":"","err":"{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode"}
+DEAD -> xoay danh tinh
+--- attempt 4 container=warp-meas-4 port=1203 model=glm-5.3-flash-free at=2026-10-26T09:26:59Z
+ip=2a09:bac5:d45e:16d2::246:d4 out={"status":200,"secs":3.22,"ra":"","t":"16:27:03","text":"pong","err":""}
+ALIVE container=warp-meas-4 port=1203 ip=2a09:bac5:d45e:16d2::246:d4 attempt=4

@@ -1,0 +1,2171 @@
+--- cell SMOKE start 2026-10-26T09:28:11Z model=glm-5.3-flash-free proxy=127.0.0.1:1203 ses=ses_01a17789f091KegF08OKYTvMm2 n=2 ip_before=ip=2a09:bac5:d45e:16d2::246:d4
+session ses_01a17789f091KegF08OKYTvMm2
+handshake ok
+  0   status=200 ra= t=16:28:12 text='Pong'
+handshake ok
+  1   status=200 ra= t=16:28:13 text='pong'
+SUMMARY cell=SMOKE ok200=2 codes={200: 2}
+ts=16:28:12 cell=SMOKE model=glm-5.3-flash-free ses=ses_01a17789f091KegF08OKYTvMm2 i=0 status=200 ra=-
+ts=16:28:13 cell=SMOKE model=glm-5.3-flash-free ses=ses_01a17789f091KegF08OKYTvMm2 i=1 status=200 ra=-
+--- cell SMOKE end 2026-10-26T09:28:13Z ip_after=ip=2a09:bac5:d45e:16d2::246:d4
+--- cell M2 start 2026-10-26T09:28:21Z model=nemotron-3.5-lightning-free proxy=127.0.0.1:1201 ses=ses_01a1778a18c8lpBt1KiOVkinLS n=200 ip_before=ip=2a09:bac5:d45b:e6::17:32b
+--- cell M1 start 2026-10-26T09:28:21Z model=glm-5.3-flash-free proxy=127.0.0.1:1200 ses=ses_01a1778a18cacFVefR1unBN8az n=200 ip_before=ip=2a09:bac5:d459:263c::3cf:14
+session ses_01a1778a18c8lpBt1KiOVkinLS
+session ses_01a1778a18cacFVefR1unBN8az
+--- cell M4 start 2026-10-26T09:28:21Z model=nemotron-3.5-lightning-free proxy=127.0.0.1:1202 ses=ses_01a1778a18e05HoN1VStTExNWf n=200 ip_before=ip=2a09:bac5:d459:16d2::246:18
+session ses_01a1778a18e05HoN1VStTExNWf
+handshake ok
+handshake ok
+handshake ok
+  0   status=200 ra= t=16:28:22 text='pong'
+handshake ok
+  0   status=200 ra= t=16:28:23 text='pong'
+handshake ok
+  0   status=200 ra= t=16:28:23 text='pong'
+handshake ok
+  1   status=200 ra= t=16:28:24 text='Pong'
+  1   status=200 ra= t=16:28:24 text='Pong'
+handshake ok
+handshake ok
+  1   status=200 ra= t=16:28:25 text='Pong'
+handshake ok
+  2   status=200 ra= t=16:28:26 text='pong'
+handshake ok
+  2   status=200 ra= t=16:28:26 text='Pong'
+handshake ok
+  3   status=200 ra= t=16:28:27 text='pong'
+handshake ok
+  3   status=200 ra= t=16:28:28 text='Pong'
+  4   status=200 ra= t=16:28:28 text='pong'
+handshake ok
+handshake ok
+  5   status=200 ra= t=16:28:30 text='pong'
+handshake ok
+  4   status=200 ra= t=16:28:31 text='Pong'
+handshake ok
+  6   status=200 ra= t=16:28:32 text='pong'
+handshake ok
+  5   status=200 ra= t=16:28:32 text='pong'
+handshake ok
+  7   status=200 ra= t=16:28:33 text='pong'
+handshake ok
+  6   status=200 ra= t=16:28:34 text='pong'
+handshake ok
+  8   status=200 ra= t=16:28:34 text='pong'
+  2   status=200 ra= t=16:28:34 text='pong'
+handshake ok
+handshake ok
+  7   status=200 ra= t=16:28:35 text='pong'
+handshake ok
+  3   status=200 ra= t=16:28:36 text='pong'
+handshake ok
+  8   status=200 ra= t=16:28:37 text='Pong'
+handshake ok
+  4   status=200 ra= t=16:28:37 text='pong'
+handshake ok
+  9   status=200 ra= t=16:28:38 text='pong'
+handshake ok
+  5   status=200 ra= t=16:28:39 text='pong'
+handshake ok
+  10  status=200 ra= t=16:28:40 text='pong'
+handshake ok
+  6   status=200 ra= t=16:28:41 text='Pong'
+handshake ok
+  11  status=200 ra= t=16:28:41 text='Pong.'
+handshake ok
+  7   status=200 ra= t=16:28:42 text='pong'
+handshake ok
+  12  status=200 ra= t=16:28:43 text='pong'
+handshake ok
+  13  status=200 ra= t=16:28:45 text='pong'
+handshake ok
+  8   status=200 ra= t=16:28:46 text=''
+handshake ok
+  14  status=200 ra= t=16:28:48 text='Pong'
+handshake ok
+  15  status=200 ra= t=16:28:50 text='pong'
+  9   status=200 ra= t=16:28:50 text='pong'
+handshake ok
+handshake ok
+  10  status=200 ra= t=16:28:52 text='pong'
+  9   status=200 ra= t=16:28:52 text='pong'
+  16  status=200 ra= t=16:28:52 text='Pong'
+handshake ok
+handshake ok
+handshake ok
+  11  status=200 ra= t=16:28:54 text='pong'
+  17  status=200 ra= t=16:28:54 text='pong'
+handshake ok
+  10  status=200 ra= t=16:28:54 text='pong'
+handshake ok
+handshake ok
+  18  status=200 ra= t=16:28:55 text='Pong'
+handshake ok
+  11  status=200 ra= t=16:28:56 text='pong'
+handshake ok
+  19  status=200 ra= t=16:28:57 text='pong'
+handshake ok
+  12  status=200 ra= t=16:28:57 text='pong'
+handshake ok
+  12  status=200 ra= t=16:28:58 text='pong'
+handshake ok
+  20  status=200 ra= t=16:28:59 text='pong'
+  13  status=200 ra= t=16:28:59 text='pong'
+handshake ok
+handshake ok
+  13  status=200 ra= t=16:28:59 text='pong'
+handshake ok
+  21  status=200 ra= t=16:29:00 text='pong'
+handshake ok
+  22  status=200 ra= t=16:29:02 text='Pong'
+handshake ok
+  14  status=200 ra= t=16:29:03 text='pong'
+handshake ok
+  23  status=200 ra= t=16:29:04 text='pong'
+handshake ok
+  15  status=200 ra= t=16:29:05 text='pong'
+  14  status=200 ra= t=16:29:06 text='Pong'
+handshake ok
+  24  status=200 ra= t=16:29:06 text='pong'
+handshake ok
+handshake ok
+  16  status=200 ra= t=16:29:07 text='pong'
+  15  status=200 ra= t=16:29:07 text='pong'
+handshake ok
+handshake ok
+  25  status=200 ra= t=16:29:08 text='Pong'
+handshake ok
+  16  status=200 ra= t=16:29:09 text='pong'
+  17  status=200 ra= t=16:29:09 text='Pong'
+handshake ok
+handshake ok
+  26  status=200 ra= t=16:29:10 text='Pong'
+handshake ok
+  18  status=200 ra= t=16:29:11 text='pong'
+  27  status=200 ra= t=16:29:11 text='pong'
+handshake ok
+handshake ok
+  17  status=200 ra= t=16:29:12 text='pong'
+handshake ok
+  28  status=200 ra= t=16:29:13 text='pong'
+  19  status=200 ra= t=16:29:13 text='pong'
+handshake ok
+handshake ok
+  18  status=200 ra= t=16:29:14 text='pong'
+handshake ok
+  29  status=200 ra= t=16:29:14 text='pong'
+  20  status=200 ra= t=16:29:14 text='pong'
+handshake ok
+handshake ok
+  19  status=200 ra= t=16:29:15 text='pong'
+handshake ok
+  21  status=200 ra= t=16:29:16 text='pong'
+  30  status=200 ra= t=16:29:16 text='pong'
+handshake ok
+  20  status=200 ra= t=16:29:17 text='pong'
+handshake ok
+handshake ok
+  31  status=200 ra= t=16:29:18 text='Pong'
+handshake ok
+  32  status=200 ra= t=16:29:20 text='pong'
+handshake ok
+  33  status=200 ra= t=16:29:21 text='pong'
+handshake ok
+  22  status=200 ra= t=16:29:22 text='pong'
+  34  status=200 ra= t=16:29:23 text='pong'
+handshake ok
+handshake ok
+  35  status=200 ra= t=16:29:25 text='Pong'
+handshake ok
+  23  status=200 ra= t=16:29:25 text='pong'
+handshake ok
+  36  status=200 ra= t=16:29:26 text='Pong'
+handshake ok
+  21  status=200 ra= t=16:29:27 text='pong'
+handshake ok
+  37  status=200 ra= t=16:29:27 text='pong'
+  24  status=200 ra= t=16:29:28 text='pong'
+handshake ok
+handshake ok
+  22  status=200 ra= t=16:29:29 text='pong'
+  38  status=200 ra= t=16:29:29 text='pong'
+handshake ok
+  25  status=200 ra= t=16:29:29 text='pong'
+handshake ok
+handshake ok
+  23  status=200 ra= t=16:29:30 text='pong'
+handshake ok
+  39  status=200 ra= t=16:29:31 text='Pong'
+handshake ok
+  26  status=200 ra= t=16:29:32 text='pong'
+handshake ok
+  40  status=200 ra= t=16:29:33 text='Pong'
+handshake ok
+  27  status=200 ra= t=16:29:33 text='pong'
+handshake ok
+  41  status=200 ra= t=16:29:35 text='pong'
+  28  status=200 ra= t=16:29:35 text='pong'
+handshake ok
+handshake ok
+  42  status=200 ra= t=16:29:36 text='pong'
+handshake ok
+  29  status=200 ra= t=16:29:38 text='pong'
+handshake ok
+  43  status=200 ra= t=16:29:38 text='Pong'
+handshake ok
+  24  status=200 ra= t=16:29:40 text='pong'
+handshake ok
+  30  status=200 ra= t=16:29:40 text='pong'
+  44  status=200 ra= t=16:29:40 text='Pong'
+handshake ok
+handshake ok
+  25  status=200 ra= t=16:29:41 text='Pong'
+handshake ok
+  31  status=200 ra= t=16:29:42 text='pong'
+handshake ok
+  45  status=200 ra= t=16:29:42 text='Pong'
+handshake ok
+  46  status=200 ra= t=16:29:44 text='pong'
+  26  status=200 ra= t=16:29:44 text='pong'
+handshake ok
+handshake ok
+  47  status=200 ra= t=16:29:45 text='pong'
+handshake ok
+  27  status=200 ra= t=16:29:46 text='pong'
+  32  status=200 ra= t=16:29:46 text='pong'
+handshake ok
+handshake ok
+  48  status=200 ra= t=16:29:47 text='pong'
+handshake ok
+  28  status=200 ra= t=16:29:47 text='pong'
+  33  status=200 ra= t=16:29:48 text='pong'
+handshake ok
+handshake ok
+  49  status=200 ra= t=16:29:48 text='pong'
+handshake ok
+  29  status=200 ra= t=16:29:49 text='pong'
+  34  status=200 ra= t=16:29:50 text='pong'
+  50  status=200 ra= t=16:29:50 text='pong'
+handshake ok
+handshake ok
+handshake ok
+  30  status=200 ra= t=16:29:51 text='pong'
+handshake ok
+  51  status=200 ra= t=16:29:52 text='pong'
+handshake ok
+  52  status=200 ra= t=16:29:54 text='pong'
+  31  status=200 ra= t=16:29:54 text='pong'
+handshake ok
+handshake ok
+  53  status=200 ra= t=16:29:55 text='Pong'
+handshake ok
+  32  status=200 ra= t=16:29:56 text='pong'
+handshake ok
+  54  status=200 ra= t=16:29:57 text='pong'
+  35  status=200 ra= t=16:29:57 text='pong'
+handshake ok
+handshake ok
+  33  status=200 ra= t=16:29:57 text='pong'
+handshake ok
+  36  status=200 ra= t=16:29:58 text='pong'
+  55  status=200 ra= t=16:29:59 text='Pong'
+handshake ok
+handshake ok
+  34  status=200 ra= t=16:29:59 text='pong'
+handshake ok
+  37  status=200 ra= t=16:30:00 text='pong'
+  35  status=200 ra= t=16:30:00 text='pong'
+handshake ok
+  56  status=200 ra= t=16:30:01 text='pong'
+handshake ok
+handshake ok
+  38  status=200 ra= t=16:30:02 text='pong'
+  57  status=200 ra= t=16:30:02 text='pong'
+  36  status=200 ra= t=16:30:02 text='pong'
+handshake ok
+handshake ok
+handshake ok
+  58  status=200 ra= t=16:30:03 text='pong'
+  39  status=200 ra= t=16:30:03 text='Pong'
+handshake ok
+  37  status=200 ra= t=16:30:03 text='pong'
+handshake ok
+handshake ok
+  40  status=200 ra= t=16:30:05 text='pong'
+  59  status=200 ra= t=16:30:05 text='Pong'
+handshake ok
+handshake ok
+  60  status=200 ra= t=16:30:07 text='Pong'
+handshake ok
+  41  status=200 ra= t=16:30:08 text='pong'
+handshake ok
+  38  status=200 ra= t=16:30:08 text='pong'
+handshake ok
+  61  status=200 ra= t=16:30:09 text='pong'
+handshake ok
+  42  status=200 ra= t=16:30:10 text='pong'
+  39  status=200 ra= t=16:30:10 text='pong'
+handshake ok
+handshake ok
+  62  status=200 ra= t=16:30:10 text='pong'
+handshake ok
+  40  status=200 ra= t=16:30:11 text='pong'
+handshake ok
+  63  status=200 ra= t=16:30:13 text='Pong'
+  41  status=200 ra= t=16:30:13 text='pong'
+handshake ok
+  43  status=200 ra= t=16:30:13 text='pong'
+stop after status 429 (quota)
+  64  status=429 ra=52187 t=16:30:14 text=''
+SUMMARY cell=M1 ok200=64 codes={200: 64, 429: 1}
+FIRST_429 cell=M1 i=64 ra=52187 t=16:30:14 err={"type":"error","error":{"type":"FreeUsageLimitError","message":"Free usage limit reached. Free mode
+handshake ok
+ts=16:28:23 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=0 status=200 ra=-
+ts=16:28:25 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=1 status=200 ra=-
+ts=16:28:26 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=2 status=200 ra=-
+ts=16:28:28 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=3 status=200 ra=-
+ts=16:28:31 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=4 status=200 ra=-
+ts=16:28:32 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=5 status=200 ra=-
+ts=16:28:34 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=6 status=200 ra=-
+ts=16:28:35 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=7 status=200 ra=-
+ts=16:28:37 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=8 status=200 ra=-
+ts=16:28:38 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=9 status=200 ra=-
+ts=16:28:40 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=10 status=200 ra=-
+ts=16:28:41 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=11 status=200 ra=-
+ts=16:28:43 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=12 status=200 ra=-
+ts=16:28:45 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=13 status=200 ra=-
+ts=16:28:48 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=14 status=200 ra=-
+ts=16:28:50 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=15 status=200 ra=-
+ts=16:28:52 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=16 status=200 ra=-
+ts=16:28:54 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=17 status=200 ra=-
+ts=16:28:55 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=18 status=200 ra=-
+ts=16:28:57 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=19 status=200 ra=-
+ts=16:28:59 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=20 status=200 ra=-
+ts=16:29:00 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=21 status=200 ra=-
+ts=16:29:02 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=22 status=200 ra=-
+ts=16:29:04 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=23 status=200 ra=-
+ts=16:29:06 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=24 status=200 ra=-
+ts=16:29:08 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=25 status=200 ra=-
+ts=16:29:10 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=26 status=200 ra=-
+ts=16:29:11 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=27 status=200 ra=-
+ts=16:29:13 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=28 status=200 ra=-
+ts=16:29:14 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=29 status=200 ra=-
+ts=16:29:16 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=30 status=200 ra=-
+ts=16:29:18 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=31 status=200 ra=-
+ts=16:29:20 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=32 status=200 ra=-
+ts=16:29:21 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=33 status=200 ra=-
+ts=16:29:23 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=34 status=200 ra=-
+ts=16:29:25 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=35 status=200 ra=-
+ts=16:29:26 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=36 status=200 ra=-
+ts=16:29:27 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=37 status=200 ra=-
+ts=16:29:29 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=38 status=200 ra=-
+ts=16:29:31 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=39 status=200 ra=-
+ts=16:29:33 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=40 status=200 ra=-
+ts=16:29:35 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=41 status=200 ra=-
+ts=16:29:36 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=42 status=200 ra=-
+ts=16:29:38 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=43 status=200 ra=-
+ts=16:29:40 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=44 status=200 ra=-
+ts=16:29:42 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=45 status=200 ra=-
+ts=16:29:44 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=46 status=200 ra=-
+ts=16:29:45 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=47 status=200 ra=-
+ts=16:29:47 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=48 status=200 ra=-
+ts=16:29:48 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=49 status=200 ra=-
+ts=16:29:50 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=50 status=200 ra=-
+ts=16:29:52 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=51 status=200 ra=-
+ts=16:29:54 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=52 status=200 ra=-
+ts=16:29:55 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=53 status=200 ra=-
+ts=16:29:57 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=54 status=200 ra=-
+ts=16:29:59 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=55 status=200 ra=-
+ts=16:30:01 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=56 status=200 ra=-
+ts=16:30:02 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=57 status=200 ra=-
+ts=16:30:03 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=58 status=200 ra=-
+ts=16:30:05 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=59 status=200 ra=-
+ts=16:30:07 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=60 status=200 ra=-
+ts=16:30:09 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=61 status=200 ra=-
+ts=16:30:10 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=62 status=200 ra=-
+ts=16:30:13 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=63 status=200 ra=-
+ts=16:30:14 cell=M1 model=glm-5.3-flash-free ses=ses_01a1778a18cacFVefR1unBN8az i=64 status=429 ra=52187
+handshake ok
+--- cell M1 end 2026-10-26T09:30:14Z ip_after=ip=2a09:bac5:d459:263c::3cf:14
+--- cell M1P2 start 2026-10-26T09:30:15Z model=nemotron-3.5-lightning-free proxy=127.0.0.1:1200 ses=ses_01a1778bd564gtzcR8vvWze002 n=20 ip_before=ip=2a09:bac5:d459:263c::3cf:14
+session ses_01a1778bd564gtzcR8vvWze002
+  44  status=200 ra= t=16:30:15 text='pong'
+  42  status=200 ra= t=16:30:15 text='pong'
+handshake ok
+handshake ok
+handshake ok
+  0   status=200 ra= t=16:30:16 text='pong'
+  45  status=200 ra= t=16:30:16 text='pong'
+handshake ok
+handshake ok
+  43  status=200 ra= t=16:30:17 text='pong'
+handshake ok
+  46  status=200 ra= t=16:30:18 text='pong'
+  1   status=200 ra= t=16:30:18 text='Pong'
+handshake ok
+handshake ok
+  44  status=200 ra= t=16:30:19 text='pong'
+handshake ok
+  2   status=200 ra= t=16:30:20 text='pong'
+handshake ok
+  45  status=200 ra= t=16:30:26 text='pong'
+handshake ok
+  3   status=200 ra= t=16:30:27 text='pong'
+handshake ok
+  46  status=200 ra= t=16:30:28 text='pong'
+handshake ok
+  47  status=200 ra= t=16:30:29 text='pong'
+handshake ok
+  48  status=200 ra= t=16:30:31 text='pong'
+handshake ok
+  47  status=200 ra= t=16:30:35 text='pong'
+  4   status=200 ra= t=16:30:35 text=''
+handshake ok
+handshake ok
+  48  status=200 ra= t=16:30:36 text='pong'
+handshake ok
+  5   status=200 ra= t=16:30:38 text=''
+handshake ok
+  49  status=200 ra= t=16:30:39 text='pong'
+handshake ok
+  50  status=200 ra= t=16:30:41 text='Pong'
+handshake ok
+  6   status=200 ra= t=16:30:42 text='pong'
+handshake ok
+  51  status=200 ra= t=16:30:43 text='pong'
+handshake ok
+  7   status=200 ra= t=16:30:44 text='pong'
+handshake ok
+  52  status=200 ra= t=16:30:45 text='pong'
+handshake ok
+  8   status=200 ra= t=16:30:46 text='pong'
+  49  status=200 ra= t=16:30:46 text='pong'
+handshake ok
+handshake ok
+  53  status=200 ra= t=16:30:47 text='pong'
+  9   status=200 ra= t=16:30:47 text='pong'
+handshake ok
+  50  status=200 ra= t=16:30:47 text='pong'
+handshake ok
+handshake ok
+  54  status=200 ra= t=16:30:49 text='pong'
+handshake ok
+  10  status=200 ra= t=16:30:49 text='pong'
+handshake ok
+  55  status=200 ra= t=16:30:50 text='pong'
+handshake ok
+  11  status=200 ra= t=16:30:51 text='pong'
+handshake ok
+  56  status=200 ra= t=16:30:52 text='Pong'
+handshake ok
+  51  status=200 ra= t=16:30:53 text='Pong'
+handshake ok
+  57  status=200 ra= t=16:30:54 text='Pong'
+handshake ok
+  52  status=200 ra= t=16:30:55 text='pong'
+  12  status=200 ra= t=16:30:55 text='pong'
+handshake ok
+handshake ok
+  58  status=200 ra= t=16:30:56 text='pong'
+handshake ok
+  13  status=200 ra= t=16:30:56 text='pong'
+handshake ok
+  14  status=200 ra= t=16:30:57 text='pong'
+handshake ok
+  53  status=200 ra= t=16:30:59 text=''
+  59  status=200 ra= t=16:30:59 text='pong'
+  15  status=200 ra= t=16:30:59 text='pong'
+handshake ok
+handshake ok
+handshake ok
+  16  status=200 ra= t=16:31:00 text='pong'
+handshake ok
+  60  status=200 ra= t=16:31:01 text='pong'
+handshake ok
+  54  status=200 ra= t=16:31:01 text='pong'
+handshake ok
+  17  status=200 ra= t=16:31:02 text='pong'
+handshake ok
+  61  status=200 ra= t=16:31:03 text='pong'
+  55  status=200 ra= t=16:31:03 text='pong'
+handshake ok
+handshake ok
+  56  status=200 ra= t=16:31:05 text='pong'
+handshake ok
+  18  status=200 ra= t=16:31:05 text='pong'
+handshake ok
+  62  status=200 ra= t=16:31:06 text='pong'
+handshake ok
+  57  status=200 ra= t=16:31:07 text='pong'
+  19  status=200 ra= t=16:31:07 text='pong'
+SUMMARY cell=M1P2 ok200=20 codes={200: 20}
+ts=16:30:16 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=0 status=200 ra=-
+ts=16:30:18 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=1 status=200 ra=-
+ts=16:30:20 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=2 status=200 ra=-
+ts=16:30:27 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=3 status=200 ra=-
+ts=16:30:35 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=4 status=200 ra=-
+ts=16:30:38 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=5 status=200 ra=-
+ts=16:30:42 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=6 status=200 ra=-
+ts=16:30:44 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=7 status=200 ra=-
+ts=16:30:46 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=8 status=200 ra=-
+ts=16:30:47 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=9 status=200 ra=-
+ts=16:30:49 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=10 status=200 ra=-
+ts=16:30:51 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=11 status=200 ra=-
+ts=16:30:55 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=12 status=200 ra=-
+ts=16:30:56 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=13 status=200 ra=-
+ts=16:30:57 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=14 status=200 ra=-
+ts=16:30:59 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=15 status=200 ra=-
+ts=16:31:00 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=16 status=200 ra=-
+ts=16:31:02 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=17 status=200 ra=-
+ts=16:31:05 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=18 status=200 ra=-
+ts=16:31:07 cell=M1P2 model=nemotron-3.5-lightning-free ses=ses_01a1778bd564gtzcR8vvWze002 i=19 status=200 ra=-
+handshake ok
+--- cell M1P2 end 2026-10-26T09:31:07Z ip_after=ip=2a09:bac5:d459:263c::3cf:14
+  63  status=200 ra= t=16:31:08 text='pong'
+handshake ok
+  58  status=200 ra= t=16:31:08 text='pong'
+handshake ok
+  64  status=200 ra= t=16:31:09 text='pong'
+handshake ok
+  59  status=200 ra= t=16:31:11 text='pong'
+  65  status=200 ra= t=16:31:11 text='pong'
+handshake ok
+handshake ok
+  66  status=200 ra= t=16:31:12 text='pong'
+  60  status=200 ra= t=16:31:12 text='pong'
+handshake ok
+handshake ok
+  61  status=200 ra= t=16:31:13 text='pong'
+handshake ok
+  67  status=200 ra= t=16:31:14 text='pong'
+handshake ok
+  62  status=200 ra= t=16:31:15 text='pong'
+handshake ok
+  68  status=200 ra= t=16:31:15 text='pong'
+handshake ok
+  69  status=200 ra= t=16:31:17 text='pong'
+handshake ok
+  70  status=200 ra= t=16:31:19 text='pong'
+  63  status=200 ra= t=16:31:20 text='pong'
+handshake ok
+handshake ok
+  71  status=200 ra= t=16:31:21 text='pong'
+handshake ok
+  64  status=200 ra= t=16:31:22 text='pong'
+handshake ok
+  72  status=200 ra= t=16:31:23 text='pong'
+handshake ok
+  73  status=200 ra= t=16:31:25 text='pong'
+handshake ok
+  65  status=200 ra= t=16:31:26 text='pong'
+handshake ok
+  74  status=200 ra= t=16:31:28 text='pong'
+handshake ok
+  66  status=200 ra= t=16:31:29 text='pong'
+  75  status=200 ra= t=16:31:29 text='pong'
+handshake ok
+handshake ok
+  67  status=200 ra= t=16:31:30 text='pong'
+  76  status=200 ra= t=16:31:30 text='pong'
+handshake ok
+handshake ok
+  77  status=200 ra= t=16:31:32 text='pong'
+  68  status=200 ra= t=16:31:32 text='pong'
+handshake ok
+handshake ok
+  78  status=200 ra= t=16:31:34 text='pong'
+handshake ok
+  69  status=200 ra= t=16:31:34 text='pong'
+handshake ok
+  79  status=200 ra= t=16:31:36 text='pong'
+handshake ok
+  70  status=200 ra= t=16:31:39 text='pong'
+  80  status=200 ra= t=16:31:39 text='pong'
+handshake ok
+handshake ok
+  71  status=200 ra= t=16:31:40 text='pong'
+handshake ok
+  81  status=200 ra= t=16:31:40 text='Pong'
+handshake ok
+  72  status=200 ra= t=16:31:41 text='pong'
+handshake ok
+  82  status=200 ra= t=16:31:43 text='pong'
+handshake ok
+  73  status=200 ra= t=16:31:44 text='pong'
+handshake ok
+  83  status=200 ra= t=16:31:44 text='pong'
+handshake ok
+  74  status=200 ra= t=16:31:45 text='pong'
+handshake ok
+  84  status=200 ra= t=16:31:46 text='pong'
+handshake ok
+  85  status=200 ra= t=16:31:47 text='pong'
+handshake ok
+  75  status=200 ra= t=16:31:52 text='pong'
+  86  status=200 ra= t=16:31:52 text='pong'
+handshake ok
+handshake ok
+  76  status=200 ra= t=16:31:54 text='pong'
+  87  status=200 ra= t=16:31:54 text='pong'
+handshake ok
+handshake ok
+  88  status=200 ra= t=16:31:55 text='pong'
+handshake ok
+  89  status=200 ra= t=16:31:57 text='pong'
+handshake ok
+  90  status=200 ra= t=16:31:59 text='pong'
+handshake ok
+  91  status=200 ra= t=16:32:01 text='pong'
+handshake ok
+  77  status=200 ra= t=16:32:02 text='pong'
+  92  status=200 ra= t=16:32:03 text='pong'
+handshake ok
+handshake ok
+  78  status=200 ra= t=16:32:04 text='pong'
+handshake ok
+  93  status=200 ra= t=16:32:05 text='pong'
+handshake ok
+  79  status=200 ra= t=16:32:06 text='pong'
+handshake ok
+  94  status=200 ra= t=16:32:07 text='Pong'
+  80  status=200 ra= t=16:32:07 text='pong'
+handshake ok
+handshake ok
+  95  status=200 ra= t=16:32:08 text='pong'
+handshake ok
+  96  status=200 ra= t=16:32:11 text='pong'
+handshake ok
+  97  status=200 ra= t=16:32:13 text='pong'
+  81  status=200 ra= t=16:32:13 text='pong'
+handshake ok
+handshake ok
+  82  status=200 ra= t=16:32:15 text='pong'
+handshake ok
+  83  status=200 ra= t=16:32:16 text='pong'
+handshake ok
+  84  status=200 ra= t=16:32:18 text='pong'
+handshake ok
+  85  status=200 ra= t=16:32:20 text='pong'
+handshake ok
+  86  status=200 ra= t=16:32:22 text='pong'
+handshake ok
+  98  status=200 ra= t=16:32:22 text='pong'
+handshake ok
+  87  status=200 ra= t=16:32:23 text='pong'
+handshake ok
+  99  status=200 ra= t=16:32:24 text='pong'
+handshake ok
+  88  status=200 ra= t=16:32:25 text='pong'
+  100 status=200 ra= t=16:32:25 text='pong'
+handshake ok
+handshake ok
+  101 status=200 ra= t=16:32:27 text='pong'
+  89  status=200 ra= t=16:32:27 text='pong'
+handshake ok
+handshake ok
+  102 status=200 ra= t=16:32:28 text='pong'
+handshake ok
+  90  status=200 ra= t=16:32:29 text='Pong'
+handshake ok
+  91  status=200 ra= t=16:32:31 text='pong'
+  103 status=200 ra= t=16:32:31 text='pong'
+handshake ok
+handshake ok
+  104 status=200 ra= t=16:32:34 text='pong'
+handshake ok
+  105 status=200 ra= t=16:32:35 text='pong'
+handshake ok
+  106 status=200 ra= t=16:32:37 text='pong'
+handshake ok
+  107 status=200 ra= t=16:32:38 text='pong'
+handshake ok
+  108 status=200 ra= t=16:32:40 text='pong'
+handshake ok
+  109 status=200 ra= t=16:32:41 text='pong'
+handshake ok
+  92  status=200 ra= t=16:32:42 text='Pong'
+handshake ok
+  110 status=200 ra= t=16:32:43 text='pong'
+handshake ok
+  93  status=200 ra= t=16:32:44 text='Pong'
+handshake ok
+  111 status=200 ra= t=16:32:45 text='pong'
+handshake ok
+  112 status=200 ra= t=16:32:49 text='pong'
+handshake ok
+  94  status=200 ra= t=16:32:49 text=''
+handshake ok
+  113 status=200 ra= t=16:32:50 text='pong'
+handshake ok
+  114 status=200 ra= t=16:32:55 text='pong'
+handshake ok
+  115 status=200 ra= t=16:32:59 text='Pong'
+handshake ok
+  116 status=200 ra= t=16:33:12 text='pong'
+  95  status=200 ra= t=16:33:12 text='pong'
+handshake ok
+handshake ok
+  96  status=200 ra= t=16:33:16 text='pong'
+handshake ok
+  117 status=200 ra= t=16:33:18 text='pong'
+  97  status=200 ra= t=16:33:18 text='pong'
+handshake ok
+handshake ok
+  118 status=200 ra= t=16:33:20 text='pong'
+handshake ok
+  98  status=200 ra= t=16:33:21 text='Pong'
+handshake ok
+  99  status=200 ra= t=16:33:23 text='Pong'
+handshake ok
+  100 status=200 ra= t=16:33:25 text='pong'
+handshake ok
+  101 status=200 ra= t=16:33:26 text='pong'
+handshake ok
+  119 status=200 ra= t=16:33:30 text='pong'
+handshake ok
+  102 status=200 ra= t=16:33:32 text='pong'
+handshake ok
+  120 status=200 ra= t=16:33:33 text='pong'
+handshake ok
+  103 status=200 ra= t=16:33:34 text='pong'
+handshake ok
+  121 status=200 ra= t=16:33:35 text='pong'
+handshake ok
+  122 status=200 ra= t=16:33:36 text='pong'
+handshake ok
+  104 status=200 ra= t=16:33:37 text='pong'
+handshake ok
+  105 status=200 ra= t=16:33:40 text='pong'
+handshake ok
+  123 status=200 ra= t=16:33:40 text='pong'
+handshake ok
+  124 status=200 ra= t=16:33:42 text='pong'
+handshake ok
+  106 status=200 ra= t=16:33:43 text='pong'
+handshake ok
+  125 status=200 ra= t=16:33:44 text='pong'
+handshake ok
+  107 status=200 ra= t=16:33:45 text='pong'
+handshake ok
+  108 status=200 ra= t=16:33:47 text='pong'
+handshake ok
+  109 status=200 ra= t=16:33:48 text='pong'
+handshake ok
+  110 status=200 ra= t=16:33:50 text='pong'
+  126 status=200 ra= t=16:33:50 text='pong'
+handshake ok
+handshake ok
+  127 status=200 ra= t=16:33:52 text='pong'
+handshake ok
+  111 status=200 ra= t=16:33:53 text='pong'
+handshake ok
+  128 status=200 ra= t=16:33:54 text='pong'
+handshake ok
+  129 status=200 ra= t=16:33:56 text='pong'
+  112 status=200 ra= t=16:33:56 text='pong'
+handshake ok
+handshake ok
+  113 status=200 ra= t=16:33:58 text='pong'
+handshake ok
+  114 status=200 ra= t=16:33:59 text='pong'
+handshake ok
+  115 status=200 ra= t=16:34:01 text='pong'
+handshake ok
+  130 status=200 ra= t=16:34:02 text='pong'
+handshake ok
+  116 status=200 ra= t=16:34:03 text='pong'
+handshake ok
+  131 status=200 ra= t=16:34:04 text='pong'
+handshake ok
+  117 status=200 ra= t=16:34:05 text='pong'
+handshake ok
+  118 status=200 ra= t=16:34:07 text='pong'
+handshake ok
+  132 status=200 ra= t=16:34:07 text='pong'
+handshake ok
+  119 status=200 ra= t=16:34:08 text='pong'
+handshake ok
+  120 status=200 ra= t=16:34:10 text='pong'
+  133 status=200 ra= t=16:34:10 text='pong'
+handshake ok
+handshake ok
+  134 status=200 ra= t=16:34:11 text='pong'
+handshake ok
+  121 status=200 ra= t=16:34:14 text='pong'
+handshake ok
+  122 status=200 ra= t=16:34:15 text='pong'
+handshake ok
+  123 status=200 ra= t=16:34:18 text='pong'
+handshake ok
+  124 status=200 ra= t=16:34:20 text='pong'
+handshake ok
+  125 status=200 ra= t=16:34:22 text='pong'
+handshake ok
+  126 status=200 ra= t=16:34:23 text='pong'
+handshake ok
+  135 status=200 ra= t=16:34:24 text='pong'
+handshake ok
+  127 status=200 ra= t=16:34:25 text='pong'
+handshake ok
+  136 status=200 ra= t=16:34:26 text='pong'
+handshake ok
+  128 status=200 ra= t=16:34:27 text='pong'
+handshake ok
+  137 status=200 ra= t=16:34:28 text='pong'
+handshake ok
+  129 status=200 ra= t=16:34:29 text='pong'
+  138 status=200 ra= t=16:34:29 text='pong'
+handshake ok
+handshake ok
+  139 status=200 ra= t=16:34:31 text='pong'
+handshake ok
+  130 status=200 ra= t=16:34:32 text='pong'
+handshake ok
+  140 status=200 ra= t=16:34:33 text='pong'
+handshake ok
+  141 status=200 ra= t=16:34:35 text='pong'
+handshake ok
+  131 status=200 ra= t=16:34:36 text='pong'
+handshake ok
+  142 status=200 ra= t=16:34:36 text='pong'
+handshake ok
+  143 status=200 ra= t=16:34:42 text='pong'
+handshake ok
+  144 status=200 ra= t=16:34:44 text='pong'
+handshake ok
+  145 status=200 ra= t=16:34:45 text='pong'
+handshake ok
+  146 status=200 ra= t=16:34:46 text='pong'
+handshake ok
+  147 status=200 ra= t=16:34:49 text='pong'
+handshake ok
+  148 status=200 ra= t=16:34:50 text='pong'
+handshake ok
+  149 status=200 ra= t=16:34:51 text='pong'
+handshake ok
+  132 status=200 ra= t=16:34:54 text='pong'
+handshake ok
+  150 status=200 ra= t=16:34:56 text='pong'
+handshake ok
+  133 status=200 ra= t=16:34:57 text='pong'
+handshake ok
+  151 status=200 ra= t=16:34:58 text='pong'
+handshake ok
+  134 status=200 ra= t=16:34:59 text='pong'
+  152 status=200 ra= t=16:34:59 text='pong'
+handshake ok
+handshake ok
+  153 status=200 ra= t=16:35:01 text='pong'
+  135 status=200 ra= t=16:35:01 text='pong'
+handshake ok
+handshake ok
+  154 status=200 ra= t=16:35:03 text='pong'
+  136 status=200 ra= t=16:35:03 text='pong'
+handshake ok
+handshake ok
+  137 status=200 ra= t=16:35:05 text='pong'
+handshake ok
+  138 status=200 ra= t=16:35:06 text='Pong'
+handshake ok
+  155 status=200 ra= t=16:35:07 text='pong'
+handshake ok
+  156 status=200 ra= t=16:35:08 text='pong'
+handshake ok
+  139 status=200 ra= t=16:35:09 text='pong'
+handshake ok
+  140 status=200 ra= t=16:35:10 text='pong'
+handshake ok
+  141 status=200 ra= t=16:35:11 text='pong'
+  157 status=200 ra= t=16:35:11 text='pong'
+handshake ok
+handshake ok
+  158 status=200 ra= t=16:35:15 text='Pong'
+handshake ok
+  159 status=200 ra= t=16:35:16 text='pong'
+handshake ok
+  160 status=200 ra= t=16:35:19 text='pong'
+  142 status=200 ra= t=16:35:19 text='pong'
+handshake ok
+handshake ok
+  161 status=200 ra= t=16:35:20 text='pong'
+  143 status=200 ra= t=16:35:20 text='pong'
+handshake ok
+handshake ok
+  162 status=200 ra= t=16:35:21 text='pong'
+handshake ok
+  144 status=200 ra= t=16:35:25 text='pong'
+handshake ok
+  145 status=200 ra= t=16:35:27 text='pong'
+handshake ok
+  163 status=200 ra= t=16:35:28 text='pong'
+handshake ok
+  146 status=200 ra= t=16:35:29 text='pong'
+handshake ok
+  147 status=200 ra= t=16:35:31 text='Pong'
+  164 status=200 ra= t=16:35:31 text='pong'
+handshake ok
+handshake ok
+  148 status=200 ra= t=16:35:33 text='pong'
+handshake ok
+  165 status=200 ra= t=16:35:34 text='pong'
+handshake ok
+  149 status=200 ra= t=16:35:35 text='pong'
+  166 status=200 ra= t=16:35:36 text='pong'
+handshake ok
+handshake ok
+  150 status=200 ra= t=16:35:37 text='pong'
+  167 status=200 ra= t=16:35:37 text='pong'
+handshake ok
+handshake ok
+  151 status=200 ra= t=16:35:39 text='Pong'
+handshake ok
+  152 status=200 ra= t=16:35:41 text='pong'
+handshake ok
+  168 status=200 ra= t=16:35:43 text='pong'
+handshake ok
+  169 status=200 ra= t=16:35:45 text='pong'
+handshake ok
+  170 status=200 ra= t=16:35:46 text='pong'
+  153 status=200 ra= t=16:35:46 text='pong'
+handshake ok
+handshake ok
+  171 status=200 ra= t=16:35:48 text='pong'
+handshake ok
+  154 status=200 ra= t=16:35:48 text='pong'
+handshake ok
+  172 status=200 ra= t=16:35:49 text='pong'
+handshake ok
+  173 status=200 ra= t=16:35:51 text='pong'
+handshake ok
+  174 status=200 ra= t=16:35:52 text='pong'
+handshake ok
+  155 status=200 ra= t=16:35:53 text=''
+handshake ok
+  156 status=200 ra= t=16:35:55 text='pong'
+handshake ok
+  157 status=200 ra= t=16:35:56 text='pong'
+handshake ok
+  158 status=200 ra= t=16:35:58 text='pong'
+handshake ok
+  175 status=200 ra= t=16:36:01 text='pong'
+handshake ok
+  159 status=200 ra= t=16:36:03 text='pong'
+handshake ok
+  176 status=200 ra= t=16:36:04 text=''
+handshake ok
+  177 status=200 ra= t=16:36:06 text='pong'
+  160 status=200 ra= t=16:36:06 text='pong'
+handshake ok
+handshake ok
+  178 status=200 ra= t=16:36:08 text='pong'
+handshake ok
+  161 status=200 ra= t=16:36:10 text='pong'
+handshake ok
+  179 status=200 ra= t=16:36:11 text='pong'
+handshake ok
+  162 status=200 ra= t=16:36:12 text='pong'
+handshake ok
+  180 status=200 ra= t=16:36:18 text='pong'
+handshake ok
+  163 status=200 ra= t=16:36:19 text='pong'
+  181 status=200 ra= t=16:36:19 text='pong'
+handshake ok
+handshake ok
+  182 status=200 ra= t=16:36:21 text='pong'
+  164 status=200 ra= t=16:36:21 text='pong'
+handshake ok
+handshake ok
+  165 status=200 ra= t=16:36:23 text='pong'
+  183 status=200 ra= t=16:36:23 text='pong'
+handshake ok
+handshake ok
+  166 status=200 ra= t=16:36:24 text='pong'
+handshake ok
+  184 status=200 ra= t=16:36:26 text='pong'
+handshake ok
+  185 status=200 ra= t=16:36:27 text='pong'
+handshake ok
+  186 status=200 ra= t=16:36:29 text='pong'
+handshake ok
+  167 status=200 ra= t=16:36:30 text='pong'
+handshake ok
+  187 status=200 ra= t=16:36:31 text='pong'
+handshake ok
+  168 status=200 ra= t=16:36:32 text='pong'
+handshake ok
+  169 status=200 ra= t=16:36:35 text='pong'
+  188 status=200 ra= t=16:36:35 text='Pong'
+handshake ok
+handshake ok
+  170 status=200 ra= t=16:36:36 text='pong'
+  189 status=200 ra= t=16:36:36 text='pong'
+handshake ok
+handshake ok
+  190 status=200 ra= t=16:36:37 text='pong'
+  171 status=200 ra= t=16:36:38 text='pong'
+handshake ok
+handshake ok
+  191 status=200 ra= t=16:36:39 text='pong'
+handshake ok
+  192 status=200 ra= t=16:36:42 text='pong'
+handshake ok
+  172 status=200 ra= t=16:36:43 text='pong'
+handshake ok
+  193 status=200 ra= t=16:36:44 text='pong'
+handshake ok
+  173 status=200 ra= t=16:36:45 text='Pong'
+handshake ok
+  194 status=200 ra= t=16:36:46 text='pong'
+handshake ok
+  174 status=200 ra= t=16:36:46 text='Pong'
+handshake ok
+  175 status=200 ra= t=16:36:50 text='pong'
+handshake ok
+  176 status=200 ra= t=16:36:52 text='pong'
+handshake ok
+  195 status=200 ra= t=16:36:53 text='pong'
+handshake ok
+  177 status=200 ra= t=16:36:54 text='pong'
+handshake ok
+  196 status=200 ra= t=16:36:55 text='pong'
+handshake ok
+  178 status=200 ra= t=16:36:59 text='pong'
+handshake ok
+  197 status=200 ra= t=16:37:01 text='pong'
+  179 status=200 ra= t=16:37:02 text='pong'
+handshake ok
+handshake ok
+  180 status=200 ra= t=16:37:04 text='Pong'
+  198 status=200 ra= t=16:37:04 text='pong'
+handshake ok
+handshake ok
+  181 status=200 ra= t=16:37:06 text='pong'
+handshake ok
+  182 status=200 ra= t=16:37:07 text='pong'
+handshake ok
+  183 status=200 ra= t=16:37:10 text='pong'
+handshake ok
+  184 status=200 ra= t=16:37:11 text='pong'
+handshake ok
+  185 status=200 ra= t=16:37:13 text='pong'
+handshake ok
+  199 status=200 ra= t=16:37:14 text='pong'
+SUMMARY cell=M4 ok200=200 codes={200: 200}
+ts=16:28:23 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=0 status=200 ra=-
+ts=16:28:24 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=1 status=200 ra=-
+ts=16:28:26 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=2 status=200 ra=-
+ts=16:28:27 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=3 status=200 ra=-
+ts=16:28:28 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=4 status=200 ra=-
+ts=16:28:30 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=5 status=200 ra=-
+ts=16:28:32 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=6 status=200 ra=-
+ts=16:28:33 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=7 status=200 ra=-
+ts=16:28:34 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=8 status=200 ra=-
+ts=16:28:52 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=9 status=200 ra=-
+ts=16:28:54 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=10 status=200 ra=-
+ts=16:28:56 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=11 status=200 ra=-
+ts=16:28:58 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=12 status=200 ra=-
+ts=16:28:59 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=13 status=200 ra=-
+ts=16:29:03 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=14 status=200 ra=-
+ts=16:29:05 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=15 status=200 ra=-
+ts=16:29:07 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=16 status=200 ra=-
+ts=16:29:09 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=17 status=200 ra=-
+ts=16:29:11 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=18 status=200 ra=-
+ts=16:29:13 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=19 status=200 ra=-
+ts=16:29:14 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=20 status=200 ra=-
+ts=16:29:16 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=21 status=200 ra=-
+ts=16:29:22 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=22 status=200 ra=-
+ts=16:29:25 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=23 status=200 ra=-
+ts=16:29:28 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=24 status=200 ra=-
+ts=16:29:29 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=25 status=200 ra=-
+ts=16:29:32 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=26 status=200 ra=-
+ts=16:29:33 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=27 status=200 ra=-
+ts=16:29:35 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=28 status=200 ra=-
+ts=16:29:38 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=29 status=200 ra=-
+ts=16:29:40 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=30 status=200 ra=-
+ts=16:29:42 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=31 status=200 ra=-
+ts=16:29:46 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=32 status=200 ra=-
+ts=16:29:48 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=33 status=200 ra=-
+ts=16:29:50 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=34 status=200 ra=-
+ts=16:29:57 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=35 status=200 ra=-
+ts=16:29:58 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=36 status=200 ra=-
+ts=16:30:00 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=37 status=200 ra=-
+ts=16:30:02 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=38 status=200 ra=-
+ts=16:30:03 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=39 status=200 ra=-
+ts=16:30:05 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=40 status=200 ra=-
+ts=16:30:08 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=41 status=200 ra=-
+ts=16:30:10 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=42 status=200 ra=-
+ts=16:30:13 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=43 status=200 ra=-
+ts=16:30:15 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=44 status=200 ra=-
+ts=16:30:16 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=45 status=200 ra=-
+ts=16:30:18 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=46 status=200 ra=-
+ts=16:30:35 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=47 status=200 ra=-
+ts=16:30:36 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=48 status=200 ra=-
+ts=16:30:39 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=49 status=200 ra=-
+ts=16:30:41 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=50 status=200 ra=-
+ts=16:30:43 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=51 status=200 ra=-
+ts=16:30:45 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=52 status=200 ra=-
+ts=16:30:47 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=53 status=200 ra=-
+ts=16:30:49 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=54 status=200 ra=-
+ts=16:30:50 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=55 status=200 ra=-
+ts=16:30:52 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=56 status=200 ra=-
+ts=16:30:54 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=57 status=200 ra=-
+ts=16:30:56 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=58 status=200 ra=-
+ts=16:30:59 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=59 status=200 ra=-
+ts=16:31:01 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=60 status=200 ra=-
+ts=16:31:03 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=61 status=200 ra=-
+ts=16:31:06 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=62 status=200 ra=-
+ts=16:31:08 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=63 status=200 ra=-
+ts=16:31:09 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=64 status=200 ra=-
+ts=16:31:11 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=65 status=200 ra=-
+ts=16:31:12 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=66 status=200 ra=-
+ts=16:31:14 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=67 status=200 ra=-
+ts=16:31:15 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=68 status=200 ra=-
+ts=16:31:17 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=69 status=200 ra=-
+ts=16:31:19 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=70 status=200 ra=-
+ts=16:31:21 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=71 status=200 ra=-
+ts=16:31:23 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=72 status=200 ra=-
+ts=16:31:25 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=73 status=200 ra=-
+ts=16:31:28 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=74 status=200 ra=-
+ts=16:31:29 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=75 status=200 ra=-
+ts=16:31:30 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=76 status=200 ra=-
+ts=16:31:32 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=77 status=200 ra=-
+ts=16:31:34 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=78 status=200 ra=-
+ts=16:31:36 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=79 status=200 ra=-
+ts=16:31:39 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=80 status=200 ra=-
+ts=16:31:40 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=81 status=200 ra=-
+ts=16:31:43 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=82 status=200 ra=-
+ts=16:31:44 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=83 status=200 ra=-
+ts=16:31:46 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=84 status=200 ra=-
+ts=16:31:47 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=85 status=200 ra=-
+ts=16:31:52 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=86 status=200 ra=-
+ts=16:31:54 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=87 status=200 ra=-
+ts=16:31:55 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=88 status=200 ra=-
+ts=16:31:57 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=89 status=200 ra=-
+ts=16:31:59 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=90 status=200 ra=-
+ts=16:32:01 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=91 status=200 ra=-
+ts=16:32:03 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=92 status=200 ra=-
+ts=16:32:05 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=93 status=200 ra=-
+ts=16:32:07 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=94 status=200 ra=-
+ts=16:32:08 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=95 status=200 ra=-
+ts=16:32:11 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=96 status=200 ra=-
+ts=16:32:13 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=97 status=200 ra=-
+ts=16:32:22 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=98 status=200 ra=-
+ts=16:32:24 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=99 status=200 ra=-
+ts=16:32:25 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=100 status=200 ra=-
+ts=16:32:27 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=101 status=200 ra=-
+ts=16:32:28 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=102 status=200 ra=-
+ts=16:32:31 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=103 status=200 ra=-
+ts=16:32:34 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=104 status=200 ra=-
+ts=16:32:35 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=105 status=200 ra=-
+ts=16:32:37 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=106 status=200 ra=-
+ts=16:32:38 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=107 status=200 ra=-
+ts=16:32:40 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=108 status=200 ra=-
+ts=16:32:41 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=109 status=200 ra=-
+ts=16:32:43 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=110 status=200 ra=-
+ts=16:32:45 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=111 status=200 ra=-
+ts=16:32:49 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=112 status=200 ra=-
+ts=16:32:50 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=113 status=200 ra=-
+ts=16:32:55 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=114 status=200 ra=-
+ts=16:32:59 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=115 status=200 ra=-
+ts=16:33:12 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=116 status=200 ra=-
+ts=16:33:18 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=117 status=200 ra=-
+ts=16:33:20 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=118 status=200 ra=-
+ts=16:33:30 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=119 status=200 ra=-
+ts=16:33:33 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=120 status=200 ra=-
+ts=16:33:35 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=121 status=200 ra=-
+ts=16:33:36 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=122 status=200 ra=-
+ts=16:33:40 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=123 status=200 ra=-
+ts=16:33:42 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=124 status=200 ra=-
+ts=16:33:44 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=125 status=200 ra=-
+ts=16:33:50 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=126 status=200 ra=-
+ts=16:33:52 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=127 status=200 ra=-
+ts=16:33:54 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=128 status=200 ra=-
+ts=16:33:56 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=129 status=200 ra=-
+ts=16:34:02 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=130 status=200 ra=-
+ts=16:34:04 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=131 status=200 ra=-
+ts=16:34:07 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=132 status=200 ra=-
+ts=16:34:10 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=133 status=200 ra=-
+ts=16:34:11 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=134 status=200 ra=-
+ts=16:34:24 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=135 status=200 ra=-
+ts=16:34:26 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=136 status=200 ra=-
+ts=16:34:28 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=137 status=200 ra=-
+ts=16:34:29 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=138 status=200 ra=-
+ts=16:34:31 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=139 status=200 ra=-
+ts=16:34:33 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=140 status=200 ra=-
+ts=16:34:35 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=141 status=200 ra=-
+ts=16:34:36 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=142 status=200 ra=-
+ts=16:34:42 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=143 status=200 ra=-
+ts=16:34:44 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=144 status=200 ra=-
+ts=16:34:45 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=145 status=200 ra=-
+ts=16:34:46 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=146 status=200 ra=-
+ts=16:34:49 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=147 status=200 ra=-
+ts=16:34:50 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=148 status=200 ra=-
+ts=16:34:51 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=149 status=200 ra=-
+ts=16:34:56 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=150 status=200 ra=-
+ts=16:34:58 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=151 status=200 ra=-
+ts=16:34:59 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=152 status=200 ra=-
+ts=16:35:01 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=153 status=200 ra=-
+ts=16:35:03 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=154 status=200 ra=-
+ts=16:35:07 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=155 status=200 ra=-
+ts=16:35:08 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=156 status=200 ra=-
+ts=16:35:11 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=157 status=200 ra=-
+ts=16:35:15 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=158 status=200 ra=-
+ts=16:35:16 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=159 status=200 ra=-
+ts=16:35:19 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=160 status=200 ra=-
+ts=16:35:20 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=161 status=200 ra=-
+ts=16:35:21 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=162 status=200 ra=-
+ts=16:35:28 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=163 status=200 ra=-
+ts=16:35:31 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=164 status=200 ra=-
+ts=16:35:34 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=165 status=200 ra=-
+ts=16:35:36 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=166 status=200 ra=-
+ts=16:35:37 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=167 status=200 ra=-
+ts=16:35:43 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=168 status=200 ra=-
+ts=16:35:45 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=169 status=200 ra=-
+ts=16:35:46 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=170 status=200 ra=-
+ts=16:35:48 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=171 status=200 ra=-
+ts=16:35:49 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=172 status=200 ra=-
+ts=16:35:51 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=173 status=200 ra=-
+ts=16:35:52 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=174 status=200 ra=-
+ts=16:36:01 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=175 status=200 ra=-
+ts=16:36:04 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=176 status=200 ra=-
+ts=16:36:06 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=177 status=200 ra=-
+ts=16:36:08 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=178 status=200 ra=-
+ts=16:36:11 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=179 status=200 ra=-
+ts=16:36:18 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=180 status=200 ra=-
+ts=16:36:19 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=181 status=200 ra=-
+ts=16:36:21 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=182 status=200 ra=-
+ts=16:36:23 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=183 status=200 ra=-
+ts=16:36:26 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=184 status=200 ra=-
+ts=16:36:27 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=185 status=200 ra=-
+ts=16:36:29 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=186 status=200 ra=-
+ts=16:36:31 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=187 status=200 ra=-
+ts=16:36:35 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=188 status=200 ra=-
+ts=16:36:36 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=189 status=200 ra=-
+ts=16:36:37 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=190 status=200 ra=-
+ts=16:36:39 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=191 status=200 ra=-
+ts=16:36:42 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=192 status=200 ra=-
+ts=16:36:44 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=193 status=200 ra=-
+ts=16:36:46 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=194 status=200 ra=-
+ts=16:36:53 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=195 status=200 ra=-
+ts=16:36:55 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=196 status=200 ra=-
+ts=16:37:01 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=197 status=200 ra=-
+ts=16:37:04 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=198 status=200 ra=-
+ts=16:37:14 cell=M4 model=nemotron-3.5-lightning-free ses=ses_01a1778a18e05HoN1VStTExNWf i=199 status=200 ra=-
+--- cell M4 end 2026-10-26T09:37:14Z ip_after=ip=2a09:bac5:d459:16d2::246:18
+  186 status=200 ra= t=16:37:14 text='pong'
+handshake ok
+  187 status=200 ra= t=16:37:16 text='pong'
+handshake ok
+  188 status=200 ra= t=16:37:18 text='pong'
+handshake ok
+  189 status=200 ra= t=16:37:20 text='pong'
+handshake ok
+  190 status=200 ra= t=16:37:22 text='pong'
+handshake ok
+  191 status=200 ra= t=16:37:25 text='pong'
+handshake ok
+  192 status=200 ra= t=16:37:27 text='pong'
+handshake ok
+  193 status=200 ra= t=16:37:28 text='pong'
+handshake ok
+  194 status=200 ra= t=16:37:30 text='pong'
+handshake ok
+  195 status=200 ra= t=16:37:34 text='pong'
+handshake ok
+  196 status=200 ra= t=16:37:36 text='pong'
+handshake ok
+  197 status=200 ra= t=16:37:40 text='pong'
+handshake ok
+  198 status=200 ra= t=16:37:43 text='pong'
+handshake ok
+  199 status=200 ra= t=16:37:45 text='pong'
+SUMMARY cell=M2 ok200=200 codes={200: 200}
+ts=16:28:22 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=0 status=200 ra=-
+ts=16:28:24 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=1 status=200 ra=-
+ts=16:28:34 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=2 status=200 ra=-
+ts=16:28:36 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=3 status=200 ra=-
+ts=16:28:37 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=4 status=200 ra=-
+ts=16:28:39 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=5 status=200 ra=-
+ts=16:28:41 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=6 status=200 ra=-
+ts=16:28:42 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=7 status=200 ra=-
+ts=16:28:46 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=8 status=200 ra=-
+ts=16:28:50 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=9 status=200 ra=-
+ts=16:28:52 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=10 status=200 ra=-
+ts=16:28:54 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=11 status=200 ra=-
+ts=16:28:57 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=12 status=200 ra=-
+ts=16:28:59 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=13 status=200 ra=-
+ts=16:29:06 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=14 status=200 ra=-
+ts=16:29:07 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=15 status=200 ra=-
+ts=16:29:09 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=16 status=200 ra=-
+ts=16:29:12 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=17 status=200 ra=-
+ts=16:29:14 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=18 status=200 ra=-
+ts=16:29:15 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=19 status=200 ra=-
+ts=16:29:17 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=20 status=200 ra=-
+ts=16:29:27 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=21 status=200 ra=-
+ts=16:29:29 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=22 status=200 ra=-
+ts=16:29:30 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=23 status=200 ra=-
+ts=16:29:40 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=24 status=200 ra=-
+ts=16:29:41 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=25 status=200 ra=-
+ts=16:29:44 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=26 status=200 ra=-
+ts=16:29:46 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=27 status=200 ra=-
+ts=16:29:47 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=28 status=200 ra=-
+ts=16:29:49 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=29 status=200 ra=-
+ts=16:29:51 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=30 status=200 ra=-
+ts=16:29:54 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=31 status=200 ra=-
+ts=16:29:56 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=32 status=200 ra=-
+ts=16:29:57 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=33 status=200 ra=-
+ts=16:29:59 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=34 status=200 ra=-
+ts=16:30:00 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=35 status=200 ra=-
+ts=16:30:02 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=36 status=200 ra=-
+ts=16:30:03 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=37 status=200 ra=-
+ts=16:30:08 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=38 status=200 ra=-
+ts=16:30:10 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=39 status=200 ra=-
+ts=16:30:11 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=40 status=200 ra=-
+ts=16:30:13 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=41 status=200 ra=-
+ts=16:30:15 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=42 status=200 ra=-
+ts=16:30:17 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=43 status=200 ra=-
+ts=16:30:19 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=44 status=200 ra=-
+ts=16:30:26 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=45 status=200 ra=-
+ts=16:30:28 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=46 status=200 ra=-
+ts=16:30:29 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=47 status=200 ra=-
+ts=16:30:31 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=48 status=200 ra=-
+ts=16:30:46 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=49 status=200 ra=-
+ts=16:30:47 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=50 status=200 ra=-
+ts=16:30:53 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=51 status=200 ra=-
+ts=16:30:55 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=52 status=200 ra=-
+ts=16:30:59 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=53 status=200 ra=-
+ts=16:31:01 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=54 status=200 ra=-
+ts=16:31:03 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=55 status=200 ra=-
+ts=16:31:05 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=56 status=200 ra=-
+ts=16:31:07 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=57 status=200 ra=-
+ts=16:31:08 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=58 status=200 ra=-
+ts=16:31:11 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=59 status=200 ra=-
+ts=16:31:12 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=60 status=200 ra=-
+ts=16:31:13 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=61 status=200 ra=-
+ts=16:31:15 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=62 status=200 ra=-
+ts=16:31:20 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=63 status=200 ra=-
+ts=16:31:22 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=64 status=200 ra=-
+ts=16:31:26 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=65 status=200 ra=-
+ts=16:31:29 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=66 status=200 ra=-
+ts=16:31:30 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=67 status=200 ra=-
+ts=16:31:32 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=68 status=200 ra=-
+ts=16:31:34 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=69 status=200 ra=-
+ts=16:31:39 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=70 status=200 ra=-
+ts=16:31:40 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=71 status=200 ra=-
+ts=16:31:41 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=72 status=200 ra=-
+ts=16:31:44 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=73 status=200 ra=-
+ts=16:31:45 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=74 status=200 ra=-
+ts=16:31:52 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=75 status=200 ra=-
+ts=16:31:54 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=76 status=200 ra=-
+ts=16:32:02 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=77 status=200 ra=-
+ts=16:32:04 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=78 status=200 ra=-
+ts=16:32:06 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=79 status=200 ra=-
+ts=16:32:07 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=80 status=200 ra=-
+ts=16:32:13 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=81 status=200 ra=-
+ts=16:32:15 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=82 status=200 ra=-
+ts=16:32:16 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=83 status=200 ra=-
+ts=16:32:18 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=84 status=200 ra=-
+ts=16:32:20 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=85 status=200 ra=-
+ts=16:32:22 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=86 status=200 ra=-
+ts=16:32:23 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=87 status=200 ra=-
+ts=16:32:25 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=88 status=200 ra=-
+ts=16:32:27 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=89 status=200 ra=-
+ts=16:32:29 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=90 status=200 ra=-
+ts=16:32:31 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=91 status=200 ra=-
+ts=16:32:42 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=92 status=200 ra=-
+ts=16:32:44 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=93 status=200 ra=-
+ts=16:32:49 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=94 status=200 ra=-
+ts=16:33:12 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=95 status=200 ra=-
+ts=16:33:16 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=96 status=200 ra=-
+ts=16:33:18 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=97 status=200 ra=-
+ts=16:33:21 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=98 status=200 ra=-
+ts=16:33:23 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=99 status=200 ra=-
+ts=16:33:25 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=100 status=200 ra=-
+ts=16:33:26 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=101 status=200 ra=-
+ts=16:33:32 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=102 status=200 ra=-
+ts=16:33:34 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=103 status=200 ra=-
+ts=16:33:37 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=104 status=200 ra=-
+ts=16:33:40 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=105 status=200 ra=-
+ts=16:33:43 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=106 status=200 ra=-
+ts=16:33:45 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=107 status=200 ra=-
+ts=16:33:47 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=108 status=200 ra=-
+ts=16:33:48 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=109 status=200 ra=-
+ts=16:33:50 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=110 status=200 ra=-
+ts=16:33:53 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=111 status=200 ra=-
+ts=16:33:56 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=112 status=200 ra=-
+ts=16:33:58 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=113 status=200 ra=-
+ts=16:33:59 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=114 status=200 ra=-
+ts=16:34:01 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=115 status=200 ra=-
+ts=16:34:03 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=116 status=200 ra=-
+ts=16:34:05 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=117 status=200 ra=-
+ts=16:34:07 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=118 status=200 ra=-
+ts=16:34:08 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=119 status=200 ra=-
+ts=16:34:10 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=120 status=200 ra=-
+ts=16:34:14 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=121 status=200 ra=-
+ts=16:34:15 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=122 status=200 ra=-
+ts=16:34:18 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=123 status=200 ra=-
+ts=16:34:20 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=124 status=200 ra=-
+ts=16:34:22 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=125 status=200 ra=-
+ts=16:34:23 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=126 status=200 ra=-
+ts=16:34:25 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=127 status=200 ra=-
+ts=16:34:27 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=128 status=200 ra=-
+ts=16:34:29 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=129 status=200 ra=-
+ts=16:34:32 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=130 status=200 ra=-
+ts=16:34:36 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=131 status=200 ra=-
+ts=16:34:54 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=132 status=200 ra=-
+ts=16:34:57 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=133 status=200 ra=-
+ts=16:34:59 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=134 status=200 ra=-
+ts=16:35:01 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=135 status=200 ra=-
+ts=16:35:03 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=136 status=200 ra=-
+ts=16:35:05 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=137 status=200 ra=-
+ts=16:35:06 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=138 status=200 ra=-
+ts=16:35:09 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=139 status=200 ra=-
+ts=16:35:10 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=140 status=200 ra=-
+ts=16:35:11 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=141 status=200 ra=-
+ts=16:35:19 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=142 status=200 ra=-
+ts=16:35:20 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=143 status=200 ra=-
+ts=16:35:25 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=144 status=200 ra=-
+ts=16:35:27 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=145 status=200 ra=-
+ts=16:35:29 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=146 status=200 ra=-
+ts=16:35:31 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=147 status=200 ra=-
+ts=16:35:33 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=148 status=200 ra=-
+ts=16:35:35 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=149 status=200 ra=-
+ts=16:35:37 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=150 status=200 ra=-
+ts=16:35:39 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=151 status=200 ra=-
+ts=16:35:41 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=152 status=200 ra=-
+ts=16:35:46 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=153 status=200 ra=-
+ts=16:35:48 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=154 status=200 ra=-
+ts=16:35:53 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=155 status=200 ra=-
+ts=16:35:55 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=156 status=200 ra=-
+ts=16:35:56 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=157 status=200 ra=-
+ts=16:35:58 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=158 status=200 ra=-
+ts=16:36:03 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=159 status=200 ra=-
+ts=16:36:06 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=160 status=200 ra=-
+ts=16:36:10 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=161 status=200 ra=-
+ts=16:36:12 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=162 status=200 ra=-
+ts=16:36:19 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=163 status=200 ra=-
+ts=16:36:21 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=164 status=200 ra=-
+ts=16:36:23 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=165 status=200 ra=-
+ts=16:36:24 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=166 status=200 ra=-
+ts=16:36:30 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=167 status=200 ra=-
+ts=16:36:32 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=168 status=200 ra=-
+ts=16:36:35 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=169 status=200 ra=-
+ts=16:36:36 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=170 status=200 ra=-
+ts=16:36:38 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=171 status=200 ra=-
+ts=16:36:43 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=172 status=200 ra=-
+ts=16:36:45 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=173 status=200 ra=-
+ts=16:36:46 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=174 status=200 ra=-
+ts=16:36:50 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=175 status=200 ra=-
+ts=16:36:52 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=176 status=200 ra=-
+ts=16:36:54 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=177 status=200 ra=-
+ts=16:36:59 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=178 status=200 ra=-
+ts=16:37:02 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=179 status=200 ra=-
+ts=16:37:04 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=180 status=200 ra=-
+ts=16:37:06 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=181 status=200 ra=-
+ts=16:37:07 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=182 status=200 ra=-
+ts=16:37:10 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=183 status=200 ra=-
+ts=16:37:11 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=184 status=200 ra=-
+ts=16:37:13 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=185 status=200 ra=-
+ts=16:37:14 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=186 status=200 ra=-
+ts=16:37:16 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=187 status=200 ra=-
+ts=16:37:18 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=188 status=200 ra=-
+ts=16:37:20 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=189 status=200 ra=-
+ts=16:37:22 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=190 status=200 ra=-
+ts=16:37:25 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=191 status=200 ra=-
+ts=16:37:27 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=192 status=200 ra=-
+ts=16:37:28 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=193 status=200 ra=-
+ts=16:37:30 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=194 status=200 ra=-
+ts=16:37:34 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=195 status=200 ra=-
+ts=16:37:36 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=196 status=200 ra=-
+ts=16:37:40 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=197 status=200 ra=-
+ts=16:37:43 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=198 status=200 ra=-
+ts=16:37:45 cell=M2 model=nemotron-3.5-lightning-free ses=ses_01a1778a18c8lpBt1KiOVkinLS i=199 status=200 ra=-
+--- cell M2 end 2026-10-26T09:37:45Z ip_after=ip=2a09:bac5:d45b:e6::17:32b
+--- cell M2P2 start 2026-10-26T09:37:46Z model=glm-5.3-flash-free proxy=127.0.0.1:1201 ses=ses_01a17792b866gggv3WrJT0ITsC n=20 ip_before=ip=2a09:bac5:d45b:e6::17:32b
+session ses_01a17792b866gggv3WrJT0ITsC
+handshake ok
+  0   status=429 ra= t=16:37:47 text=''
+handshake ok
+  1   status=429 ra= t=16:37:48 text=''
+handshake ok
+  2   status=200 ra= t=16:37:49 text='pong'
+handshake ok
+  3   status=200 ra= t=16:37:50 text='pong'
+handshake ok
+  4   status=200 ra= t=16:37:52 text='pong'
+handshake ok
+  5   status=200 ra= t=16:37:53 text='pong'
+handshake ok
+  6   status=200 ra= t=16:37:54 text='pong'
+handshake ok
+  7   status=200 ra= t=16:37:55 text='pong'
+handshake ok
+  8   status=200 ra= t=16:37:57 text='pong'
+handshake ok
+  9   status=200 ra= t=16:37:59 text='pong'
+handshake ok
+  10  status=200 ra= t=16:38:00 text='pong'
+handshake ok
+  11  status=200 ra= t=16:38:02 text='pong'
+handshake ok
+  12  status=200 ra= t=16:38:03 text='pong'
+handshake ok
+  13  status=200 ra= t=16:38:05 text='Pong'
+handshake ok
+  14  status=200 ra= t=16:38:06 text='Pong'
+handshake ok
+  15  status=200 ra= t=16:38:08 text='Pong'
+handshake ok
+  16  status=200 ra= t=16:38:09 text='pong'
+handshake ok
+  17  status=200 ra= t=16:38:11 text='Pong'
+handshake ok
+  18  status=200 ra= t=16:38:12 text='pong'
+handshake ok
+  19  status=200 ra= t=16:38:14 text='pong'
+SUMMARY cell=M2P2 ok200=18 codes={429: 2, 200: 18}
+FIRST_429 cell=M2P2 i=0 ra= t=16:37:47 err={"error":{"type":"server_error","message":"Upstream request failed: Endpoint is unavailable."}}
+ts=16:37:47 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=0 status=429 ra=-
+ts=16:37:48 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=1 status=429 ra=-
+ts=16:37:49 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=2 status=200 ra=-
+ts=16:37:50 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=3 status=200 ra=-
+ts=16:37:52 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=4 status=200 ra=-
+ts=16:37:53 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=5 status=200 ra=-
+ts=16:37:54 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=6 status=200 ra=-
+ts=16:37:55 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=7 status=200 ra=-
+ts=16:37:57 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=8 status=200 ra=-
+ts=16:37:59 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=9 status=200 ra=-
+ts=16:38:00 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=10 status=200 ra=-
+ts=16:38:02 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=11 status=200 ra=-
+ts=16:38:03 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=12 status=200 ra=-
+ts=16:38:05 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=13 status=200 ra=-
+ts=16:38:06 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=14 status=200 ra=-
+ts=16:38:08 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=15 status=200 ra=-
+ts=16:38:09 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=16 status=200 ra=-
+ts=16:38:11 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=17 status=200 ra=-
+ts=16:38:12 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=18 status=200 ra=-
+ts=16:38:14 cell=M2P2 model=glm-5.3-flash-free ses=ses_01a17792b866gggv3WrJT0ITsC i=19 status=200 ra=-
+--- cell M2P2 end 2026-10-26T09:38:14Z ip_after=ip=2a09:bac5:d45b:e6::17:32b
+--- cell M3 start 2026-10-26T09:39:02Z interleave A=glm-5.3-flash-free B=nemotron-3.5-lightning-free n=1 proxy=127.0.0.1:1203 ses=ses_01a17793e059zuWaYrEnYsITf2 ip_before=2a09:bac5:d45e:16d2::246:d4
+session ses_01a17793e059zuWaYrEnYsITf2
+handshake ok
+ts=16:39:05 cell=M3 model=glm-5.3-flash-free ses=ses_01a17793e059zuWaYrEnYsITf2 i=1 status=200 ra=-
+--- cell M3 end 2026-10-26T09:39:05Z ip_after=2a09:bac5:d45e:16d2::246:d4
+--- cell VER start 2026-10-26T09:39:58Z proxy=127.0.0.1:1200 ip=2a09:bac5:d459:263c::3cf:14
+session ses_01a17794bbd4gKrXnQlDuEyEut
+handshake ok
+ts=16:39:59 cell=VER model=zzz-not-a-model-free ses=ses_01a17794bbd4gKrXnQlDuEyEut i=0 status=400 ra=-
+session ses_01a17794be951ntUCmE4cwwQxH
+handshake ok
+ts=16:40:01 cell=VER model=beam-free ses=ses_01a17794be951ntUCmE4cwwQxH i=1 status=200 ra=-
+--- cell VER end 2026-10-26T09:40:01Z
+--- cell M3 start 2026-10-26T09:40:05Z interleave A=glm-5.3-flash-free B=nemotron-3.5-lightning-free n=200 proxy=127.0.0.1:1203 ses=ses_01a17794d54dIo6nATgVhlQ4O0 ip_before=2a09:bac5:d45e:16d2::246:d4
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:07 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=1 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:09 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=2 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:10 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=3 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:11 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=4 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:12 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=5 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:13 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=6 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:14 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=7 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:16 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=8 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:17 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=9 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:19 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=10 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:20 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=11 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:22 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=12 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:23 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=13 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:24 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=14 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:40:25 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=15 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:30 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=16 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:31 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=17 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:34 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=18 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:34 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=19 status=429 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:36 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=20 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:37 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=21 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:39 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=22 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:40 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=23 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:43 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=24 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:45 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=25 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:46 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=26 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:48 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=27 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:50 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=28 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:51 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=29 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:53 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=30 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:55 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=31 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:56 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=32 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:41:59 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=33 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:00 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=34 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:02 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=35 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:07 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=36 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:10 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=37 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:12 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=38 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:14 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=39 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:15 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=40 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:17 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=41 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:19 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=42 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:21 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=43 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:28 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=44 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:30 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=45 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:31 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=46 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:33 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=47 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:38 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=48 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:40 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=49 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:41 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=50 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:43 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=51 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:46 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=52 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:48 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=53 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:49 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=54 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:52 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=55 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:53 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=56 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:55 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=57 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:57 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=58 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:42:59 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=59 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:01 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=60 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:03 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=61 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:06 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=62 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:08 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=63 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:10 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=64 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:12 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=65 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:13 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=66 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:16 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=67 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:17 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=68 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:19 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=69 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:20 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=70 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:22 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=71 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:23 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=72 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:25 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=73 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:26 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=74 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:28 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=75 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:30 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=76 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:32 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=77 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:33 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=78 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:35 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=79 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:37 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=80 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:39 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=81 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:41 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=82 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:43 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=83 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:45 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=84 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:46 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=85 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:48 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=86 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:50 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=87 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:52 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=88 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:54 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=89 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:56 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=90 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:43:58 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=91 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:16 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=92 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:19 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=93 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:23 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=94 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:26 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=95 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:28 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=96 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:29 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=97 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:31 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=98 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:34 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=99 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:36 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=100 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:37 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=101 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:40 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=102 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:42 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=103 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:44 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=104 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:46 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=105 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:49 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=106 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:50 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=107 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:52 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=108 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+stop after status 429 (quota)
+ts=16:44:53 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=109 status=429 ra=51307
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:55 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=110 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:57 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=111 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:58 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=112 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:44:59 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=113 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:01 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=114 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:03 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=115 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:04 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=116 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:05 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=117 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:07 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=118 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:10 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=119 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:11 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=120 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:13 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=121 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:16 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=122 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:18 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=123 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:19 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=124 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:21 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=125 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:22 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=126 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:24 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=127 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:27 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=128 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:30 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=129 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:31 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=130 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:33 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=131 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:36 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=132 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:37 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=133 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:39 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=134 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:40 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=135 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:42 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=136 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:43 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=137 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:47 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=138 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:48 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=139 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:51 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=140 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:53 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=141 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:54 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=142 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:57 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=143 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:45:58 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=144 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:00 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=145 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:04 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=146 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:06 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=147 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:08 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=148 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:09 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=149 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:14 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=150 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:15 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=151 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:17 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=152 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:18 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=153 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:22 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=154 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:24 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=155 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:25 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=156 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:27 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=157 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:34 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=158 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:35 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=159 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:37 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=160 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:39 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=161 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:40 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=162 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:42 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=163 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:44 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=164 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:46 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=165 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:48 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=166 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:49 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=167 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:52 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=168 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:54 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=169 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:55 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=170 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:56 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=171 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:46:58 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=172 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:00 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=173 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:01 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=174 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:04 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=175 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:05 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=176 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:07 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=177 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:09 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=178 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:10 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=179 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:12 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=180 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:13 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=181 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:15 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=182 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:17 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=183 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:20 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=184 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:22 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=185 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:25 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=186 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:26 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=187 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:28 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=188 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:30 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=189 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:33 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=190 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:35 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=191 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:37 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=192 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:38 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=193 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:40 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=194 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:42 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=195 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:44 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=196 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:45 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=197 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:49 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=198 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:47:51 cell=M3 model=glm-5.3-flash-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=199 status=200 ra=-
+session ses_01a17794d54dIo6nATgVhlQ4O0
+handshake ok
+ts=16:48:01 cell=M3 model=nemotron-3.5-lightning-free ses=ses_01a17794d54dIo6nATgVhlQ4O0 i=200 status=200 ra=-
+--- cell M3 end 2026-10-26T09:48:02Z ip_after=2a09:bac5:d45e:16d2::246:d4
+--- cell SMOKE2 start 2026-10-26T09:55:08Z model=beam-free proxy=127.0.0.1:1200 ses=ses_01a177a29d27LQedDRyDmkK4nd n=1 ip_before=ip=2a09:bac5:d459:263c::3cf:14
+session ses_01a177a29d27LQedDRyDmkK4nd
+handshake ok
+  0   status=200 ra= t=16:55:09 text='pong'
+SUMMARY cell=SMOKE2 ok200=1 codes={200: 1}
+ts=16:55:09 cell=SMOKE2 model=beam-free ses=ses_01a177a29d27LQedDRyDmkK4nd i=0 status=200 ra=-
+--- cell SMOKE2 end 2026-10-26T09:55:10Z ip_after=ip=2a09:bac5:d459:263c::3cf:14

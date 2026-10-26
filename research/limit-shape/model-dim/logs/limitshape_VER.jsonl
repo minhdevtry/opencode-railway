@@ -1,0 +1,2 @@
+{"status": 400, "secs": 0.25, "ra": "", "t": "16:39:59", "text": "", "err": "{\"error\":{\"type\":\"server_error\",\"message\":\"Upstream request failed: Model is unavailable.\"}}", "cell": "VER", "i": 0, "model": "zzz-not-a-model-free", "ses": "ses_01a17794bbd4gKrXnQlDuEyEut"}
+{"status": 200, "secs": 1.71, "ra": "", "t": "16:40:01", "text": "pong", "err": "", "cell": "VER", "i": 1, "model": "beam-free", "ses": "ses_01a17794be951ntUCmE4cwwQxH"}

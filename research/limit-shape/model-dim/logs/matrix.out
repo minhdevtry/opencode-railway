@@ -1,0 +1,11 @@
+=== 2026-10-26T09:28:20Z cell=M1 port=1200 model=glm-5.3-flash-free ses=fixed n=200
+=== 2026-10-26T09:28:20Z cell=M2 port=1201 model=nemotron-3.5-lightning-free ses=fixed n=200
+=== 2026-10-26T09:28:20Z cell=M4 port=1202 model=nemotron-3.5-lightning-free ses=fixed n=200
+=== 2026-10-26T09:30:14Z cell=M1 DONE rc=0
+=== 2026-10-26T09:30:14Z cell=M1P2 port=1200 model=nemotron-3.5-lightning-free ses=fixed n=20
+=== 2026-10-26T09:31:07Z cell=M1P2 DONE rc=0
+=== 2026-10-26T09:37:14Z cell=M4 DONE rc=0
+=== 2026-10-26T09:37:45Z cell=M2 DONE rc=0
+=== 2026-10-26T09:37:45Z cell=M2P2 port=1201 model=glm-5.3-flash-free ses=fixed n=20
+=== 2026-10-26T09:38:14Z cell=M2P2 DONE rc=0
+=== 2026-10-26T09:38:14Z matrix M1/M2/M4 DONE

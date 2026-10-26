@@ -1,0 +1,20 @@
+{"status": 429, "secs": 0.41, "ra": "", "t": "16:37:47", "text": "", "err": "{\"error\":{\"type\":\"server_error\",\"message\":\"Upstream request failed: Endpoint is unavailable.\"}}", "cell": "M2P2", "i": 0, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 429, "secs": 0.34, "ra": "", "t": "16:37:48", "text": "", "err": "{\"error\":{\"type\":\"server_error\",\"message\":\"Upstream request failed: Endpoint is unavailable.\"}}", "cell": "M2P2", "i": 1, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.75, "ra": "", "t": "16:37:49", "text": "pong", "err": "", "cell": "M2P2", "i": 2, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.2, "ra": "", "t": "16:37:50", "text": "pong", "err": "", "cell": "M2P2", "i": 3, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.01, "ra": "", "t": "16:37:52", "text": "pong", "err": "", "cell": "M2P2", "i": 4, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.77, "ra": "", "t": "16:37:53", "text": "pong", "err": "", "cell": "M2P2", "i": 5, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.76, "ra": "", "t": "16:37:54", "text": "pong", "err": "", "cell": "M2P2", "i": 6, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.94, "ra": "", "t": "16:37:55", "text": "pong", "err": "", "cell": "M2P2", "i": 7, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.85, "ra": "", "t": "16:37:57", "text": "pong", "err": "", "cell": "M2P2", "i": 8, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.41, "ra": "", "t": "16:37:59", "text": "pong", "err": "", "cell": "M2P2", "i": 9, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.86, "ra": "", "t": "16:38:00", "text": "pong", "err": "", "cell": "M2P2", "i": 10, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.54, "ra": "", "t": "16:38:02", "text": "pong", "err": "", "cell": "M2P2", "i": 11, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.79, "ra": "", "t": "16:38:03", "text": "pong", "err": "", "cell": "M2P2", "i": 12, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.14, "ra": "", "t": "16:38:05", "text": "Pong", "err": "", "cell": "M2P2", "i": 13, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.95, "ra": "", "t": "16:38:06", "text": "Pong", "err": "", "cell": "M2P2", "i": 14, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 0.94, "ra": "", "t": "16:38:08", "text": "Pong", "err": "", "cell": "M2P2", "i": 15, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.16, "ra": "", "t": "16:38:09", "text": "pong", "err": "", "cell": "M2P2", "i": 16, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.15, "ra": "", "t": "16:38:11", "text": "Pong", "err": "", "cell": "M2P2", "i": 17, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.17, "ra": "", "t": "16:38:12", "text": "pong", "err": "", "cell": "M2P2", "i": 18, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
+{"status": 200, "secs": 1.02, "ra": "", "t": "16:38:14", "text": "pong", "err": "", "cell": "M2P2", "i": 19, "model": "glm-5.3-flash-free", "ses": "ses_01a17792b866gggv3WrJT0ITsC"}
