@@ -299,3 +299,53 @@ func TestPickPrefersLessUsedPair(t *testing.T) {
 		t.Fatalf("phải ưu tiên cặp ít dùng hơn (proxy-fresh), chọn %s", picked.Name)
 	}
 }
+
+// Bất biến cốt lõi của phần chia mềm: auto đã ăn hết share của cặp A thì bị ĐẨY XUỐNG (không phải bị cấm),
+// còn cặp B còn share thì được ưu tiên. Nếu không còn cặp nào khác thì auto VẪN dùng được cặp A -
+// đây là chỗ để trần ước tính sai không bao giờ làm sập gateway.
+func TestAutoShareFullIsDeprioritizedNotBlocked(t *testing.T) {
+	setupQuotaCfg(t)
+	_, m := setup(t, func(w http.ResponseWriter, r *http.Request) {}, false)
+	oldPrefer := cfg.PreferDirect
+	cfg.PreferDirect = false
+	defer func() { cfg.PreferDirect = oldPrefer }()
+
+	full := newEgress("proxy-full", kindProxy, nil)
+	full.tier = 2
+	full.daemon = "proxy-full"
+	full.ipKind.Store(ipKindOwn)
+	full.ready.Store(true)
+	m.add(full)
+	other := newEgress("proxy-other", kindProxy, nil)
+	other.tier = 2
+	other.daemon = "proxy-other"
+	other.ipKind.Store(ipKindOwn)
+	other.ready.Store(true)
+	m.add(other)
+
+	const model = "glm-5.3-flash-free"
+	// Auto ăn hết share của proxy-full (38 request với cap 64, share 0.6).
+	for i := 0; i < 38; i++ {
+		quotaAttempt(model, "proxy-full", true)
+	}
+	if p := quotaPenaltyFor(model, "proxy-full", true); p <= 0 {
+		t.Fatalf("cặp đã ăn hết share phải bị phạt, got %v", p)
+	}
+
+	// Còn cặp khác có share -> auto phải chọn cặp khác.
+	picked := m.pickAvoid(model, true)
+	if picked == nil {
+		t.Fatal("auto phải chọn được egress")
+	}
+	if picked.Name != "proxy-other" {
+		t.Fatalf("auto phải tránh cặp đã ăn hết share, chọn %s", picked.Name)
+	}
+
+	// Gọi thẳng thì cặp đã ăn hết share VẪN dùng được (không bị trần chặn).
+	if p := quotaPenaltyFor(model, "proxy-full", false); p != 0 {
+		t.Fatalf("gọi thẳng không bị phạt, got %v", p)
+	}
+	if got := m.pickAvoid(model, false); got == nil {
+		t.Fatal("gọi thẳng phải chọn được egress")
+	}
+}
