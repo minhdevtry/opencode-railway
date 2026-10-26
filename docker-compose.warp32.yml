@@ -1,0 +1,306 @@
+# BẬT THÊM 16 CONTAINER WARP (tổng 32) -> gấp đôi nguồn IPv6 (mỗi container 1 IP riêng).
+#
+# CẦN NÂNG GIỚI HẠN inotify TRƯỚC, nếu không container mới sẽ lỗi "Too many open files" và không lên được:
+#   sudo sysctl -w fs.inotify.max_user_instances=1024      # hiện tại là 128 -> tối đa ~16 container
+#   (muốn số 32 thì 1024 là dư; nhớ: 1 container warp-svc dùng vài inotify instance)
+#
+# Dùng:
+#   docker compose -f docker-compose.warp.yml -f docker-compose.warp32.yml up -d
+#
+# Lưu ý: thêm container = thêm RAM (~256 MB mỗi container) và nhiều IPv6 hơn (mỗi IPv6 là 1 nguồn hạn mức riêng
+# phía upstream). Gateway tự phát hiện IP mới lúc khởi động (detectWarpIPs) và ưu tiên container có IP riêng.
+
+services:
+  warp17:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-17
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1096:1080"
+    mem_limit: 256m
+
+  warp18:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-18
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1097:1080"
+    mem_limit: 256m
+
+  warp19:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-19
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1098:1080"
+    mem_limit: 256m
+
+  warp20:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-20
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1099:1080"
+    mem_limit: 256m
+
+  warp21:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-21
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1100:1080"
+    mem_limit: 256m
+
+  warp22:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-22
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1101:1080"
+    mem_limit: 256m
+
+  warp23:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-23
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1102:1080"
+    mem_limit: 256m
+
+  warp24:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-24
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1103:1080"
+    mem_limit: 256m
+
+  warp25:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-25
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1104:1080"
+    mem_limit: 256m
+
+  warp26:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-26
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1105:1080"
+    mem_limit: 256m
+
+  warp27:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-27
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1106:1080"
+    mem_limit: 256m
+
+  warp28:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-28
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1107:1080"
+    mem_limit: 256m
+
+  warp29:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-29
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1108:1080"
+    mem_limit: 256m
+
+  warp30:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-30
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1109:1080"
+    mem_limit: 256m
+
+  warp31:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-31
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1110:1080"
+    mem_limit: 256m
+
+  warp32:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-32
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1111:1080"
+    mem_limit: 256m
+
+  gateway:
+    depends_on:
+
+      - warp17
+      - warp18
+      - warp19
+      - warp20
+      - warp21
+      - warp22
+      - warp23
+      - warp24
+      - warp25
+      - warp26
+      - warp27
+      - warp28
+      - warp29
+      - warp30
+      - warp31
+      - warp32
+    environment:
+      PROXY_POOL: "socks5://warp:1080,socks5://warp2:1080,socks5://warp3:1080,socks5://warp4:1080,socks5://warp5:1080,socks5://warp6:1080,socks5://warp7:1080,socks5://warp8:1080,socks5://warp9:1080,socks5://warp10:1080,socks5://warp11:1080,socks5://warp12:1080,socks5://warp13:1080,socks5://warp14:1080,socks5://warp15:1080,socks5://warp16:1080,socks5://warp17:1080,socks5://warp18:1080,socks5://warp19:1080,socks5://warp20:1080,socks5://warp21:1080,socks5://warp22:1080,socks5://warp23:1080,socks5://warp24:1080,socks5://warp25:1080,socks5://warp26:1080,socks5://warp27:1080,socks5://warp28:1080,socks5://warp29:1080,socks5://warp30:1080,socks5://warp31:1080,socks5://warp32:1080"

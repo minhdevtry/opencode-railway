@@ -14,8 +14,11 @@ Không cần API key trả phí. Client chỉ việc gửi request; gateway lo c
 | Văn bản rất dài (`auto-long`) | ~300k token/request | đọc đúng, quá giới hạn thì tự chuyển model |
 | Lô cực lớn (`/v1/batches`) | gateway tự chạy hết tốc độ | lưu bền Redis, không mất job khi khởi động lại |
 
-Gửi bao nhiêu request cùng lúc cũng được: phần vượt sức chứa xếp hàng chờ. Riêng khi toàn bộ hạn mức free trong ngày
-đã cạn (cuối ngày UTC), gateway trả 429 ngay kèm `Retry-After` thay vì giữ hàng chờ vô ích — chờ tới 07:00 giờ VN (reset).
+Gửi bao nhiêu request cùng lúc cũng được: phần vượt sức chứa xếp hàng chờ. Hạn mức free của upstream tính **riêng cho
+từng model** và **riêng cho từng cặp (model, IP)** (đo 2026-10-26: cùng IP, cùng session, `glm`/`deepseek`/`mimo` hết
+hạn còn `nemotron`/`beam` vẫn 200). Gateway tự nhớ model nào đã hết hạn và bỏ qua model đó; hết hạn thì dùng lại, không
+cần can thiệp. Khi mọi lựa chọn đều hết hạn, gateway trả 429 ngay kèm `Retry-After` (thường 00:00 UTC = 07:00 VN) thay vì
+giữ hàng chờ vô ích.
 
 **Viết chương trình gọi gateway với thông lượng cao: đọc [`docs/CLIENT_GUIDE.md`](docs/CLIENT_GUIDE.md)** (chọn chế độ,
 mức đồng thời, timeout/retry, ví dụ Python/TypeScript chạy được trong `examples/`).
@@ -106,7 +109,12 @@ cho câu trả lời (rỗng, `finish_reason: length`); đặt 16 000 còn 2%.
 
 - Gửi bao nhiêu cũng được: phần vượt sức chứa **xếp hàng chờ** (tối đa `MAX_WAIT`, mặc định 30 phút), không bị lỗi.
 - Để chờ ít nhất: giữ số request đang gửi quanh `recommended_concurrency` của `GET /v1/capacity`.
-- Muốn fail nhanh thay vì chờ: header `X-Max-Wait: 30s` (mặc định chờ tới `MAX_WAIT`).
+- Muốn fail nhanh thay vì chờ: header `X-Max-Wait: 30s` (mặc định chờ tới `MAX_WAIT`). Đây là **tổng ngân sách chờ của
+  cả request**: thời gian xếp hàng + mọi lần thử lại qua các đường mạng + thời gian chờ upstream trả header. Client đặt
+  `30s` thì gateway trả 429 trong khoảng 30 s kể cả khi phải thử nhiều đường. **Phần sinh câu trả lời sau khi đã có
+  header không bị cắt** (bài toán văn bản dài cần stream chạy tới cuối), nên client vẫn cần timeout HTTP dài
+  (10–30 phút) cho câu trả lời dài. Không áp dụng cho job chạy nền (`/v1/batches`, `/v1/jobs`) — job không mang
+  header của client.
 - Lô rất lớn (hàng nghìn tới hàng trăm nghìn): dùng `/v1/batches`. Job lưu bền trong Redis, lỗi tạm thời tự thử lại có
   backoff, gateway khởi động lại vẫn chạy tiếp, lấy kết quả theo đúng thứ tự gửi:
 
@@ -146,10 +154,15 @@ Hướng dẫn đầy đủ cho client (mức đồng thời, timeout, retry, v�
 
 ```bash
 cd /home/minhdn3/Downloads/opencode-railway
+cp .env.example .env          # điền key proxy dân cư (KHÔNG commit file .env)
 docker compose -f docker-compose.warp.yml up -d            # 16 WARP + Redis + gateway (cổng 8090)
 docker compose -f docker-compose.warp.yml up -d --build --no-deps gateway   # chỉ build lại gateway
 docker logs -f orw-prod
 ```
+
+Key proxy dân cư **không có trong repo**: `docker-compose.warp.yml` chỉ khai báo `${RESIDENTIAL_PROXIES:-}` và
+`${RESIDENTIAL_REFRESH_URLS:-}`, đọc từ file `.env` cạnh compose (`.env` đã nằm trong `.gitignore`). Bỏ trống thì
+gateway chạy chỉ với WARP. Vì repo trước đây công khai, key đã từng nằm trong lịch sử git — hãy dùng key mới.
 
 Mọi container đều giới hạn log 3 × 10 MB. Gateway mount `/var/run/docker.sock` để tự đổi danh tính WARP.
 
@@ -187,7 +200,7 @@ bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` kh
 | `Failed to communicate with the WARP API` | log `[WARP]` | API đăng ký của Cloudflare tạm từ chối, gateway tự thử lại sau 30 s |
 | Proxy dân cư lỗi | log `[resN]`, `[ProxyXoay]` | Tự xoay IP sau 5 lỗi liên tiếp; key hết hạn thì tự loại |
 | Request lớn báo 400 vượt context | `/status` → `context_limits` | Với `auto`: tự chuyển model. Với model cố định: chọn model đọc dài hơn (mục 2.4) |
-| Hàng loạt 429, log `[AccountGate]` | toàn bộ quota free trong ngày đã cạn | Circuit breaker tự ngừng đổi IP (tránh xoay vô ích) và thăm dò lại định kỳ; tự mở khi quota hồi. Chờ 07:00 giờ VN |
+| Hàng loạt 429, log `[AccountGate]` | toàn bộ quota free trong ngày đã cạn | Circuit breaker ngừng đổi IP (đổi cũng vô ích khi quota cạn cả tài khoản) và thăm dò lại mỗi 2 phút. Chỉ mở lại khi có bằng chứng quota hồi thật: ≥3 đường mạng khác nhau cùng bị cạn, trong đó có ít nhất 1 IP **vừa đổi** (IP mới tinh cũng cạn) và từ ≥2 họ đường mạng (WARP / dân cư / direct) — nếu chỉ cạn riêng từng IP thì đổi IP vẫn có ích nên không chặn. `Retry-After` trả về là mốc quota hồi (thường 00:00 UTC = 07:00 VN) |
 | 1 proxy dân cư lỗi TCP liên tục | log `[resN] ... transport error` | Gateway cho cả egress đó nghỉ (backoff 2–60 s), xoay IP sau 3 lỗi; request tự sang egress khác |
 
 **Không chạy quá 16 container WARP** trừ khi đã nâng giới hạn kernel

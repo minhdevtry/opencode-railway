@@ -47,13 +47,30 @@ func (r *rateCounter) perSecond() float64 {
 func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 	setCORS(w)
 	usable, slots, inflight := 0, 0, 0
+	budgetLeft, budgetKnown := 0, 0
+	var dead []string
 	for _, e := range mgr.snapshot() {
 		inflight += int(e.inflight.Load())
-		if !e.ready.Load() || e.expired.Load() || (cfg.SessionIDMode == "egress" && !e.sess.usable()) {
+		if e.expired.Load() {
+			why, _ := e.expiredWhy.Load().(string)
+			if why == "" {
+				why = "đã bị loại"
+			}
+			dead = append(dead, e.Name+": "+why)
 			continue
+		}
+		if !e.ready.Load() || (cfg.SessionIDMode == "egress" && !e.sess.usable()) {
+			continue
+		}
+		if time.Now().UnixNano() < e.downUntil.Load() {
+			continue // egress đang nghỉ cả egress (lỗi TCP) -> không tính vào sức chứa dùng được
 		}
 		usable++
 		slots += int(e.limit.Load())
+		if b := e.sess.budgetLeft(); b >= 0 {
+			budgetKnown++
+			budgetLeft += b
+		}
 	}
 	// Giữ hàng chờ ngắn: đủ để mọi slot luôn có việc ngay khi trống (x1.5) nhưng không dồn quá nhiều chờ lâu.
 	rec := slots * 3 / 2
@@ -70,6 +87,10 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 		"ok_per_second_60s":       float64(int(okRate.perSecond()*100)) / 100,
 		"recommended_concurrency": rec,
 		"model":                   "auto",
+		"session_budget_left":     budgetLeft,            // tổng số session MỚI còn mở được hôm nay trên các IP đang dùng
+		"session_budget_known":    budgetKnown,           // số egress có ngân sách hữu hạn (không tính vào tổng)
+		"dead_egress":             dead,                  // các đường đã bị loại (vd key proxy hết hạn) -> cần người dùng xử lý
+		"model_budget_exhausted":  modelBudgetSnapshot(), // model đã hết ngân sách free -> mốc reset (model này tự mở lại)
 		"bulk_endpoint":           "/v1/batches",
 		"note":                    "Gửi vượt recommended_concurrency vẫn không lỗi (xếp hàng tối đa MAX_WAIT); lô lớn nên dùng /v1/batches.",
 	})

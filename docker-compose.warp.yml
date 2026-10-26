@@ -331,6 +331,9 @@ services:
       # Gọi đích danh model thì giữ nguyên model đó (client muốn cho đổi: header X-Model-Fallback: allow)
       AUTO_MODEL_FALLBACK: "false"
       # Request đồng bộ xếp hàng chờ egress tối đa 30 phút thay vì báo lỗi; job nền thì không giới hạn (Redis)
+      # Ngân sách session MỚI trên mỗi IP trong ngày UTC (upstream cho ~50 cặp (IP, session)/IP/ngày).
+      # Hết ngân sách thì IP đó chết tới 00:00 UTC -> gateway tự đổi IP (xoay WARP / proxy dân cư).
+      SESSION_DAILY_BUDGET: "40"
       MAX_WAIT: "1800s"
       QUEUE_WAIT: "1800s"
       DIRECT_COOLDOWN: "2m"

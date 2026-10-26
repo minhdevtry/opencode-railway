@@ -118,9 +118,7 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 		}
 		return nil
 	}
-	poolMu.RLock()
-	pool := append([]string(nil), freeModelPool...)
-	poolMu.RUnlock()
+	pool := poolSnapshot()
 	if isPool {
 		n := len(pool)
 		if n == 0 {
@@ -185,9 +183,9 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 	m.wmu.Lock()
 	models := []string{model}
 	if isPool || (fb && isFreeModelInPool(model)) {
-		models = freeModelPool
+		models = poolSnapshot()
 	}
-	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.tripped()) {
+	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
 		m.wmu.Unlock()
 		return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 			msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
@@ -232,7 +230,7 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 		case <-tick.C:
 			m.growTor()
 			// Không đường nào có thể phục vụ trong thời gian còn lại (vd chỉ có direct đã cạn): báo sớm thay vì giữ.
-			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.tripped()) {
+			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
 				leave()
 				return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 					msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
@@ -346,23 +344,47 @@ func modelFallback(ctx context.Context) bool {
 
 // X-Max-Wait: client tự chọn chờ tối đa bao lâu trong hàng đợi (vd "30s") trước khi nhận 429, thay vì mặc định MAX_WAIT.
 // Dùng khi client thà fail nhanh và tự điều tiết còn hơn chờ lâu lúc hệ thống gần cạn sức.
+//
+// Hạn phải là MỐC TUYỆT ĐỐI, không phải "chờ thêm bao lâu": handler có thể gọi forward() nhiều lần (retry 429/502,
+// guard retry stream bị cụt). Nếu mỗi lần forward() tính lại hạn từ đầu thì client chờ N × X-Max-Wait, tức client
+// yêu cầu 15s nhưng thực tế chờ 8 × 15s = 2 phút - đúng cái điều client muốn tránh.
 type maxWaitKey struct{}
 
 func withMaxWait(ctx context.Context, r *http.Request) context.Context {
+	d := cfg.MaxWait
 	if v := strings.TrimSpace(r.Header.Get("X-Max-Wait")); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			if d > cfg.MaxWait {
-				d = cfg.MaxWait
+		if pd, err := time.ParseDuration(v); err == nil && pd > 0 {
+			// Client chỉ được RÚT NGẮN hạn, không được dài hơn MAX_WAIT của server.
+			if pd < d {
+				d = pd
 			}
-			return context.WithValue(ctx, maxWaitKey{}, d)
 		}
 	}
-	return ctx
+	// Luôn gắn mốc tuyệt đối, kể cả khi client không đặt header: nếu không, mỗi lần forward() trong vòng retry lại
+	// lấy một hạn MỚI (MAX_WAIT) => 1 HTTP request có thể chờ N x MAX_WAIT.
+	return context.WithValue(ctx, maxWaitKey{}, time.Now().Add(d))
 }
 
-func maxWaitFrom(ctx context.Context) time.Duration {
-	d, _ := ctx.Value(maxWaitKey{}).(time.Duration)
-	return d
+// deadlineFrom: hạn chờ tuyệt đối của client (nếu client gửi X-Max-Wait).
+func deadlineFrom(ctx context.Context) (time.Time, bool) {
+	t, ok := ctx.Value(maxWaitKey{}).(time.Time)
+	return t, ok
+}
+
+// waitBudget: ngân sách chờ còn lại của request (giây). Mặc định là MAX_WAIT; nếu ctx có mốc tuyệt đối (do handler
+// gắn: X-Max-Wait của client hoặc MAX_WAIT) thì lấy phần còn lại của mốc đó - nhờ vậy các lần retry trong cùng
+// 1 request không cộng dồn thời gian chờ.
+func waitBudget(ctx context.Context) time.Duration {
+	wait := cfg.MaxWait
+	if dl, ok := deadlineFrom(ctx); ok {
+		if d := time.Until(dl); d < wait {
+			wait = d
+		}
+	}
+	if wait < 0 {
+		wait = 0
+	}
+	return wait
 }
 
 // Egress cần tránh ngay từ lần thử đầu (lần gửi lại sau khi stream trên egress đó bị treo/đứt).

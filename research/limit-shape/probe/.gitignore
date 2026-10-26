@@ -1,0 +1,2 @@
+# binary đã build của probe (sinh lại bằng: cd research/limit-shape/probe && go build -o probe .)
+probe/probe

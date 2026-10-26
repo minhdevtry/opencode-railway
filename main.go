@@ -105,6 +105,14 @@ func reconcilePool(current []string, active map[string]bool, custom string) []st
 	return live
 }
 
+// poolSnapshot: bản sao danh sách model trong pool, đọc DƯỚI KHOÁ. freeModelPool được ghi bởi prunePool/syncCatalog
+// (goroutine khác) nên đọc trực tiếp là data race (race detector bắt được ở probeAccount vs prunePool).
+func poolSnapshot() []string {
+	poolMu.RLock()
+	defer poolMu.RUnlock()
+	return append([]string(nil), freeModelPool...)
+}
+
 func prunePool(model string) {
 	poolMu.Lock()
 	defer poolMu.Unlock()
@@ -631,8 +639,11 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	var agg *aggregate
 	var aggErr error
 	excl := map[string]bool{}
+	// Hạn chờ của client (X-Max-Wait) tính MỘT LẦN cho cả request: nếu tính lại ở mỗi vòng retry thì client
+	// chờ N x X-Max-Wait, tức vượt hạn client đã đặt (client yêu cầu 15s nhưng thực tế chờ 8 x 15s).
+	baseCtx := withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r)
 	for try := 0; ; try++ {
-		ctx := withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r)
+		ctx := baseCtx
 		if len(excl) > 0 {
 			ctx = withExclude(ctx, excl)
 		}
@@ -734,11 +745,22 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		flusher, _ := w.(http.Flusher)
 		br := bufio.NewReaderSize(up.resp.Body, 32*1024)
 		var firstByte time.Duration
+		sawDone := false // upstream đã kết thúc stream đúng cách (finish_reason hoặc [DONE])?
 		for {
 			line, err := br.ReadBytes('\n')
 			if len(line) > 0 {
 				if firstByte == 0 {
 					firstByte = time.Since(t0)
+				}
+				if !sawDone {
+					if bytes.Contains(line, []byte("[DONE]")) {
+						sawDone = true
+					} else if bytes.Contains(line, []byte("finish_reason")) {
+						compact := bytes.ReplaceAll(line, []byte(" "), nil)
+						if !bytes.Contains(compact, []byte("\"finish_reason\":null")) {
+							sawDone = true
+						}
+					}
 				}
 				if _, werr := w.Write(line); werr != nil {
 					break
@@ -748,7 +770,16 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if err != nil {
+				penalizeStreamError(up.egress, err) // đọc body giữa chừng bị lỗi mạng -> phạt egress đó
 				break
+			}
+		}
+		if !sawDone {
+			// Upstream đứt giữa chừng: client đã nhận status 200 nên chỉ còn cách báo lỗi qua frame SSE.
+			log.Printf("[chat] stream đứt giữa chừng (không có finish_reason/[DONE])")
+			_, _ = w.Write([]byte("data: {\"error\":{\"message\":\"Upstream stream interrupted\",\"type\":\"upstream_error\"}}\n\n"))
+			if flusher != nil {
+				flusher.Flush()
 			}
 		}
 		logReq("chat", "stream", up, t0, firstByte)
@@ -757,6 +788,9 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 
 	if agg == nil {
 		agg, aggErr = aggregateSSE(up.resp.Body)
+		if aggErr != nil {
+			penalizeStreamError(up.egress, aggErr) // đọc body giữa chừng bị lỗi mạng -> phạt egress đó
+		}
 	}
 	// Không có finish_reason (stream đứt, kể cả EOF "sạch" không có [DONE]) => nội dung có thể bị cụt: báo 502 để
 	// client/job thử lại, không trả 200 cụt.
@@ -831,7 +865,7 @@ func systemoneHandler(w http.ResponseWriter, r *http.Request) {
 	body, _ := jsonMarshalNoEscape(reqData)
 	t0 := time.Now()
 
-	up, gerr := forward(r.Context(), resolved, false, zenURL+"/systemone", "application/json", sessionKey(r, reqData), func(string) []byte { return body })
+	up, gerr := forward(withMaxWait(r.Context(), r), resolved, false, zenURL+"/systemone", "application/json", sessionKey(r, reqData), func(string) []byte { return body })
 	if gerr != nil {
 		writeGWError(w, gerr)
 		return
@@ -840,7 +874,10 @@ func systemoneHandler(w http.ResponseWriter, r *http.Request) {
 	setGWHeaders(w, up)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(up.resp.StatusCode)
-	_, _ = io.Copy(w, up.resp.Body)
+	if _, cerr := io.Copy(w, up.resp.Body); cerr != nil {
+		// Status đã gửi rồi nên không đổi được; chỉ log để biết body bị cụt.
+		log.Printf("[systemone] copy body lỗi (body có thể bị cụt): %v", cerr)
+	}
 	logReq("systemone", "json", up, t0, up.ttfb)
 }
 func capacityHandler(w http.ResponseWriter, r *http.Request) {
@@ -1039,27 +1076,46 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	type egStat struct {
-		Name      string             `json:"name"`
-		Kind      string             `json:"kind"`
-		Ready     bool               `json:"ready"`
-		Inflight  int32              `json:"inflight"`
-		Requests  int64              `json:"requests"`
-		OK        int64              `json:"ok"`
-		RateLimit int64              `json:"rate_limited"`
-		Errors    int64              `json:"errors"`
-		Cooldown  map[string]float64 `json:"cooldown_seconds,omitempty"`
-		Sessions  int                `json:"sessions_alive"`
-		Opened    int                `json:"sessions_opened_today"`
-		NoNewSes  bool               `json:"new_sessions_denied,omitempty"`
-		SesUses   int64              `json:"session_requests_today"`
-		Renews    int64              `json:"identity_renews,omitempty"`
-		Limit     int32              `json:"inflight_limit,omitempty"`
+		Name       string             `json:"name"`
+		Kind       string             `json:"kind"`
+		Ready      bool               `json:"ready"`
+		Inflight   int32              `json:"inflight"`
+		Requests   int64              `json:"requests"`
+		OK         int64              `json:"ok"`
+		RateLimit  int64              `json:"rate_limited"`
+		Errors     int64              `json:"errors"`
+		Cooldown   map[string]float64 `json:"cooldown_seconds,omitempty"`
+		Sessions   int                `json:"sessions_alive"`
+		Opened     int                `json:"sessions_opened_today"`
+		Budget     int                `json:"session_budget_left"` // số session MỚI còn mở được trên IP này hôm nay (-1 = không giới hạn)
+		Expired    bool               `json:"expired,omitempty"`   // bị loại khỏi routing (vd key proxy hết hạn)
+		ExpiredWhy string             `json:"expired_reason,omitempty"`
+		IP         string             `json:"ip,omitempty"`      // IP thoát thật mà upstream nhìn thấy
+		IPKind     string             `json:"ip_kind,omitempty"` // own = IPv6 riêng của container, shared = IPv4 WARP dùng chung
+		NoNewSes   bool               `json:"new_sessions_denied,omitempty"`
+		SesUses    int64              `json:"session_requests_today"`
+		Renews     int64              `json:"identity_renews,omitempty"`
+		Limit      int32              `json:"inflight_limit,omitempty"`
 	}
 	var list []egStat
 	for _, e := range mgr.snapshot() {
 		s := egStat{Name: e.Name, Kind: e.Kind, Ready: e.ready.Load(), Inflight: e.inflight.Load(),
 			Requests: e.reqs.Load(), OK: e.oks.Load(), RateLimit: e.r429.Load(), Errors: e.errs.Load(), Renews: e.renews.Load(), Limit: e.limit.Load()}
 		s.Sessions, s.Opened, s.NoNewSes, s.SesUses = e.sess.stats()
+		s.Budget = e.sess.budgetLeft()
+		s.Expired = e.expired.Load()
+		if w, ok := e.expiredWhy.Load().(string); ok {
+			s.ExpiredWhy = w
+		}
+		if ip, ok := e.ipAddr.Load().(string); ok {
+			s.IP = ip
+		}
+		switch e.ipKind.Load() {
+		case ipKindOwn:
+			s.IPKind = "own"
+		case ipKindShared:
+			s.IPKind = "shared"
+		}
 		e.mu.Lock()
 		for model, c := range e.cool {
 			if d := time.Until(c.until); d > 0 {
@@ -1073,15 +1129,16 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		list = append(list, s)
 	}
 	out, _ := json.Marshal(map[string]any{
-		"uptime_seconds": int(time.Since(started).Seconds()),
-		"inflight":       inflightTotal.Load(),
-		"max_inflight":   cfg.MaxConcurrency,
-		"jobs":           jobStats(r.Context()),
-		"context_limits": contextLimits(),
-		"queued_sync":    queuedHigh.Load(),
-		"queued_jobs":    queuedLow.Load(),
-		"model_quality":  modelQualitySnapshot(),
-		"egress":         list,
+		"uptime_seconds":         int(time.Since(started).Seconds()),
+		"inflight":               inflightTotal.Load(),
+		"max_inflight":           cfg.MaxConcurrency,
+		"jobs":                   jobStats(r.Context()),
+		"context_limits":         contextLimits(),
+		"queued_sync":            queuedHigh.Load(),
+		"queued_jobs":            queuedLow.Load(),
+		"model_quality":          modelQualitySnapshot(),
+		"model_budget_exhausted": modelBudgetSnapshot(), // model đã hết ngân sách free -> mốc reset
+		"egress":                 list,
 	})
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(out)
@@ -1177,6 +1234,8 @@ func main() {
 	}
 	go startCatalogSync(ctx)
 	go mgr.warpJanitor(ctx)
+	go mgr.detectWarpIPs(ctx)
+	go mgr.checkResidentialLiveness(ctx)
 	startJobs(ctx)
 
 	srv := &http.Server{

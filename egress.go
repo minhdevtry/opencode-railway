@@ -40,6 +40,7 @@ type Egress struct {
 	tier       int
 	refreshURL string
 	expired    atomic.Bool
+	expiredWhy atomic.Value // lý do bị loại (vd "key hết hạn") để hiện ra /status
 	lastRotate time.Time
 
 	client atomic.Pointer[http.Client]
@@ -63,16 +64,33 @@ type Egress struct {
 	mu   sync.Mutex
 	cool map[string]*coolState
 
-	limit      atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
-	errRun     atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
-	okRun      atomic.Int32
-	sess       sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
-	renewing   atomic.Bool
-	renews     atomic.Int64
-	renewTries atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
-	downUntil  atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
-	container  string       // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
+	limit              atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
+	errRun             atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
+	okRun              atomic.Int32
+	sess               sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
+	renewing           atomic.Bool
+	renews             atomic.Int64
+	renewTries         atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
+	downUntil          atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
+	ipChanged          atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
+	ipAddr             atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
+	proxyAddr          string       // host:port của proxy (kiểm tra sống lúc khởi động)
+	lastIdentityChange time.Time    // lần đổi danh tính gần nhất (giới hạn tần suất xoay IP)
+	ipKind             atomic.Int32 // 0 = chưa biết, 1 = IPv6 riêng (nguồn IP riêng), 2 = IPv4 WARP dùng chung (nhiều container
+	// dùng chung 1 IP => hạn mức phía upstream cũng dùng chung, nên ưu tiên egress có IPv6 riêng)
+	container string // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
 }
+
+// Cửa sổ coi 1 IP là "mới tinh" sau khi đổi. Trong khoảng này, IP mới bị cạn hạn mức (retry-after dài) là bằng chứng
+// quota cạn CẤP TÀI KHOẦN chứ không phải cạn riêng IP đó.
+const egressIPFreshWindow = 10 * time.Minute
+
+// Phân loại IP của egress (xem Egress.ipKind).
+const (
+	ipKindUnknown = 0 // chưa dò được
+	ipKindOwn     = 1 // IPv6 riêng của container
+	ipKindShared  = 2 // IPv4 WARP dùng chung (104.28.x): nhiều container chung 1 IP
+)
 
 func newTransport(proxy func(*http.Request) (*url.URL, error)) *http.Transport {
 	if cfg.UpstreamTLS == "bun" {
@@ -271,7 +289,10 @@ func (e *Egress) claim(model string) bool {
 	return true
 }
 
-const probeLease = 15 * time.Second
+// probeLease: sau khi hết cooldown, chỉ 1 request được thăm dò lại egress đó; các request khác chờ tới lượt.
+// Giữ NGẮN (5s) vì đây cũng là khoảng chờ mà client phải gánh nếu request kế tiếp tới đúng lúc egress vừa hết
+// cooldown: lease 15s khiến client có ngân sách chờ ngắn bị trả 429 oan (xem sched.go anyUsableWithin).
+const probeLease = 5 * time.Second
 
 func (e *Egress) clear(model string) {
 	e.mu.Lock()
@@ -280,8 +301,30 @@ func (e *Egress) clear(model string) {
 }
 func (e *Egress) clearAll() {
 	e.mu.Lock()
-	e.cool = make(map[string]*coolState)
+	for k := range e.cool {
+		delete(e.cool, k)
+	}
 	e.mu.Unlock()
+	// IP mới = đường mạng mới: cooldown cũ (do lỗi TCP của IP cũ) không áp dụng nữa.
+	e.downUntil.Store(0)
+}
+
+// markIPChanged: đánh dấu IP vừa được đổi (WARP đổi danh tính, proxy dân cư xoay IP). Trong cửa sổ
+// egressIPFreshWindow thì IP này là "mới tinh": bị cạn hạn mức lúc đó mới là bằng chứng cạn CẤP TÀI KHOẢN
+// (đổi IP cũng vô ích), chứ không phải cạn riêng IP đó.
+func (e *Egress) markIPChanged() {
+	e.ipChanged.Store(time.Now().UnixNano())
+	// IP mới => cặp (model, IP) cũ hết hiệu lực: model bị cạn trên IP cũ sẽ dùng lại được với IP này.
+	clearBudgetForEgress(e.Name)
+}
+
+// ipIsFresh: IP của egress này vừa được đổi (mới tinh) chưa?
+func (e *Egress) ipIsFresh() bool {
+	at := e.ipChanged.Load()
+	if at == 0 {
+		return false
+	}
+	return time.Since(time.Unix(0, at)) <= egressIPFreshWindow
 }
 
 // coolEgress cho CẢ egress nghỉ d (lỗi TCP/transport không gắn với model nào). Backoff theo số lỗi liên tiếp.
@@ -403,13 +446,15 @@ type Manager struct {
 	dirMu  sync.Mutex
 	dirWin map[string]*rateWindow
 
-	torSpawned   int
-	torSeq       int
-	torStarting  int
-	ctx          context.Context
-	wg           sync.WaitGroup
-	proxyRefMu   sync.Mutex
-	proxyRefLast time.Time
+	torSpawned     int
+	torSeq         int
+	torStarting    int
+	ctx            context.Context
+	wg             sync.WaitGroup
+	proxyRefMu     sync.Mutex
+	proxyRefLast   time.Time
+	lastProbe      time.Time // lần thăm dò quota tài khoản gần nhất (giới hạn tần suất: mỗi probe là 1 request thật)
+	lastProbeRenew time.Time // lần đổi 1 danh tính để thăm dò quota gần nhất (để có IP mới thật sự khi đang capped)
 
 	// bộ điều phối (sched.go)
 	wmu      sync.Mutex
@@ -491,10 +536,13 @@ func (m *Manager) addStatic(torInstances, proxyPool, resProxies, resRefresh stri
 		e := newEgress(fmt.Sprintf("res%d", i+1), kindProxy, http.ProxyURL(u))
 		e.tier = 1
 		e.daemon = fmt.Sprintf("res%d", i+1)
+		e.proxyAddr = u.Host
 		if i < len(refreshList) {
 			e.refreshURL = refreshList[i]
 		}
-		e.ready.Store(true)
+		// Chưa cho vào routing ngay: proxy chết (IP hỏng/key hết hạn) thì mỗi lần thử tốn 20-40 giây.
+		// checkResidentialLiveness sẽ bật lại nếu proxy còn sống, hoặc loại + xoay IP nếu chết.
+		e.ready.Store(false)
 		m.add(e)
 		log.Printf("[ProxyXoay] Tier 1 nạp proxy dân cư: %s (%s)", e.Name, p)
 	}
@@ -521,19 +569,21 @@ var (
 	lastResRotTime = map[string]time.Time{}
 )
 
-func (m *Manager) rotateResidentialProxy(e *Egress) {
+// rotateResidentialProxy xoay IP của proxy dân cư. Trả true nếu lần xoay ĐÃ BẮT ĐẦU (để bộ đếm lỗi chỉ reset
+// khi thật sự xoay; nếu reset cả khi lần xoay bị bỏ qua thì backoff không bao giờ leo).
+func (m *Manager) rotateResidentialProxy(e *Egress) bool {
 	if e.refreshURL == "" || e.expired.Load() {
-		return
+		return false
 	}
 	// Cờ riêng từng egress (không dùng cờ chung): lịch xoay lại của proxy này không bị proxy khác chặn mất.
 	if !e.renewing.CompareAndSwap(false, true) {
-		return
+		return false
 	}
 	resRotMu.Lock()
 	if time.Since(e.lastRotate) < 60*time.Second {
 		resRotMu.Unlock()
 		e.renewing.Store(false)
-		return
+		return false
 	}
 	e.lastRotate = time.Now()
 	resRotMu.Unlock()
@@ -564,6 +614,7 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 			if res.Status == 102 || strings.Contains(msgLower, "khong ton tai") || strings.Contains(msgLower, "het han") {
 				e.expired.Store(true)
 				e.ready.Store(false)
+				e.expiredWhy.Store("key proxy hết hạn: " + res.Message)
 				log.Printf("[ProxyXoay] Key của %s đã thực sự hết hạn (%s)! Tự động loại bỏ hoàn toàn khỏi routing, chuyển sang WARP.", e.Name, res.Message)
 				return
 			}
@@ -597,12 +648,14 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 		time.Sleep(warmup)
 		e.clearAll()
 		e.sess.reset() // IP mới => ngân sách session mới
+		e.markIPChanged()
 		if t, ok := e.Client().Transport.(*http.Transport); ok {
 			t.CloseIdleConnections()
 		}
 		m.kickSched()
 		log.Printf("[ProxyXoay] %s đã sẵn sàng với IP dân cư mới!", e.Name)
 	}()
+	return true
 }
 
 func (m *Manager) refreshRotatingProxy(e *Egress) {
@@ -716,7 +769,7 @@ func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
 	}
 	list := m.snapshot()
 	direct := list[0]
-	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && direct.claim(model) {
+	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
 		return direct
 	}
 	start := int(atomic.AddUint32(&m.rr, 1))
@@ -739,7 +792,7 @@ func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
 	}
 
 	// Direct làm chốt chặn cuối
-	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && direct.claim(model) {
+	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
 		return direct
 	}
 	return nil
@@ -773,8 +826,16 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 		if !e.available(model) || (e.canRotate && int(e.inflight.Load()) >= cfg.TorMaxInflight) {
 			continue
 		}
+		if modelExhaustedOn(model, e.Name) {
+			continue // cặp (model, IP) này đã hết ngân sách -> thử IP khác cho model đó
+		}
 		st := e.strikes(model)
 		sc := e.loadScore(med)
+		if e.ipKind.Load() == ipKindShared {
+			// IP dùng chung: hạn mức phía upstream cũng dùng chung với container khác -> chỉ dùng khi không còn
+			// egress nào có IP riêng.
+			sc += 1e9
+		}
 		if best == nil || st < bestStrikes || (st == bestStrikes && sc < bestScore) {
 			best, bestStrikes, bestScore = e, st, sc
 		}
@@ -819,8 +880,16 @@ func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[strin
 		if !e.available(model) || (e.canRotate && int(e.inflight.Load()) >= cfg.TorMaxInflight) {
 			continue
 		}
+		if modelExhaustedOn(model, e.Name) {
+			continue // cặp (model, IP) này đã hết ngân sách -> thử IP khác cho model đó
+		}
 		st := e.strikes(model)
 		sc := e.loadScore(med)
+		if e.ipKind.Load() == ipKindShared {
+			// IP dùng chung: hạn mức phía upstream cũng dùng chung với container khác -> chỉ dùng khi không còn
+			// egress nào có IP riêng.
+			sc += 1e9
+		}
 		if best == nil || st < bestStrikes || (st == bestStrikes && sc < bestScore) {
 			best, bestStrikes, bestScore = e, st, sc
 		}
@@ -831,7 +900,7 @@ func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[strin
 	return best
 }
 func isFreeModelInPool(model string) bool {
-	for _, m := range freeModelPool {
+	for _, m := range poolSnapshot() {
 		if m == model {
 			return true
 		}
@@ -860,10 +929,11 @@ func (m *Manager) triggerEmergencyWarpRenew() {
 func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, deadline time.Time, avoid ...string) (string, *Egress, *gwError) {
 	for {
 		if isPool {
-			n := len(freeModelPool)
+			pool := poolSnapshot()
+			n := len(pool)
 			start := int(atomic.AddUint32(&poolIndex, 1))
 			for i := range n {
-				cand := freeModelPool[(start+i)%n]
+				cand := pool[(start+i)%n]
 				if e := m.pickAvoid(cand, avoid...); e != nil {
 					return cand, e, nil
 				}
@@ -873,10 +943,11 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 				return model, e, nil
 			}
 			if cfg.AutoModelFallback && isFreeModelInPool(model) {
-				n := len(freeModelPool)
+				pool := poolSnapshot()
+				n := len(pool)
 				start := int(atomic.AddUint32(&poolIndex, 1))
 				for i := range n {
-					cand := freeModelPool[(start+i)%n]
+					cand := pool[(start+i)%n]
 					if cand != model {
 						if e := m.pickAvoid(cand, avoid...); e != nil {
 							log.Printf("[Router] model=%s cạn quota trên mọi đường, tự động failover sang model=%s", model, cand)
@@ -891,7 +962,7 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 
 		models := []string{model}
 		if isPool || (cfg.AutoModelFallback && isFreeModelInPool(model)) {
-			models = freeModelPool
+			models = poolSnapshot()
 		}
 		// Khi chỉ có 1 đường direct duy nhất (không có proxy pool để renew) và không có Tor: báo 429 nhanh.
 		// Khi CÓ proxy pool (16-24 WARP proxies): KHÔNG ĐƯỢC NUỐT/VỨT BỎ REQUEST, kích hoạt renew IP khẩn cấp và giữ request chờ đường mới!
@@ -928,10 +999,19 @@ func (m *Manager) anyUsableWithin(models []string, within time.Duration) bool {
 		if !e.ready.Load() || e.expired.Load() {
 			continue
 		}
+		if time.Now().UnixNano() < e.downUntil.Load() {
+			continue // egress đang nghỉ cả egress (lỗi TCP) -> không phải đường đi nào dùng được
+		}
 		if cfg.SessionIDMode == "egress" && !e.sess.readyWithin(within) {
 			continue // IP đã hết lượt session và chưa tới lúc thăm dò lại
 		}
 		for _, mod := range models {
+			// Phải KHỚP với bộ điều phối: nếu cặp (model, egress) đã hết ngân sách thì bộ điều phối sẽ không
+			// chọn egress này cho model đó -> ở đây cũng phải coi là không dùng được, nếu không gateway sẽ tưởng
+			// còn đường đi rồi xếp hàng tới MAX_WAIT (30 phút) thay vì trả 429 ngay.
+			if modelExhaustedOn(mod, e.Name) {
+				continue
+			}
 			if d := e.cooldownLeft(mod); d <= within {
 				return true
 			}
@@ -943,19 +1023,33 @@ func (m *Manager) anyUsableWithin(models []string, within time.Duration) bool {
 // soonest: thời gian ngắn nhất cho tới khi có 1 egress dùng lại được cho 1 trong các model.
 func (m *Manager) soonest(models []string) time.Duration {
 	best := time.Duration(0)
-	if acctGate.tripped() {
-		if d := time.Until(acctGate.until_()); d > 0 {
-			best = d
-		}
-	}
 	for _, e := range m.snapshot() {
 		if !e.ready.Load() {
 			continue
 		}
 		for _, mod := range models {
+			if modelExhaustedOn(mod, e.Name) {
+				continue // cặp (model, IP) đã hết ngân sách -> không phải lựa chọn
+			}
 			if d := e.cooldownLeft(mod); d > 0 && (best == 0 || d < best) {
 				best = d
 			}
+		}
+	}
+	// Model đã hết ngân sách -> client phải chờ tới mốc reset của model đó (thường 00:00 UTC), không phải chờ
+	// hết cooldown của egress.
+	for _, mod := range models {
+		if until, ok := modelResetAt(mod); ok {
+			if d := time.Until(until); d > best {
+				best = d
+			}
+		}
+	}
+	// Khi quota tài khoản đang cạn, thời điểm "thử lại được" là lúc quota hồi (nửa đêm UTC), không phải lúc hết cooldown
+	// của 1 egress: client retry theo hạn cooldown sẽ lại nhận 429 ngay. Nên lấy mốc LỚN hơn.
+	if acctGate.capped() {
+		if d := time.Until(acctGate.resetTime()); d > best {
+			best = d
 		}
 	}
 	return best

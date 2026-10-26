@@ -1,0 +1,23 @@
+{"status": 200, "secs": 0.96, "ra": "", "t": "11:07:28", "text": "pong", "err": "", "cell": "B2", "i": 0}
+{"status": 200, "secs": 2.31, "ra": "", "t": "11:07:31", "text": "Pong", "err": "", "cell": "B2", "i": 1}
+{"status": 200, "secs": 0.71, "ra": "", "t": "11:07:32", "text": "pong", "err": "", "cell": "B2", "i": 2}
+{"status": 200, "secs": 0.77, "ra": "", "t": "11:07:33", "text": "Pong", "err": "", "cell": "B2", "i": 3}
+{"status": 200, "secs": 0.96, "ra": "", "t": "11:07:34", "text": "pong", "err": "", "cell": "B2", "i": 4}
+{"status": 200, "secs": 0.79, "ra": "", "t": "11:07:35", "text": "pong", "err": "", "cell": "B2", "i": 5}
+{"status": 200, "secs": 1.04, "ra": "", "t": "11:07:37", "text": "pong", "err": "", "cell": "B2", "i": 6}
+{"status": 200, "secs": 0.62, "ra": "", "t": "11:07:38", "text": "Pong", "err": "", "cell": "B2", "i": 7}
+{"status": 200, "secs": 1.63, "ra": "", "t": "11:07:40", "text": "pong", "err": "", "cell": "B2", "i": 8}
+{"status": 200, "secs": 0.75, "ra": "", "t": "11:07:41", "text": "Pong", "err": "", "cell": "B2", "i": 9}
+{"status": 200, "secs": 1.21, "ra": "", "t": "11:07:43", "text": "pong", "err": "", "cell": "B2", "i": 10}
+{"status": 200, "secs": 1.26, "ra": "", "t": "11:07:44", "text": "pong", "err": "", "cell": "B2", "i": 11}
+{"status": 200, "secs": 0.92, "ra": "", "t": "11:07:46", "text": "pong", "err": "", "cell": "B2", "i": 12}
+{"status": 200, "secs": 0.95, "ra": "", "t": "11:07:47", "text": "pong", "err": "", "cell": "B2", "i": 13}
+{"status": 200, "secs": 0.87, "ra": "", "t": "11:07:49", "text": "pong", "err": "", "cell": "B2", "i": 14}
+{"status": 200, "secs": 0.85, "ra": "", "t": "11:07:51", "text": "pong", "err": "", "cell": "B2", "i": 15}
+{"status": 200, "secs": 0.53, "ra": "", "t": "11:07:52", "text": "Pong", "err": "", "cell": "B2", "i": 16}
+{"status": 200, "secs": 1.21, "ra": "", "t": "11:07:53", "text": "pong", "err": "", "cell": "B2", "i": 17}
+{"status": 200, "secs": 1.45, "ra": "", "t": "11:07:55", "text": "pong", "err": "", "cell": "B2", "i": 18}
+{"status": 200, "secs": 1.87, "ra": "", "t": "11:07:58", "text": "pong", "err": "", "cell": "B2", "i": 19}
+{"status": 200, "secs": 0.84, "ra": "", "t": "11:07:59", "text": "pong", "err": "", "cell": "B2", "i": 20}
+{"status": 200, "secs": 1.03, "ra": "", "t": "11:08:00", "text": "pong", "err": "", "cell": "B2", "i": 21}
+{"status": 429, "secs": 0.31, "ra": "71519", "t": "11:08:01", "text": "", "err": "{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode", "cell": "B2", "i": 22}

@@ -44,33 +44,36 @@ type Config struct {
 	TorBin             string
 
 	// Xác thực & giới hạn theo IP
-	AllowedIPs     string
-	ClientIPHeader string
-	RateRPM        int
-	RateBurst      int
-	CORSOrigin     string
-	ProxyRefreshURL      string        // URL gọi để đổi IP cho proxy xoay khi bị 429 (vd: https://proxyxoay.shop/api/get.php?key=...)
-	ProxyWarmup          time.Duration // thời gian chờ proxy xoay IP xong (mặc định 3s)
+	AllowedIPs             string
+	ClientIPHeader         string
+	RateRPM                int
+	RateBurst              int
+	CORSOrigin             string
+	ProxyRefreshURL        string        // URL gọi để đổi IP cho proxy xoay khi bị 429 (vd: https://proxyxoay.shop/api/get.php?key=...)
+	ProxyWarmup            time.Duration // thời gian chờ proxy xoay IP xong (mặc định 3s)
 	ResidentialProxies     string
 	ResidentialRefreshURLs string
 	AutoModels             string
 
 	// Giả danh client opencode thật (cổng phân loại free tier của upstream, đo 2026-10-24, xem research/README.md)
-	UpstreamTLS   string // bun (mặc định: uTLS giả ClientHello của Bun) | go (crypto/tls, bị dồn vào quota chung)
-	UpstreamBase  string // endpoint chat của client thật
-	ClientProfile string // bộ header: 1.18 (opencode 1.18.35, đã đo qua) | 2.1 (opencode 2.1.4)
-	EnvBlock      bool   // ghép khối <env> của opencode vào system prompt (thiếu khối này => 429 FreeUsageLimitError)
-	SessionsPerEgress int           // trần số session mở trên mỗi egress/ngày (SESSION_ID_MODE=egress); upstream cho ~50
-	SessionInflight   int           // số request đồng thời trên 1 session trước khi mở session mới
+	UpstreamTLS        string // bun (mặc định: uTLS giả ClientHello của Bun) | go (crypto/tls, bị dồn vào quota chung)
+	UpstreamBase       string // endpoint chat của client thật
+	ClientProfile      string // bộ header: 1.18 (opencode 1.18.35, đã đo qua) | 2.1 (opencode 2.1.4)
+	EnvBlock           bool   // ghép khối <env> của opencode vào system prompt (thiếu khối này => 429 FreeUsageLimitError)
+	SessionsPerEgress  int    // trần số session SỐNG CÙNG LẤP trên mỗi egress (SESSION_ID_MODE=egress); upstream cho ~50 session/IP/ngày
+	SessionInflight    int    // số request đồng thời trên 1 session trước khi mở session mới
+	SessionDailyBudget int    // trần số session MỚI mở trên 1 IP trong ngày UTC (0 = không giới hạn).
+	// Đo 2026-10-24: upstream cho ~50 cặp (IP, session) mới mỗi IP mỗi ngày. Hết ngân sách thì IP đó chết tới
+	// 00:00 UTC -> gateway phải ĐỔI IP (không phải cứ thử lại). Nhỏ hơn con số thật để chừa biên.
 	SessionCoolMax    time.Duration // Retry-After tối đa được tin để cho session nghỉ (dài hơn => nghỉ SessionReprobe rồi thử lại)
 	SessionReprobe    time.Duration // session/IP bị chặn với Retry-After dài: thử lại sau khoảng này
-	WarpContainers    string // tên container WARP theo đúng thứ tự PROXY_POOL (trống => warp-proxy, warp-proxy-2, ...)
-	WarpRenewParallel int    // số container được đổi danh tính cùng lúc
+	WarpContainers    string        // tên container WARP theo đúng thứ tự PROXY_POOL (trống => warp-proxy, warp-proxy-2, ...)
+	WarpRenewParallel int           // số container được đổi danh tính cùng lúc
 
-	AutoGuard   bool // model auto: tool_choice=none, tắt reasoning ở model hỗ trợ, đổi model khi kết quả rỗng/gọi tool
-	AutoRetries int
-	AutoFirstToken time.Duration // auto: quá hạn này chưa có token đầu thì bỏ, thử egress/model khác
-	AutoFastModels, AutoBestModels, AutoLongModels string // ghi đè danh sách model của auto-fast/best/long
+	AutoGuard                                      bool // model auto: tool_choice=none, tắt reasoning ở model hỗ trợ, đổi model khi kết quả rỗng/gọi tool
+	AutoRetries                                    int
+	AutoFirstToken                                 time.Duration // auto: quá hạn này chưa có token đầu thì bỏ, thử egress/model khác
+	AutoFastModels, AutoBestModels, AutoLongModels string        // ghi đè danh sách model của auto-fast/best/long
 
 	// Trần in-flight thích ứng mỗi egress (AIMD)
 	LimitWarp, LimitRes, LimitDirect, LimitMin, LimitMax int
@@ -138,40 +141,40 @@ func envDur(key string, def time.Duration) time.Duration {
 func loadConfig() Config {
 	torMax := envInt("TOR_MAX", envInt("TOR_COUNT", 10, 0), 0)
 	c := Config{
-		Port:                 envStr("PORT", defaultPort),
-		MaxConcurrency:       envInt("MAX_CONCURRENCY", 1000, 1),
-		MaxBodyBytes:         int64(envInt("MAX_BODY_MB", 32, 1)) << 20,
-		MaxWait:              envDur("MAX_WAIT", 300*time.Second),
-		MaxAttempts:          envInt("MAX_ATTEMPTS", 30, 1),
-		StreamIdle:           envDur("STREAM_IDLE_TIMEOUT", 60*time.Second),
-		SessionIDMode:        strings.ToLower(envStr("SESSION_ID_MODE", "egress")),
-		ProjectIDMode:        strings.ToLower(envStr("PROJECT_ID_MODE", "client")),
-		ImageModels:          map[string]bool{},
-		CooldownMax:          envDur("COOLDOWN_MAX", 2*time.Minute),
-		TorRotateCooldown:    envDur("TOR_ROTATE_COOLDOWN", time.Second),
-		TorBackoffMax:        envDur("TOR_BACKOFF_MAX", 2*time.Minute),
-		TorIdleStop:          envDur("TOR_IDLE_STOP", 30*time.Minute),
-		TorMaxInflight:       envInt("TOR_MAX_INFLIGHT", 24, 1),
-		DirectWarnReqs:       envInt("DIRECT_WARN_REQS", 150, 1),
-		DirectWarnInflight:   envInt("DIRECT_WARN_INFLIGHT", 60, 1),
-		DirectCooldown:       envDur("DIRECT_COOLDOWN", 2*time.Minute),
-		QueueWait:            envDur("QUEUE_WAIT", 30*time.Second),
-		AutoModelFallback:    envBool("AUTO_MODEL_FALLBACK"),
-		DisableTor:           envBool("DISABLE_TOR"),
-		ForceTor:             envBool("FORCE_TOR"),
-		TorMax:               torMax,
-		TorLoad:              envInt("TOR_LOAD", 25, 1),
-		TtfbRetry:            envDur("TTFB_RETRY", 15*time.Second),
-		TorBin:               envStr("TOR_BIN", "tor"),
-		AllowedIPs:           strings.TrimSpace(os.Getenv("ALLOWED_IPS")),
-		ClientIPHeader:       envStr("CLIENT_IP_HEADER", ""),
-		RateRPM:              envInt("RATE_LIMIT_RPM", 6000, 0),
-		RateBurst:            envInt("RATE_LIMIT_BURST", 600, 1),
-		CORSOrigin:           strings.TrimSpace(os.Getenv("CORS_ORIGIN")),
-		DefaultModel:         envStr("DEFAULT_MODEL", "deepseek"),
-		ProxyRefreshURL:      envStr("PROXY_REFRESH_URL", ""),
-		ProxyWarmup:          envDur("PROXY_WARMUP", 3*time.Second),
-		InjectToolsAnthropic: envBoolDef("INJECT_TOOLS_ANTHROPIC", true),
+		Port:                   envStr("PORT", defaultPort),
+		MaxConcurrency:         envInt("MAX_CONCURRENCY", 1000, 1),
+		MaxBodyBytes:           int64(envInt("MAX_BODY_MB", 32, 1)) << 20,
+		MaxWait:                envDur("MAX_WAIT", 300*time.Second),
+		MaxAttempts:            envInt("MAX_ATTEMPTS", 30, 1),
+		StreamIdle:             envDur("STREAM_IDLE_TIMEOUT", 60*time.Second),
+		SessionIDMode:          strings.ToLower(envStr("SESSION_ID_MODE", "egress")),
+		ProjectIDMode:          strings.ToLower(envStr("PROJECT_ID_MODE", "client")),
+		ImageModels:            map[string]bool{},
+		CooldownMax:            envDur("COOLDOWN_MAX", 2*time.Minute),
+		TorRotateCooldown:      envDur("TOR_ROTATE_COOLDOWN", time.Second),
+		TorBackoffMax:          envDur("TOR_BACKOFF_MAX", 2*time.Minute),
+		TorIdleStop:            envDur("TOR_IDLE_STOP", 30*time.Minute),
+		TorMaxInflight:         envInt("TOR_MAX_INFLIGHT", 24, 1),
+		DirectWarnReqs:         envInt("DIRECT_WARN_REQS", 150, 1),
+		DirectWarnInflight:     envInt("DIRECT_WARN_INFLIGHT", 60, 1),
+		DirectCooldown:         envDur("DIRECT_COOLDOWN", 2*time.Minute),
+		QueueWait:              envDur("QUEUE_WAIT", 30*time.Second),
+		AutoModelFallback:      envBool("AUTO_MODEL_FALLBACK"),
+		DisableTor:             envBool("DISABLE_TOR"),
+		ForceTor:               envBool("FORCE_TOR"),
+		TorMax:                 torMax,
+		TorLoad:                envInt("TOR_LOAD", 25, 1),
+		TtfbRetry:              envDur("TTFB_RETRY", 15*time.Second),
+		TorBin:                 envStr("TOR_BIN", "tor"),
+		AllowedIPs:             strings.TrimSpace(os.Getenv("ALLOWED_IPS")),
+		ClientIPHeader:         envStr("CLIENT_IP_HEADER", ""),
+		RateRPM:                envInt("RATE_LIMIT_RPM", 6000, 0),
+		RateBurst:              envInt("RATE_LIMIT_BURST", 600, 1),
+		CORSOrigin:             strings.TrimSpace(os.Getenv("CORS_ORIGIN")),
+		DefaultModel:           envStr("DEFAULT_MODEL", "deepseek"),
+		ProxyRefreshURL:        envStr("PROXY_REFRESH_URL", ""),
+		ProxyWarmup:            envDur("PROXY_WARMUP", 3*time.Second),
+		InjectToolsAnthropic:   envBoolDef("INJECT_TOOLS_ANTHROPIC", true),
 		ResidentialProxies:     envStr("RESIDENTIAL_PROXIES", ""),
 		ResidentialRefreshURLs: envStr("RESIDENTIAL_REFRESH_URLS", ""),
 		AutoModels:             envStr("AUTO_MODELS", ""),
@@ -181,6 +184,7 @@ func loadConfig() Config {
 		EnvBlock:               envBoolDef("ENV_BLOCK", true),
 		SessionsPerEgress:      envInt("SESSIONS_PER_EGRESS", 8, 1),
 		SessionInflight:        envInt("SESSION_INFLIGHT", 4, 1),
+		SessionDailyBudget:     envInt("SESSION_DAILY_BUDGET", 40, 0),
 		SessionCoolMax:         envDur("SESSION_COOL_MAX", 30*time.Minute),
 		SessionReprobe:         envDur("SESSION_REPROBE", 10*time.Minute),
 		WarpContainers:         envStr("WARP_CONTAINERS", ""),

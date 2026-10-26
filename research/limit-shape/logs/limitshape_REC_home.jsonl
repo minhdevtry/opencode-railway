@@ -1,0 +1,2 @@
+{"status": 200, "secs": 1.34, "ra": "", "t": "11:20:17", "text": "pong", "err": "", "cell": "REC_home", "i": 0}
+{"status": 429, "secs": 0.38, "ra": "70782", "t": "11:20:18", "text": "", "err": "{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode", "cell": "REC_home", "i": 1}

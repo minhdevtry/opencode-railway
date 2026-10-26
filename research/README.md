@@ -134,6 +134,74 @@ ngược lại (xem bảng trên), nên gateway dùng giới hạn tự học th
 Một model đơn lẻ vẫn tận dụng đủ 16 đường mạng (quota tính theo IP, không theo model), nên thông lượng token gần
 bằng chế độ auto; giới hạn chính là độ dài output mỗi request.
 
+## 6b. IP thoát thật của WARP: IPv6 riêng cho từng container (2026-10-26)
+
+BẪY LẦM THƯỜNG GẶP khi đo IP: dùng `api.ipify.org` để xem IP thoát thì **thấy IPv4 dùng chung** (mỗi container
+một trong vài IP `104.28.222.x` / `104.28.254.x` — 16 container chỉ ra **6 IPv4**). Nhưng opencode.ai **có AAAA**, nên
+traffic thật đi ra bằng **IPv6 riêng của từng container**:
+
+```
+docker exec warp-proxy   curl -s https://opencode.ai/cdn-cgi/trace | grep ^ip=   -> ip=2a09:bac1:7ae0:50::3d0:32
+docker exec warp-proxy-5 curl -s https://opencode.ai/cdn-cgi/trace | grep ^ip=   -> ip=2a09:bac5:d45e:e6::17:345
+docker exec warp-proxy-11 curl -s https://opencode.ai/cdn-cgi/trace | grep ^ip=  -> ip=2a09:bac1:7a80:50::245:59
+```
+
+Còn `api.ipify.org` thì ra IPv4 (domain đó không ưu tiên AAAA) → **đo sai, tưởng là dùng chung IP**. Khi cần biết
+IP mà upstream thấy thì phải hỏi đúng domain của upstream (hoặc dùng `https://[2606:4700:4700::1111]/cdn-cgi/trace`
+- đích IPv6-only - để ép dùng IPv6).
+
+Hệ quả quan trọng: **nguồn IP là 16 IPv6 khác nhau, mỗi container 1 cái**, và `warp-cli registration new` đổi được
+IPv6 mới ⇒ nguồn IP (theo góc nhìn upstream) gần như không giới hạn. Vì vậy "IP mới" trong breaker phải đo bằng IPv6
+của container, không phải bằng IPv4 dùng chung.
+
+## 6c. HÌNH DẠNG THẬT CỦA HẠN MỨC FREE (đo 2026-10-26) — SỬA LẠI MỌI GIẢ THUYẾT CŨ
+
+Đo bằng `research/limit-shape/` (probe uTLS giả ClientHello của Bun, qua SOCKS5 của từng container WARP).
+Bối cảnh: 04:00–05:00 UTC (ngân sách vừa reset 00:00 UTC).
+
+### Kết luận 1 — hạn mức KHÔNG chung cho các model
+Cùng IP, cùng session mới, chỉ đổi model:
+
+| model | kết quả |
+|---|---|
+| glm-5.3-flash-free | 429 FreeUsageLimitError |
+| deepseek-v4.1-flash-free | 429 FreeUsageLimitError |
+| mimo-v2.6-flash-free | 429 FreeUsageLimitError |
+| nemotron-3.5-lightning-free | **200** (250/250 request) |
+| beam-free | **200** |
+
+⇒ Mỗi model có ngân sách riêng. Tổng sức chứa free = tổng ngân sách của các model, KHÔNG phải một "hạn mức
+cấp tài khoản" chung.
+
+### Kết luận 2 — hạn mức KHÔNG bám theo IP một cách đơn giản
+Sau khi 1 IP cạn, đổi danh tính **8 lần** (8 IPv6 mới, 4 `/48` khác nhau) → model đó **vẫn cạn** (0/20 request 200).
+Trong khi đó cùng lúc đó, IP của proxy dân cư (IP riêng, không ai dùng chung) vẫn phục vụ model đó bình thường (200).
+
+⇒ Các **block IPv6 của Cloudflare WARP dùng chung với rất nhiều người dùng WARP khác** (16 container của ta chỉ
+rơi vào vài block: `bac5:d45c:16c8`, `bac1:7ae0:50`, `bac1:7aa0:50`…), nên chúng thường **đã cạn sẵn** bởi người
+khác ⇒ đổi IPv6 thường vô ích. IP riêng (proxy dân cư) thì ngân sách còn nguyên.
+
+⇒ **Đơn vị tiêu thụ là cặp (model, IP)**; sức chứa = số cặp còn ngân sách.
+
+### Kết luận 3 — các giả thuyết cũ đều sai
+| Giả thuyết cũ | Thực tế |
+|---|---|
+| "Quota cấp tài khoản: mọi IP cùng cạn lúc 15:12 UTC" | Đó là **ngân sách riêng của từng model** cộng lại trông như global; các model khác vẫn 200 |
+| "IP mới cũng cạn ⇒ đổi IP vô ích" | Đúng với *một model* trên IP WARP (vì block IPv6 dùng chung đã cạn), nhưng IP riêng (proxy dân cư) vẫn có ngân sách |
+| "Sau ~17–21h là hết quota cả ngày" | Là từng model hết ngân sách lần lượt (mỗi model một mốc reset riêng) |
+
+### Hệ quả cho gateway (đã sửa)
+- `modelbudget.go`: registry **theo cặp (model, egress)** + mốc reset theo `Retry-After` của upstream. Bộ điều phối bỏ
+  qua cặp đã cạn → không phí request 429 nữa (trước đây mỗi model cạn tốn thêm vài request 429 vô ích).
+- `accountgate.go`: breaker "cấp tài khoản" giờ cần bằng chứng từ **≥2 model khác nhau**; cạn 1 model trên nhiều
+  egress là ngân sách của model đó, không phải hạn cấp tài khoản.
+- Nguồn IP quan trọng nhất là **IP riêng** (proxy dân cư) — cần key còn hạn.
+
+### Bài học về cách đo
+Đo IP thoát bằng `api.ipify.org` là **sai**: domain đó đi ra IPv4 dùng chung của WARP (16 container chỉ ra 6 IPv4), còn
+traffic thật tới opencode.ai đi ra bằng **IPv6 riêng**. Phải hỏi đúng domain upstream (`https://opencode.ai/cdn-cgi/trace`)
+hoặc ép IPv6 bằng đích IPv6-only (`https://[2606:4700:4700::1111]/cdn-cgi/trace`).
+
 ## 7. Circuit breaker cấp tài khoản (2026-10-25, phản hồi review của client)
 
 Đo lúc 15:12 UTC (cuối ngày UTC): một IP WARP vừa `registration new` (IPv6 mới tinh), IP nhà, và proxy dân cư đều trả
@@ -141,10 +209,22 @@ FreeUsageLimitError với retry-after ~8,8 h (đếm tới 00:00 UTC). Xác nh�
 hay đổi IP đều vô ích. Trước khi sửa, gateway đổi danh tính WARP **349–422 lần/3 h** một cách vô ích và fan-out mỗi
 request qua mọi egress.
 
-Sửa (`accountgate.go`): khi ≥3 egress khác nhau cùng báo "session CHƯA từng chạy cũng bị cạn, retry-after ≥30 phút"
-trong 2 phút → trip breaker: ngừng đổi IP WARP, một luồng nền thăm dò lại mỗi 20 s, tự mở khi có 1 request thành công.
-Không ép fast-fail toàn bộ (lúc cạn một phần vẫn phục vụ qua egress còn sống; lúc cạn hẳn thì logic session tự fast-fail).
-Quan sát trên prod: breaker trip/clear đúng theo trạng thái (trip khi một cụm egress báo cạn, clear ngay khi có 200).
+Sửa (`accountgate.go`): trip breaker khi có **đủ bằng chứng cạn CẤP TÀI KHOẢN**, tức ≥3 egress khác nhau bị cạn với
+retry-after ≥30 phút trong cửa sổ 2 phút, **có ít nhất 1 egress vừa đổi IP** (IP mới tinh cũng cạn ⇒ không phải cạn
+riêng từng IP) và bằng chứng đến từ **≥2 họ đường mạng** (WARP / dân cư / direct — 3 container WARP có thể dùng chung
+1 IPv4 nên đếm 3 egress đó không khác gì 1 IP). Khi trip: ngừng đổi IP WARP, request fast-fail 429 kèm `Retry-After`
+là **mốc quota hồi** (thường 00:00 UTC), và một luồng nền thăm dò lại (mỗi 2 phút) để gia hạn bằng chứng.
+
+Mở lại breaker: **chỉ khi có 1 request 200 trên IP vừa đổi** (chứng minh cặp (IP, session) mới vẫn được chấp nhận ⇒
+quota đã hồi). Một request 200 của session CŨ **không** mở breaker — lúc quota cạn một phần thì session cũ vẫn trả 200,
+mở gate lúc đó là quay lại đúng cơn bão xoay IP mà breaker sinh ra để chặn (đo được 349–422 lần/3 h).
 
 Lỗi TCP của proxy dân cư (`connection reset by peer`) giờ cho **cả egress** nghỉ (backoff 2–60 s) thay vì chỉ 1 model,
-nên bộ điều phối sidelined proxy hỏng nhanh hơn, giảm rò 502 về client.
+nên bộ điều phối sidelined proxy hỏng nhanh hơn, giảm rò 502 về client. Cooldown toàn-egress này cũng được
+`anyUsableWithin` và `/v1/capacity` biết, và lỗi TCP của container WARP sẽ đổi danh tính sau 3 lỗi liên tiếp
+(trước đó chỉ bị "giấu" bằng cooldown, container hỏng thì không được sửa).
+
+> Sửa lại 2026-10-26: bản breaker đầu tiên (commit `c24ed75`) trip khi "3 egress cùng báo session chưa từng chạy bị
+> cạn", tự mở khi có **bất kỳ** request 200 nào, và dùng mốc quota hồi (24 h) làm cửa sổ chặn. Cả ba đều sai:
+> bằng chứng dính vĩnh viễn (một lần cạn cả ngày vẫn trip được các cụm sau), request 200 của session cũ mở nhầm
+> breaker, và cửa sổ 24 h kẹt cứng nếu prober hỏng vì lý do mạng. Xem `PRIVATE-BRANCH.md` để có đầy đủ danh sách.

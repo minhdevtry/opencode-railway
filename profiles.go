@@ -111,6 +111,28 @@ func profileFrom(ctx context.Context) string {
 	return p
 }
 
+// poolAllExcluded: mọi model trong pool đều bị loại => không còn model nào phục vụ được request này.
+// Dùng để fail nhanh (400) thay vì xếp hàng tới MAX_WAIT rồi trả 429.
+func poolAllExcluded(excl map[string]bool) bool {
+	poolMu.RLock()
+	pool := append([]string(nil), freeModelPool...)
+	poolMu.RUnlock()
+	if len(pool) == 0 {
+		return false
+	}
+	for _, m := range pool {
+		if !excl[m] {
+			return false
+		}
+	}
+	return true
+}
+
+// useProfileFilter: model có thuộc profile không (profile rỗng = cho phép tất cả).
+func useProfileFilter(allowed map[string]bool, m string) bool {
+	return len(allowed) > 0 && !allowed[m]
+}
+
 // routeExclusions: các model trong pool KHÔNG được dùng cho request (ngoài profile, hoặc context quá lớn với model đó).
 // Không bao giờ loại hết: nếu bộ lọc loại sạch pool thì chỉ áp phần context (thà thử còn hơn từ chối).
 func routeExclusions(profile string, tokens int, base map[string]bool) map[string]bool {
@@ -133,6 +155,10 @@ func routeExclusions(profile string, tokens int, base map[string]bool) map[strin
 				out[m] = true
 			}
 		}
+		// Model đã hết ngân sách free (đo 2026-10-26: hạn mức tính RIÊNG từng model) -> không gửi request vào nó.
+		for m := range modelBudgetSnapshot() {
+			out[m] = true
+		}
 		return out
 	}
 	for _, useProfile := range []bool{true, false} {
@@ -141,6 +167,22 @@ func routeExclusions(profile string, tokens int, base map[string]bool) map[strin
 			if !ex[m] {
 				return ex
 			}
+		}
+	}
+	// Mọi model trong pool đều bị loại (kể cả model hết ngân sách) -> bỏ phần "hết ngân sách" đi và vẫn thử:
+	// có thể upstream đã reset mà ta chưa biết, và thử còn hơn xếp hàng tới MAX_WAIT rồi trả 429.
+	ex := map[string]bool{}
+	for k, v := range base {
+		ex[k] = v
+	}
+	for _, m := range pool {
+		if (useProfileFilter(allowed, m)) || contextTooBig(m, tokens) {
+			ex[m] = true
+		}
+	}
+	for _, m := range pool {
+		if !ex[m] {
+			return ex
 		}
 	}
 	return base // mọi model đều được ghi nhận là quá nhỏ: vẫn thử, upstream sẽ báo lỗi rõ ràng
