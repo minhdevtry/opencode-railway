@@ -628,9 +628,19 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
 			}
 			if freeLimit && ra >= acctGateMinCap {
-				// Hạn mức free là CỦA MODEL: model này đã cạn tới mốc reset -> ghi lại để gateway không gửi
-				// thêm request vào nó (mỗi request 429 là vừa lãng phí vừa làm client chờ).
+				// Hạn mức free là CỦA CẶP (model, IP): IP này hết lượt cho model này -> ghi lại để gateway
+				// không gửi thêm request vào nó (mỗi request 429 là vừa lãng phí vừa làm client chờ).
 				noteModelExhausted(m, e.Name, time.Now().Add(ra))
+				// Nếu model này đã cạn trên MỌI IP đang có -> phải lấy IP mới: WARP luôn có thể đổi danh tính
+				// (mỗi lần ~6-13s) và IPv6 mới có ngân sách riêng. Cứ đổi tới khi được, rồi dùng IP đó tới hết
+				// ngân sách rồi lại đổi tiếp. Giới hạn tần suất để không xoay liên tục.
+				if e.container != "" && !acctGate.capped() && modelUsableEgresses(m, len(mgr.snapshot())) == 0 {
+					if time.Since(e.lastIdentityChange) > 20*time.Second {
+						log.Printf("[%s] model %s đã cạn trên mọi IP -> đổi danh tính để lấy IP mới", e.Name, m)
+						e.lastIdentityChange = time.Now()
+						mgr.renewIdentity(e)
+					}
+				}
 				// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
 				// "IP mới" phải gắn với SESSION của request này: request đang chạy với session của IP CŨ (lấy trước lúc
 				// đổi IP) thì không được tính là bằng chứng. Thế hệ pool (gen) là dấu hiệu sẵn có.

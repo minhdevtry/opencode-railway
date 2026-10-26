@@ -112,6 +112,45 @@ func modelBudgetSnapshot() map[string]any {
 	return out
 }
 
+// modelUsableEgresses: số egress còn ngân sách cho model này. Nếu = 0 thì model này đã cạn trên MỌI IP ->
+// cần một IP mới (xoay danh tính) thì mới phục vụ lại được.
+func modelUsableEgresses(model string, total int) int {
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	now := time.Now()
+	dead := 0
+	for _, u := range budgetPairs[model] {
+		if now.Before(u) {
+			dead++
+		}
+	}
+	if total <= 0 {
+		return 0
+	}
+	if n := total - dead; n > 0 {
+		return n
+	}
+	return 0
+}
+
+// clearBudgetForEgress: IP của egress này vừa đổi -> cặp (model, IP) cũ không còn ý nghĩa, xoá đi để model
+// được dùng lại với IP mới.
+func clearBudgetForEgress(egress string) {
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	for model, byEgress := range budgetPairs {
+		if _, ok := byEgress[egress]; ok {
+			delete(byEgress, egress)
+		}
+		if len(byEgress) == 0 {
+			delete(budgetPairs, model)
+		}
+	}
+	if len(budgetPairs) == 0 {
+		budgetAll = map[string]time.Time{}
+	}
+}
+
 // modelResetAt: mốc hết hạn sớm nhất của model trên bất kỳ egress nào (dùng cho Retry-After).
 func modelResetAt(model string) (time.Time, bool) {
 	budgetMu.Lock()

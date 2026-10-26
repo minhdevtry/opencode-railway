@@ -64,18 +64,19 @@ type Egress struct {
 	mu   sync.Mutex
 	cool map[string]*coolState
 
-	limit      atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
-	errRun     atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
-	okRun      atomic.Int32
-	sess       sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
-	renewing   atomic.Bool
-	renews     atomic.Int64
-	renewTries atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
-	downUntil  atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
-	ipChanged  atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
-	ipAddr     atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
-	proxyAddr  string       // host:port của proxy (kiểm tra sống lúc khởi động)
-	ipKind     atomic.Int32 // 0 = chưa biết, 1 = IPv6 riêng (nguồn IP riêng), 2 = IPv4 WARP dùng chung (nhiều container
+	limit              atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
+	errRun             atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
+	okRun              atomic.Int32
+	sess               sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
+	renewing           atomic.Bool
+	renews             atomic.Int64
+	renewTries         atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
+	downUntil          atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
+	ipChanged          atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
+	ipAddr             atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
+	proxyAddr          string       // host:port của proxy (kiểm tra sống lúc khởi động)
+	lastIdentityChange time.Time    // lần đổi danh tính gần nhất (giới hạn tần suất xoay IP)
+	ipKind             atomic.Int32 // 0 = chưa biết, 1 = IPv6 riêng (nguồn IP riêng), 2 = IPv4 WARP dùng chung (nhiều container
 	// dùng chung 1 IP => hạn mức phía upstream cũng dùng chung, nên ưu tiên egress có IPv6 riêng)
 	container string // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
 }
@@ -311,7 +312,11 @@ func (e *Egress) clearAll() {
 // markIPChanged: đánh dấu IP vừa được đổi (WARP đổi danh tính, proxy dân cư xoay IP). Trong cửa sổ
 // egressIPFreshWindow thì IP này là "mới tinh": bị cạn hạn mức lúc đó mới là bằng chứng cạn CẤP TÀI KHOẢN
 // (đổi IP cũng vô ích), chứ không phải cạn riêng IP đó.
-func (e *Egress) markIPChanged() { e.ipChanged.Store(time.Now().UnixNano()) }
+func (e *Egress) markIPChanged() {
+	e.ipChanged.Store(time.Now().UnixNano())
+	// IP mới => cặp (model, IP) cũ hết hiệu lực: model bị cạn trên IP cũ sẽ dùng lại được với IP này.
+	clearBudgetForEgress(e.Name)
+}
 
 // ipIsFresh: IP của egress này vừa được đổi (mới tinh) chưa?
 func (e *Egress) ipIsFresh() bool {

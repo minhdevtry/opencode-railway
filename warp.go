@@ -177,6 +177,27 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 			m.probeAccount() // thăm dò để gia hạn bằng chứng / phát hiện quota hồi
 			continue
 		}
+		// Model đã cạn trên MỌI IP -> xoay 1 danh tính để lấy IP mới cho model đó. WARP luôn có thể đổi danh tính
+		// (mỗi lần ~6-13s) và IPv6 mới có ngân sách riêng: cứ đổi tới khi được IP còn hạn, rồi dùng IP đó tới
+		// hết hạn rồi lại đổi tiếp.
+		pool := poolSnapshot()
+		for _, model := range pool {
+			if modelUsableEgresses(model, len(m.snapshot())) != 0 {
+				continue // model này còn IP nào có ngân sách -> không cần xoay
+			}
+			for _, e := range m.snapshot() {
+				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
+					continue
+				}
+				if time.Since(e.lastIdentityChange) < 30*time.Second {
+					continue // giới hạn tần suất: không xoay liên tục
+				}
+				log.Printf("[WARP] %s xoay danh tính để lấy IP mới cho model %s (đã cạn trên mọi IP)", e.Name, model)
+				e.lastIdentityChange = time.Now()
+				m.renewIdentity(e)
+				break // mỗi model 1 lần mỗi vòng
+			}
+		}
 		for _, e := range m.snapshot() {
 			if e.container != "" && e.ready.Load() && !e.renewing.Load() && !e.sess.usable() {
 				log.Printf("[WARP] %s không còn session dùng được, đổi danh tính", e.Name)

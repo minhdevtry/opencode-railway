@@ -77,3 +77,39 @@ func TestModelBudgetKeepsLongestExpiry(t *testing.T) {
 		t.Fatalf("phải giữ mốc hạn dài nhất, còn %v", time.Until(until))
 	}
 }
+
+// Model cạn trên mọi IP -> phải xoay danh tính để lấy IP mới (WARP luôn có IP).
+func TestModelUsableEgressCount(t *testing.T) {
+	resetModelBudget()
+	defer resetModelBudget()
+
+	// chưa ghi gì -> mọi IP còn ngân sách
+	if n := modelUsableEgresses("m1", 5); n != 5 {
+		t.Fatalf("chưa có bằng chứng nào thì cả 5 IP còn ngân sách, got %d", n)
+	}
+	noteModelExhausted("m1", "proxy1", time.Now().Add(time.Hour))
+	if n := modelUsableEgresses("m1", 5); n != 4 {
+		t.Fatalf("còn 4 IP có ngân sách, got %d", n)
+	}
+	for _, e := range []string{"proxy2", "proxy3", "proxy4", "proxy5"} {
+		noteModelExhausted("m1", e, time.Now().Add(time.Hour))
+	}
+	if n := modelUsableEgresses("m1", 5); n != 0 {
+		t.Fatalf("cạn hết 5 IP thì phải là 0 (để kích hoạt xoay danh tính), got %d", n)
+	}
+}
+
+// Đổi IP thì cặp (model, IP) cũ hết hiệu lực -> model dùng lại được với IP mới.
+func TestClearBudgetForEgressOnIPChange(t *testing.T) {
+	resetModelBudget()
+	defer resetModelBudget()
+
+	noteModelExhausted("m1", "proxy1", time.Now().Add(time.Hour))
+	if n := modelUsableEgresses("m1", 1); n != 0 {
+		t.Fatalf("IP đã cạn thì phải = 0, got %d", n)
+	}
+	clearBudgetForEgress("proxy1") // IP mới
+	if n := modelUsableEgresses("m1", 1); n != 1 {
+		t.Fatalf("sau khi đổi IP, model phải dùng lại được, got %d", n)
+	}
+}
