@@ -154,6 +154,54 @@ Hệ quả quan trọng: **nguồn IP là 16 IPv6 khác nhau, mỗi container 1 
 IPv6 mới ⇒ nguồn IP (theo góc nhìn upstream) gần như không giới hạn. Vì vậy "IP mới" trong breaker phải đo bằng IPv6
 của container, không phải bằng IPv4 dùng chung.
 
+## 6c. HÌNH DẠNG THẬT CỦA HẠN MỨC FREE (đo 2026-10-26) — SỬA LẠI MỌI GIẢ THUYẾT CŨ
+
+Đo bằng `research/limit-shape/` (probe uTLS giả ClientHello của Bun, qua SOCKS5 của từng container WARP).
+Bối cảnh: 04:00–05:00 UTC (ngân sách vừa reset 00:00 UTC).
+
+### Kết luận 1 — hạn mức KHÔNG chung cho các model
+Cùng IP, cùng session mới, chỉ đổi model:
+
+| model | kết quả |
+|---|---|
+| glm-5.3-flash-free | 429 FreeUsageLimitError |
+| deepseek-v4.1-flash-free | 429 FreeUsageLimitError |
+| mimo-v2.6-flash-free | 429 FreeUsageLimitError |
+| nemotron-3.5-lightning-free | **200** (250/250 request) |
+| beam-free | **200** |
+
+⇒ Mỗi model có ngân sách riêng. Tổng sức chứa free = tổng ngân sách của các model, KHÔNG phải một "hạn mức
+cấp tài khoản" chung.
+
+### Kết luận 2 — hạn mức KHÔNG bám theo IP một cách đơn giản
+Sau khi 1 IP cạn, đổi danh tính **8 lần** (8 IPv6 mới, 4 `/48` khác nhau) → model đó **vẫn cạn** (0/20 request 200).
+Trong khi đó cùng lúc đó, IP của proxy dân cư (IP riêng, không ai dùng chung) vẫn phục vụ model đó bình thường (200).
+
+⇒ Các **block IPv6 của Cloudflare WARP dùng chung với rất nhiều người dùng WARP khác** (16 container của ta chỉ
+rơi vào vài block: `bac5:d45c:16c8`, `bac1:7ae0:50`, `bac1:7aa0:50`…), nên chúng thường **đã cạn sẵn** bởi người
+khác ⇒ đổi IPv6 thường vô ích. IP riêng (proxy dân cư) thì ngân sách còn nguyên.
+
+⇒ **Đơn vị tiêu thụ là cặp (model, IP)**; sức chứa = số cặp còn ngân sách.
+
+### Kết luận 3 — các giả thuyết cũ đều sai
+| Giả thuyết cũ | Thực tế |
+|---|---|
+| "Quota cấp tài khoản: mọi IP cùng cạn lúc 15:12 UTC" | Đó là **ngân sách riêng của từng model** cộng lại trông như global; các model khác vẫn 200 |
+| "IP mới cũng cạn ⇒ đổi IP vô ích" | Đúng với *một model* trên IP WARP (vì block IPv6 dùng chung đã cạn), nhưng IP riêng (proxy dân cư) vẫn có ngân sách |
+| "Sau ~17–21h là hết quota cả ngày" | Là từng model hết ngân sách lần lượt (mỗi model một mốc reset riêng) |
+
+### Hệ quả cho gateway (đã sửa)
+- `modelbudget.go`: registry **theo cặp (model, egress)** + mốc reset theo `Retry-After` của upstream. Bộ điều phối bỏ
+  qua cặp đã cạn → không phí request 429 nữa (trước đây mỗi model cạn tốn thêm vài request 429 vô ích).
+- `accountgate.go`: breaker "cấp tài khoản" giờ cần bằng chứng từ **≥2 model khác nhau**; cạn 1 model trên nhiều
+  egress là ngân sách của model đó, không phải hạn cấp tài khoản.
+- Nguồn IP quan trọng nhất là **IP riêng** (proxy dân cư) — cần key còn hạn.
+
+### Bài học về cách đo
+Đo IP thoát bằng `api.ipify.org` là **sai**: domain đó đi ra IPv4 dùng chung của WARP (16 container chỉ ra 6 IPv4), còn
+traffic thật tới opencode.ai đi ra bằng **IPv6 riêng**. Phải hỏi đúng domain upstream (`https://opencode.ai/cdn-cgi/trace`)
+hoặc ép IPv6 bằng đích IPv6-only (`https://[2606:4700:4700::1111]/cdn-cgi/trace`).
+
 ## 7. Circuit breaker cấp tài khoản (2026-10-25, phản hồi review của client)
 
 Đo lúc 15:12 UTC (cuối ngày UTC): một IP WARP vừa `registration new` (IPv6 mới tinh), IP nhà, và proxy dân cư đều trả
