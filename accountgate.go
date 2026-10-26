@@ -49,10 +49,12 @@ type accountGate struct {
 var acctGate = &accountGate{recent: map[string]capEvidence{}}
 
 const (
-	acctGateDistinct = 3                // cần bao nhiêu egress khác nhau cùng báo thì mới trip
-	acctGateFamilies = 2                // bằng chứng phải đến từ tối thiểu 2 họ đường mạng (WARP / dân cư / direct)
-	acctGateWindow   = 2 * time.Minute  // trong khoảng thời gian này
-	acctGateMinCap   = 30 * time.Minute // retry-after từ ngần này trở lên mới tính là "cạn cả ngày" (cửa sổ tốc độ ngắn thì không)
+	acctGateDistinct = 3               // cần bao nhiêu egress khác nhau cùng báo thì mới trip
+	acctGateFamilies = 2               // bằng chứng phải đến từ tối thiểu 2 họ đường mạng (WARP / dân cư / direct)
+	acctGateWindow   = 2 * time.Minute // trong khoảng thời gian này
+	acctGateMinCap   = 5 * time.Minute // retry-after từ ngần này trở lên mới tính là "cạn cả ngày". Nhỏ hơn hẳn 30p
+	// vì retry-after của upstream đếm tới nửa đêm UTC: ở 30 phút cuối ngày, ra < 30p => bằng chứng bị bỏ qua đúng
+	// lúc quota cạn (lúc đó bão xoay IP quay lại).
 	acctGateMax      = 10 * time.Minute // chặn tối đa bấy nhiêu rồi thăm dò lại (retry-after của upstream hay báo dài hơn thực tế)
 	acctGateResetMax = 24 * time.Hour   // trần cho mốc "quota hồi" (retry-after upstream đếm tới nửa đêm UTC)
 )
@@ -86,9 +88,10 @@ func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, fres
 		}
 	}
 	blocked := now.Before(g.until)
-	// Cần đủ 3 egress + có bằng chứng IP mới. Thêm: bằng chứng phải đa dạng (≥2 họ đường mạng) - trừ khi có
-	// đủ 4 egress, vì 3 container WARP có thể dùng chung 1 IPv4 (đếm 3 egress đó không khác gì 1 IP).
-	proven := freshSeen && n >= acctGateDistinct && (len(fams) >= acctGateFamilies || n >= acctGateDistinct+1)
+	// Cần đủ 3 egress + có bằng chứng IP mới + bằng chứng đa dạng (≥2 họ đường mạng). KHÔNG nới điều kiện họ:
+	// 16 container WARP dùng chung IPv4 Cloudflare nên 4 tên egress có thể là 1 IP => cạn từng IP bị coi nhầm là
+	// cạn tài khoản (lúc đó đổi IP vẫn có ích). Muốn nới thì phải đo IP THẬT, không đếm tên egress.
+	proven := freshSeen && n >= acctGateDistinct && len(fams) >= acctGateFamilies
 	if !proven && !blocked {
 		return // chưa đủ bằng chứng: đừng chặn (cạn từng IP thì đổi IP vẫn có ích)
 	}
@@ -100,6 +103,11 @@ func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, fres
 	reset := retryAfter
 	if reset > acctGateResetMax {
 		reset = acctGateResetMax
+	}
+	if !blocked {
+		// Lần cap MỚI (cửa sổ chặn cũ đã hết): mốc quota hồi cũ không được sót lại, nếu không client sẽ bị bảo chờ
+		// tới 24h dù upstream vừa nói "2 giờ".
+		g.resetAt = time.Time{}
 	}
 	// CHỈ giới hạn dài, không lùi: mốc quota hồi phải là mốc LỚN nhất từng thấy.
 	if reset > 0 && now.Add(reset).After(g.resetAt) {
@@ -121,13 +129,6 @@ func (g *accountGate) clear() {
 		log.Printf("[AccountGate] IP mới đã trả 200 => quota hồi, mở lại bình thường")
 	}
 	g.mu.Unlock()
-}
-
-// tripped: đang trong cửa sổ chặn (fast-fail 429 + dừng xoay IP).
-func (g *accountGate) tripped() bool {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return time.Now().Before(g.until)
 }
 
 // capped: quota tài khoản vẫn bị coi là cạn -> KHÔNG đổi IP (đổi cũng vô ích).

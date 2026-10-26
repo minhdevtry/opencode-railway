@@ -190,6 +190,13 @@ func (p *sessionPool) success(s *egSession) {
 	p.mu.Unlock()
 }
 
+// genNow: thế hệ pool hiện tại (tăng mỗi lần đổi IP). Session có gen khác => thuộc IP CŨ.
+func (p *sessionPool) genNow() uint64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.gen
+}
+
 // freshSession: session này CHƯA từng chạy thành công (IP mới tinh). Đọc dưới khoá vì success() ghi s.ok từ goroutine khác.
 func (p *sessionPool) freshSession(s *egSession) bool {
 	if s == nil {

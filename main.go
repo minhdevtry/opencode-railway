@@ -105,6 +105,14 @@ func reconcilePool(current []string, active map[string]bool, custom string) []st
 	return live
 }
 
+// poolSnapshot: bản sao danh sách model trong pool, đọc DƯỚI KHOÁ. freeModelPool được ghi bởi prunePool/syncCatalog
+// (goroutine khác) nên đọc trực tiếp là data race (race detector bắt được ở probeAccount vs prunePool).
+func poolSnapshot() []string {
+	poolMu.RLock()
+	defer poolMu.RUnlock()
+	return append([]string(nil), freeModelPool...)
+}
+
 func prunePool(model string) {
 	poolMu.Lock()
 	defer poolMu.Unlock()

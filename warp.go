@@ -155,7 +155,20 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 			continue
 		}
 		if acctGate.capped() {
-			m.probeAccount() // quota cạn cấp tài khoản: đừng đổi IP (vô ích), chỉ thăm dò để tự mở lại khi hồi
+			// Quota cạn cấp tài khoản: đừng đổi IP liên tục (vô ích). Cứ 5 phút thì đổi ĐÚNG 1 danh tính để có 1 IP
+			// mới thật sự: nếu IP mới đó cũng bị cạn thì đó là bằng chứng cạn cấp tài khoản; nếu IP mới trả 200 thì
+			// quota đã hồi và breaker mở lại. Không có bước này thì breaker không bao giờ tự mở được (vì lúc capped
+			// không có IP nào được đổi nên không có "IP mới" để kiểm chứng).
+			if time.Since(m.lastProbeRenew) > 5*time.Minute {
+				m.lastProbeRenew = time.Now()
+				for _, e := range m.snapshot() {
+					if e.container != "" && e.ready.Load() && !e.renewing.Load() && !e.sess.usable() {
+						m.renewIdentity(e)
+						break
+					}
+				}
+			}
+			m.probeAccount() // thăm dò để gia hạn bằng chứng / phát hiện quota hồi
 			continue
 		}
 		for _, e := range m.snapshot() {
@@ -171,7 +184,8 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 // Mục đích chính là GIA HẠN bằng chứng (mỗi lần probe vẫn thấy cạn thì breaker giữ nguyên), chứ không phải để
 // mở breaker: 200 của prober có thể là 200 của session CŨ (session cũ vẫn chạy được khi quota cạn một phần).
 func (m *Manager) probeAccount() {
-	if len(freeModelPool) == 0 {
+	pool := poolSnapshot()
+	if len(pool) == 0 {
 		return // pool rỗng (mọi model đều bị loại): không có gì để thăm dò
 	}
 	// Thăm dò là 1 request thật lên upstream (tốn quota) -> không thăm dò quá dày. Janitor quét mỗi 20s.
@@ -184,7 +198,7 @@ func (m *Manager) probeAccount() {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		up, gerr := forward(ctx, freeModelPool[0], true, infURL+"/chat/completions", "*/*", "acct-probe", func(mod string) []byte {
+		up, gerr := forward(ctx, pool[0], true, infURL+"/chat/completions", "*/*", "acct-probe", func(mod string) []byte {
 			body := map[string]any{"model": mod, "messages": []any{map[string]any{"role": "user", "content": "hi"}}, "max_tokens": 1}
 			applyFingerprint(body, mod, true, stubDescription)
 			b, _ := jsonMarshalNoEscape(body)

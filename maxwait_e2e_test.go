@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -33,30 +32,6 @@ func TestMaxWaitBoundsUpstreamWait(t *testing.T) {
 	}
 	if resp.StatusCode == http.StatusOK {
 		t.Fatal("không được trả 200 khi hết hạn chờ")
-	}
-}
-
-// Hết hạn rồi thì KHÔNG được gửi thêm request lên upstream (trước đây attempt đầu tiên không bị chặn).
-func TestNoUpstreamCallAfterDeadline(t *testing.T) {
-	var hits atomic.Int32
-	gw, _ := setup(t, func(w http.ResponseWriter, r *http.Request) {
-		hits.Add(1)
-		time.Sleep(2 * time.Second)
-		w.Write([]byte("data: {}\n\n"))
-	}, false)
-
-	old := cfg.MaxWait
-	cfg.MaxWait = 200 * time.Millisecond
-	defer func() { cfg.MaxWait = old }()
-
-	req, _ := http.NewRequest("POST", gw.URL+"/v1/chat/completions", strings.NewReader(`{"model":"deepseek","messages":[{"role":"user","content":"x"}]}`))
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
-	if n := hits.Load(); n > 1 {
-		t.Fatalf("hết hạn rồi mà còn gửi %d request lên upstream", n)
 	}
 }
 

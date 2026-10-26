@@ -288,8 +288,12 @@ func (e *Egress) clear(model string) {
 }
 func (e *Egress) clearAll() {
 	e.mu.Lock()
-	e.cool = make(map[string]*coolState)
+	for k := range e.cool {
+		delete(e.cool, k)
+	}
 	e.mu.Unlock()
+	// IP mới = đường mạng mới: cooldown cũ (do lỗi TCP của IP cũ) không áp dụng nữa.
+	e.downUntil.Store(0)
 }
 
 // markIPChanged: đánh dấu IP vừa được đổi (WARP đổi danh tính, proxy dân cư xoay IP). Trong cửa sổ
@@ -425,14 +429,15 @@ type Manager struct {
 	dirMu  sync.Mutex
 	dirWin map[string]*rateWindow
 
-	torSpawned   int
-	torSeq       int
-	torStarting  int
-	ctx          context.Context
-	wg           sync.WaitGroup
-	proxyRefMu   sync.Mutex
-	proxyRefLast time.Time
-	lastProbe    time.Time // lần thăm dò quota tài khoản gần nhất (giới hạn tần suất: mỗi probe là 1 request thật)
+	torSpawned     int
+	torSeq         int
+	torStarting    int
+	ctx            context.Context
+	wg             sync.WaitGroup
+	proxyRefMu     sync.Mutex
+	proxyRefLast   time.Time
+	lastProbe      time.Time // lần thăm dò quota tài khoản gần nhất (giới hạn tần suất: mỗi probe là 1 request thật)
+	lastProbeRenew time.Time // lần đổi 1 danh tính để thăm dò quota gần nhất (để có IP mới thật sự khi đang capped)
 
 	// bộ điều phối (sched.go)
 	wmu      sync.Mutex
@@ -858,7 +863,7 @@ func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[strin
 	return best
 }
 func isFreeModelInPool(model string) bool {
-	for _, m := range freeModelPool {
+	for _, m := range poolSnapshot() {
 		if m == model {
 			return true
 		}
@@ -887,10 +892,11 @@ func (m *Manager) triggerEmergencyWarpRenew() {
 func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, deadline time.Time, avoid ...string) (string, *Egress, *gwError) {
 	for {
 		if isPool {
-			n := len(freeModelPool)
+			pool := poolSnapshot()
+			n := len(pool)
 			start := int(atomic.AddUint32(&poolIndex, 1))
 			for i := range n {
-				cand := freeModelPool[(start+i)%n]
+				cand := pool[(start+i)%n]
 				if e := m.pickAvoid(cand, avoid...); e != nil {
 					return cand, e, nil
 				}
@@ -900,10 +906,11 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 				return model, e, nil
 			}
 			if cfg.AutoModelFallback && isFreeModelInPool(model) {
-				n := len(freeModelPool)
+				pool := poolSnapshot()
+				n := len(pool)
 				start := int(atomic.AddUint32(&poolIndex, 1))
 				for i := range n {
-					cand := freeModelPool[(start+i)%n]
+					cand := pool[(start+i)%n]
 					if cand != model {
 						if e := m.pickAvoid(cand, avoid...); e != nil {
 							log.Printf("[Router] model=%s cạn quota trên mọi đường, tự động failover sang model=%s", model, cand)
@@ -918,7 +925,7 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 
 		models := []string{model}
 		if isPool || (cfg.AutoModelFallback && isFreeModelInPool(model)) {
-			models = freeModelPool
+			models = poolSnapshot()
 		}
 		// Khi chỉ có 1 đường direct duy nhất (không có proxy pool để renew) và không có Tor: báo 429 nhanh.
 		// Khi CÓ proxy pool (16-24 WARP proxies): KHÔNG ĐƯỢC NUỐT/VỨT BỎ REQUEST, kích hoạt renew IP khẩn cấp và giữ request chờ đường mới!

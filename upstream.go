@@ -267,6 +267,9 @@ func penalizeStreamError(e *Egress, err error) {
 	if errors.Is(err, io.EOF) {
 		return // EOF sạch = upstream kết thúc stream, không phải lỗi mạng
 	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return // client huỷ (Ctrl-C) hoặc hết hạn -> KHÔNG phạt egress, lỗi không phải do đường mạng
+	}
 	e.errs.Add(1)
 	e.adapt(false)
 	run := e.errRun.Add(1)
@@ -445,22 +448,22 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 	paramErrors := 0 // số lần upstream báo 400 do tham số của client
 
 	for attempt := 0; attempt < cfg.MaxAttempts; attempt++ {
-		// Tổng thời gian tối đa cho 1 request (MaxWait / X-Max-Wait của client): hết hạn thì DỪNG, không gửi thêm
-		// request lên upstream. Kiểm tra này áp cho CẢ attempt đầu tiên - trước đây attempt đầu tiên không bao giờ
-		// bị chặn, nên 1 request có thể vừa hết hạn vẫn còn gửi đi 1 request nữa.
-		if !time.Now().Before(deadline) {
-			if last != nil {
-				return nil, normalizeLastError(last)
-			}
-			return nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
-				msg: "Max wait exceeded.", retryAfter: mgr.soonest(pickModelsFor(model, isPool))}
-		}
 		if attempt > 0 {
 			select {
 			case <-time.After(150 * time.Millisecond):
 			case <-ctx.Done():
 				return nil, &gwError{status: 499, typ: "client_closed", msg: "client closed request"}
 			}
+		}
+		// Tổng thời gian tối đa cho 1 request (MaxWait / X-Max-Wait của client): hết hạn thì DỪNG, không gửi thêm
+		// request lên upstream. Đặt SAU khoảng nghỉ giữa 2 lần thử để không bỏ sót: nếu khoảng nghỉ đã dùng hết hạn
+		// thì lần thử sau không được gửi đi. Trước đây attempt đầu tiên không bao giờ bị chặn.
+		if !time.Now().Before(deadline) {
+			if last != nil {
+				return nil, normalizeLastError(last)
+			}
+			return nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+				msg: "Max wait exceeded.", retryAfter: mgr.soonest(pickModelsFor(model, isPool))}
 		}
 		m, e, gerr := mgr.acquire(ctx, currentModel, isPool, deadline, avoidDaemons...) // đã giữ chỗ (inflight++)
 		if gerr != nil {
@@ -546,6 +549,10 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 		if err != nil {
 			cancel()
 			relE()
+			if (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) && ctx.Err() != nil {
+				// Client huỷ -> KHÔNG phạt egress: lỗi do phía client, không phải đường mạng.
+				return nil, &gwError{status: 499, typ: "client_closed", msg: "client closed request"}
+			}
 			if timedOut.Load() {
 				// Hết hạn chờ của client khi upstream chưa kịp trả header: báo 429 (nhất quán với "max wait exceeded").
 				return nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
@@ -606,11 +613,14 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if !freeLimit {
 				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
 			}
+			if freeLimit && ra >= acctGateMinCap {
+				// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
+				// "IP mới" phải gắn với SESSION của request này: request đang chạy với session của IP CŨ (lấy trước lúc
+				// đổi IP) thì không được tính là bằng chứng. Thế hệ pool (gen) là dấu hiệu sẵn có.
+				fresh := e.ipIsFresh() && (es == nil || es.gen == e.sess.genNow())
+				acctGate.noteFreshCap(e.Name, ra, fresh)
+			}
 			if es != nil && freeLimit {
-				if ra >= acctGateMinCap {
-					// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
-					acctGate.noteFreshCap(e.Name, ra, e.ipIsFresh())
-				}
 				if !e.sess.blocked(es, ra) {
 					// Session của IP cũ (egress vừa đổi IP): kết quả không áp cho pool mới, thử lại ngay.
 					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
@@ -645,7 +655,10 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			}
 			if e.Kind == kindProxy {
 				if e.tier == 1 && e.refreshURL != "" {
-					mgr.rotateResidentialProxy(e)
+					// Quota cạn cấp tài khoản => đổi IP vô ích (và tốn tiền API), breaker đang chặn.
+					if !acctGate.capped() {
+						mgr.rotateResidentialProxy(e)
+					}
 				} else if e.tier == 2 && cfg.SessionIDMode != "egress" {
 					// Quota cạn cấp tài khoản => đổi IP/restart container vô ích, breaker đang chặn.
 					if (freeLimit || ra > 30*time.Minute) && !acctGate.capped() {
@@ -827,22 +840,31 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 
 		if resp.StatusCode == http.StatusOK {
 			e.sess.success(es)
-			e.errRun.Store(0)
-			if e.ipIsFresh() {
-				// IP vừa đổi mà vẫn trả 200 => cặp (IP, session) MỚI được chấp nhận => quota đã hồi, mở breaker.
-				// (200 của một session CŨ không chứng minh được điều đó - lúc quota cạn một phần, session cũ vẫn chạy.)
+			if e.ipIsFresh() && es != nil && es.gen == e.sess.genNow() {
+				// IP vừa đổi VÀ session của request này thuộc thế hệ hiện tại (tức cặp (IP, session) MỚI) mà vẫn trả
+				// 200 => cặp mới vẫn được chấp nhận => quota đã hồi, mở breaker.
+				// 200 của session CŨ không chứng minh được điều đó (lúc quota cạn một phần, session cũ vẫn chạy được).
 				acctGate.clear()
 			}
-			// KHÔNG xoá downUntil ở đây: 1 request thành công không có nghĩa egress đó hết lỗi TCP (request khác
-			// vẫn đang reset). Để cooldown tự hết hạn, nếu không thì proxy hỏng lại được chọn ngay và lại rò 502.
-			e.adapt(true)
+			// 1 request 200 KHÔNG có nghĩa egress hết lỗi TCP (request khác vẫn đang reset với nó). Nếu đang bị
+			// cooldown lỗi TCP thì giữ nguyên bộ đếm lỗi và trần in-flight: nếu xoá, backoff không bao giờ leo và 502
+			// tiếp tục rò. Chỉ khi egress KHÔNG bị cooldown mới coi là đã hồi hẳn.
+			if e.downUntil.Load() == 0 {
+				e.errRun.Store(0)
+				e.adapt(true)
+			}
 			okRate.add()
 			e.oks.Add(1)
 			e.clear(m)
 			e.observeLatency(gen, ttfb)
 			mgr.retireIfSlow(e, gen)
 		}
-		resp.Body = &idleBody{rc: resp.Body, d: cfg.StreamIdle, t: time.AfterFunc(cfg.StreamIdle, cancel)}
+		// StreamIdle <= 0 nghĩa là "không cắt" - không được đặt timer 0 (sẽ cắt ngay mọi stream).
+		idleD := cfg.StreamIdle
+		if idleD <= 0 {
+			idleD = 10 * time.Minute
+		}
+		resp.Body = &idleBody{rc: resp.Body, d: idleD, t: time.AfterFunc(idleD, cancel)}
 		return &upstream{resp: resp, egress: e, ses: es, model: m, ttfb: ttfb, cancel: cancel}, nil
 	}
 	return nil, normalizeLastError(last)

@@ -118,9 +118,7 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 		}
 		return nil
 	}
-	poolMu.RLock()
-	pool := append([]string(nil), freeModelPool...)
-	poolMu.RUnlock()
+	pool := poolSnapshot()
 	if isPool {
 		n := len(pool)
 		if n == 0 {
@@ -185,7 +183,7 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 	m.wmu.Lock()
 	models := []string{model}
 	if isPool || (fb && isFreeModelInPool(model)) {
-		models = freeModelPool
+		models = poolSnapshot()
 	}
 	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
 		m.wmu.Unlock()
