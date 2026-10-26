@@ -118,7 +118,7 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 		}
 		return nil
 	}
-	pool := usableModels(poolSnapshot())
+	pool := poolSnapshot()
 	if isPool {
 		n := len(pool)
 		if n == 0 {

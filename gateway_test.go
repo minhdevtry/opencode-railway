@@ -41,6 +41,7 @@ func setup(t *testing.T, upstreamHandler http.HandlerFunc, withTor bool) (*httpt
 	up := httptest.NewServer(upstreamHandler)
 	t.Cleanup(up.Close)
 
+	resetModelBudget() // registry ngân sách model là global -> mỗi test bắt đầu sạch
 	cfg = Config{MaxConcurrency: 8, MaxBodyBytes: 1 << 20, MaxWait: 5 * time.Second, MaxAttempts: 10,
 		CooldownMax: 10 * time.Minute, StreamIdle: time.Minute, TorRotateCooldown: 50 * time.Millisecond, InjectToolsAnthropic: true, SessionIDMode: "client", ProjectIDMode: "client", TorBackoffMax: 2 * time.Minute, ImageModels: map[string]bool{},
 		PreferDirect: true, TorIdentities: 2, TorMaxInflight: 24, QueueWait: 2 * time.Second, DirectWarnReqs: 200, DirectWarnInflight: 60}

@@ -414,7 +414,7 @@ func nextModelInPool(current string) string {
 	poolMu.RLock()
 	pool := append([]string(nil), freeModelPool...)
 	poolMu.RUnlock()
-	pool = usableModels(pool) // bỏ model đã hết ngân sách
+	// bộ lọc (model, egress) đã cạn nằm trong pickAvoid
 	n := len(pool)
 	if n == 0 {
 		return current
@@ -630,7 +630,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if freeLimit && ra >= acctGateMinCap {
 				// Hạn mức free là CỦA MODEL: model này đã cạn tới mốc reset -> ghi lại để gateway không gửi
 				// thêm request vào nó (mỗi request 429 là vừa lãng phí vừa làm client chờ).
-				noteModelExhausted(m, time.Now().Add(ra))
+				noteModelExhausted(m, e.Name, time.Now().Add(ra))
 				// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
 				// "IP mới" phải gắn với SESSION của request này: request đang chạy với session của IP CŨ (lấy trước lúc
 				// đổi IP) thì không được tính là bằng chứng. Thế hệ pool (gen) là dấu hiệu sẵn có.

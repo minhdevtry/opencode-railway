@@ -5,85 +5,75 @@ import (
 	"time"
 )
 
-// Hạn mức free tính RIÊNG từng model (đo 2026-10-26): model đã cạn phải bị bỏ qua ngay, không gửi thêm request
-// vào nó (mỗi request 429 là vừa lãng phí vừa làm client chờ).
-func TestModelBudgetExcludesExhaustedModel(t *testing.T) {
-	resetBudgetState()
-	defer resetBudgetState()
+// Hạn mức free là của cặp (model, IP): model đã cạn trên IP này thì KHÔNG được loại model đó ở mức toàn cục -
+// các IP khác vẫn còn ngân sách cho model đó.
+func TestModelBudgetIsPerModelAndEgress(t *testing.T) {
+	resetModelBudget()
+	defer resetModelBudget()
 
-	noteModelExhausted("glm-5.3-flash-free", time.Now().Add(2*time.Hour))
-	if !modelExhausted("glm-5.3-flash-free") {
-		t.Fatal("model vừa ghi phải bị coi là hết ngân sách")
+	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(2*time.Hour))
+	if !modelExhaustedOn("glm-5.3-flash-free", "proxy1") {
+		t.Fatal("cặp (model, egress) vừa ghi phải bị coi là hết ngân sách")
 	}
-	if modelExhausted("nemotron-3.5-lightning-free") {
+	if modelExhaustedOn("glm-5.3-flash-free", "proxy2") {
+		t.Fatal("IP khác phải còn ngân sách cho model đó")
+	}
+	if modelExhaustedOn("nemotron-3.5-lightning-free", "proxy1") {
 		t.Fatal("model khác không được coi là hết ngân sách")
-	}
-	// Bộ điều phối phải bỏ qua model đã cạn
-	pool := []string{"glm-5.3-flash-free", "nemotron-3.5-lightning-free", "beam-free"}
-	got := usableModels(pool)
-	if len(got) != 2 {
-		t.Fatalf("phải bỏ model đã cạn, còn lại %v", got)
-	}
-	for _, m := range got {
-		if m == "glm-5.3-flash-free" {
-			t.Fatal("model đã cạn vẫn còn trong danh sách dùng")
-		}
 	}
 }
 
-// Hết hạn (tới mốc reset) thì model dùng lại được, không cần thăm dò.
+// Hết hạn (tới mốc reset) thì cặp đó dùng lại được, không cần thăm dò.
 func TestModelBudgetExpires(t *testing.T) {
-	resetBudgetState()
-	defer resetBudgetState()
+	resetModelBudget()
+	defer resetModelBudget()
 
-	noteModelExhausted("glm-5.3-flash-free", time.Now().Add(50*time.Millisecond))
-	if !modelExhausted("glm-5.3-flash-free") {
+	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(50*time.Millisecond))
+	if !modelExhaustedOn("glm-5.3-flash-free", "proxy1") {
 		t.Fatal("phải còn hết ngân sách trước mốc reset")
 	}
 	time.Sleep(80 * time.Millisecond)
-	if modelExhausted("glm-5.3-flash-free") {
-		t.Fatal("tới mốc reset thì model phải dùng lại được")
+	if modelExhaustedOn("glm-5.3-flash-free", "proxy1") {
+		t.Fatal("tới mốc reset thì cặp phải dùng lại được")
 	}
 }
 
-// Nếu TẤT CẢ model đều hết ngân sách thì vẫn phải thử (có thể upstream đã reset mà ta chưa biết) - không xếp hàng
-// tới MAX_WAIT rồi trả 429.
-func TestModelBudgetAllExhaustedStillTries(t *testing.T) {
-	resetBudgetState()
-	defer resetBudgetState()
+// Khi model đã cạn trên HẦU HẾT các egress -> bỏ model khỏi routing toàn cục (lối tắt để khỏi thử mãi).
+func TestModelBudgetGlobalShortcutWhenMostEgressesDead(t *testing.T) {
+	resetModelBudget()
+	defer resetModelBudget()
 
-	pool := []string{"a", "b"}
-	for _, m := range pool {
-		noteModelExhausted(m, time.Now().Add(time.Hour))
+	// 2 egress trong pool -> cạn trên cả 2 thì model bị loại toàn cục
+	poolMu.Lock()
+	old := freeModelPool
+	freeModelPool = []string{"proxy1", "proxy2"}
+	poolMu.Unlock()
+	defer func() { poolMu.Lock(); freeModelPool = old; poolMu.Unlock() }()
+
+	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(time.Hour))
+	if modelExhaustedOn("glm-5.3-flash-free", "proxy2") {
+		t.Fatal("mới cạn 1/2 egress thì chưa được loại toàn cục")
 	}
-	got := usableModels(pool)
-	if len(got) != len(pool) {
-		t.Fatalf("khi mọi model đều cạn thì vẫn phải thử, got %v", got)
+	noteModelExhausted("glm-5.3-flash-free", "proxy2", time.Now().Add(time.Hour))
+	if !modelExhaustedOn("glm-5.3-flash-free", "proxy3") {
+		t.Fatal("cạn trên hết các egress thì model phải bị loại toàn cục")
 	}
 }
 
 // Ghi hạn dài hơn thì không được ghi đè bằng hạn ngắn hơn.
 func TestModelBudgetKeepsLongestExpiry(t *testing.T) {
-	resetBudgetState()
-	defer resetBudgetState()
+	resetModelBudget()
+	defer resetModelBudget()
 
-	noteModelExhausted("m1", time.Now().Add(2*time.Hour))
-	noteModelExhausted("m1", time.Now().Add(30*time.Minute))
+	noteModelExhausted("m1", "proxy1", time.Now().Add(2*time.Hour))
+	noteModelExhausted("m1", "proxy1", time.Now().Add(30*time.Minute))
 	snap := modelBudgetSnapshot()
-	if snap["m1"] == "" {
-		t.Fatal("phải còn ghi hạn")
-	}
-	until, err := time.Parse(time.RFC3339, snap["m1"])
+	byEgress, _ := snap["m1"].(map[string]string)
+	until, err := time.Parse(time.RFC3339, byEgress["proxy1"])
 	if err != nil {
 		t.Fatalf("mốc reset không đúng định dạng: %v", err)
 	}
 	if time.Until(until) < 90*time.Minute {
 		t.Fatalf("phải giữ mốc hạn dài nhất, còn %v", time.Until(until))
 	}
-}
-
-func resetBudgetState() {
-	budgetMu.Lock()
-	budgetEx = map[string]time.Time{}
-	budgetMu.Unlock()
 }

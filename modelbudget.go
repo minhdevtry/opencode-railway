@@ -6,89 +6,136 @@ import (
 	"time"
 )
 
-// ======================== NGÂN SÁCH THEO MODEL ========================
+// ======================== NGÂN SÁCH THEO (MODEL, IP) ========================
 //
-// Đo 2026-10-26 (research/limit-shape): hạn mức free của upstream KHÔNG tính chung cho mọi model, mà TÍCH RIÊNG
-// TỪNG MODEL. Cùng một IP, cùng session mới:
-//   - glm-5.3-flash-free      -> 429 FreeUsageLimitError (đã cạn)
-//   - deepseek-v4.1-flash-free-> 429 FreeUsageLimitError (đã cạn)
-//   - mimo-v2.6-flash-free     -> 429 FreeUsageLimitError (đã cạn)
-//   - nemotron-3.5-lightning-free -> vẫn 200
-//   - beam-free                -> vẫn 200
-// Ngoài ra hạn mức cũng không bám theo IP: sau khi một IP cạn, đổi sang IPv6 mới (kể cả khác /48) thì model đó vẫn
-// cạn -> ngân sách là của MODEL, dùng chung cho mọi IP.
+// Đo 2026-10-26 (research/limit-shape):
 //
-// Hệ quả: tổng sức chứa free = tổng ngân sách của các model đang có. Gateway phải:
-//   1. Biết model nào đã cạn và cạn tới lúc nào (theo Retry-After của upstream) -> KHÔNG gửi request vào model đã cạn.
-//   2. Xoay vòng qua các model còn ngân sách.
-//   3. Tự mở lại model khi tới mốc reset (upstream luôn trả Retry-After tới 00:00 UTC).
+//  1. Hạn mức KHÔNG tính chung cho mọi model: cùng IP, cùng session mới -> glm/deepseek/mimo trả 429
+//     FreeUsageLimitError còn nemotron/beam vẫn 200 (nemotron 250/250 request).
+//  2. Hạn mức cũng không bám theo IP một cách đơn giản: sau khi 1 IP cạn, đổi sang IPv6 mới (kể cả khác /48)
+//     thì model đó vẫn cạn -> các block IPv6 của Cloudflare WARP dùng chung với rất nhiều người dùng WARP
+//     khác, nên chúng thường đã cạn sẵn. Cùng lúc đó, IP của proxy dân cư (riêng) vẫn còn ngân sách cho model đó.
 //
-// Trước khi có phần này, gateway chỉ biết "model này vừa lỗi" theo từng request: mỗi model đã cạn tốn thêm vài
-// request 429 vô ích, và request của client phải chờ qua các lần thử 429 đó.
+// Kết luận: đơn vị tiêu thụ là cặp (model, IP). Sức chứa free = số cặp (model, IP) còn ngân sách.
+//
+// Gateway phải biết cặp nào đã cạn để không gửi request vào nó (mỗi request 429 là vừa lãng phí vừa làm
+// client chờ), nhưng KHÔNG được loại model ở mức toàn cục khi chỉ 1 IP đã cạn - các IP khác vẫn phục vụ được
+// model đó. Vì vậy registry ở mức (model, egress), kèm 1 lối tắt ngắn: khi model đã cạn trên hầu hết các
+// egress thì bỏ nó khỏi routing toàn cục cho tới mốc reset.
 
 var (
-	budgetMu sync.Mutex
-	budgetEx map[string]time.Time // model -> mốc hết hạn (sau đó model dùng lại được)
+	budgetMu    sync.Mutex
+	budgetPairs map[string]map[string]time.Time // model -> egress -> mốc hết hạn
+	budgetAll   map[string]time.Time            // model -> mốc hết hạn (model cạn trên HẦU HẾT các egress)
 )
 
-func init() { budgetEx = map[string]time.Time{} }
+func init() {
+	budgetPairs = map[string]map[string]time.Time{}
+	budgetAll = map[string]time.Time{}
+}
 
-// noteModelExhausted: model đã hết ngân sách tới mốc until (thường là 00:00 UTC).
-func noteModelExhausted(model string, until time.Time) {
+// noteModelExhausted: model đã hết ngân sách trên egress này, tới mốc until (thường 00:00 UTC).
+func noteModelExhausted(model, egress string, until time.Time) {
 	if model == "" || until.IsZero() {
 		return
 	}
 	budgetMu.Lock()
 	defer budgetMu.Unlock()
-	if old, ok := budgetEx[model]; ok && old.After(until) {
-		return // đã ghi hạn dài hơn rồi
+	if budgetPairs[model] == nil {
+		budgetPairs[model] = map[string]time.Time{}
 	}
-	budgetEx[model] = until
-	log.Printf("[ModelBudget] %s đã hết ngân sách free tới %s (không gửi request vào model này nữa)",
-		model, until.UTC().Format("15:04 UTC"))
+	if old, ok := budgetPairs[model][egress]; ok && old.After(until) {
+		return
+	}
+	budgetPairs[model][egress] = until
+	// Nếu model đã cạn trên hầu hết các egress -> bỏ model khỏi routing toàn cục (lối tắt).
+	poolMu.RLock()
+	total := len(freeModelPool)
+	poolMu.RUnlock()
+	dead := 0
+	for _, u := range budgetPairs[model] {
+		if time.Now().Before(u) {
+			dead++
+		}
+	}
+	if total > 0 && dead > total/2 { // đa số rõ ràng, không phải "đúng một nửa"
+		if old, ok := budgetAll[model]; !ok || until.After(old) {
+			budgetAll[model] = until
+			log.Printf("[ModelBudget] %s đã hết ngân sách trên %d/%d đường -> bỏ khỏi routing tới %s",
+				model, dead, total, until.UTC().Format("15:04 UTC"))
+		}
+	}
 }
 
-// modelExhausted: model đã hết ngân sách chưa (tới mốc reset)?
-func modelExhausted(model string) bool {
+// modelExhaustedOn: cặp (model, egress) này đã hết ngân sách chưa?
+func modelExhaustedOn(model, egress string) bool {
 	budgetMu.Lock()
 	defer budgetMu.Unlock()
-	until, ok := budgetEx[model]
+	if until, ok := budgetAll[model]; ok {
+		if time.Now().Before(until) {
+			return true
+		}
+		delete(budgetAll, model)
+	}
+	m, ok := budgetPairs[model]
+	if !ok {
+		return false
+	}
+	until, ok := m[egress]
 	if !ok {
 		return false
 	}
 	if time.Now().After(until) {
-		delete(budgetEx, model) // hết hạn -> dùng lại được, không cần thăm dò
+		delete(m, egress)
 		return false
 	}
 	return true
 }
 
-// modelBudgetSnapshot: trạng thái ngân sách từng model (để hiện trong /status và /v1/capacity).
-func modelBudgetSnapshot() map[string]string {
+// modelBudgetSnapshot: trạng thái ngân sách (để hiện trong /status và /v1/capacity).
+func modelBudgetSnapshot() map[string]any {
 	budgetMu.Lock()
 	defer budgetMu.Unlock()
-	out := map[string]string{}
 	now := time.Now()
-	for m, until := range budgetEx {
-		if now.After(until) {
-			continue
+	out := map[string]any{}
+	for model, byEgress := range budgetPairs {
+		dead := map[string]string{}
+		for e, u := range byEgress {
+			if now.Before(u) {
+				dead[e] = u.UTC().Format(time.RFC3339)
+			}
 		}
-		out[m] = until.UTC().Format(time.RFC3339)
+		if len(dead) > 0 {
+			out[model] = dead
+		}
 	}
 	return out
 }
 
-// usableModels: các model trong pool còn ngân sách (bỏ model đã cạn). Nếu TẤT CẢ đều cạn thì trả về nguyên pool
-// (để vẫn thử, biết đâu upstream đã reset mà ta chưa biết).
-func usableModels(pool []string) []string {
-	out := make([]string, 0, len(pool))
-	for _, m := range pool {
-		if !modelExhausted(m) {
-			out = append(out, m)
+// modelResetAt: mốc hết hạn sớm nhất của model trên bất kỳ egress nào (dùng cho Retry-After).
+func modelResetAt(model string) (time.Time, bool) {
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	now := time.Now()
+	var best time.Time
+	if until, ok := budgetAll[model]; ok && now.Before(until) {
+		best = until
+	}
+	for _, u := range budgetPairs[model] {
+		if now.Before(u) && (best.IsZero() || u.Before(best)) {
+			best = u
 		}
 	}
-	if len(out) == 0 {
-		return pool
+	if best.IsZero() {
+		return time.Time{}, false
 	}
-	return out
+	return best, true
+}
+
+// resetModelBudget (chỉ dùng trong test).
+func resetModelBudget() {
+	budgetMu.Lock()
+	budgetPairs = map[string]map[string]time.Time{}
+	budgetAll = map[string]time.Time{}
+	budgetMu.Unlock()
 }

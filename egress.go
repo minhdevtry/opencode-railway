@@ -760,7 +760,7 @@ func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
 	}
 	list := m.snapshot()
 	direct := list[0]
-	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && direct.claim(model) {
+	if cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
 		return direct
 	}
 	start := int(atomic.AddUint32(&m.rr, 1))
@@ -783,7 +783,7 @@ func (m *Manager) pickAvoid(model string, avoid ...string) *Egress {
 	}
 
 	// Direct làm chốt chặn cuối
-	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && direct.claim(model) {
+	if !cfg.PreferDirect && !avoidMap[direct.daemon] && direct.available(model) && direct.inflight.Load() < direct.limit.Load() && !modelExhaustedOn(model, direct.Name) && direct.claim(model) {
 		return direct
 	}
 	return nil
@@ -816,6 +816,9 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 		}
 		if !e.available(model) || (e.canRotate && int(e.inflight.Load()) >= cfg.TorMaxInflight) {
 			continue
+		}
+		if modelExhaustedOn(model, e.Name) {
+			continue // cặp (model, IP) này đã hết ngân sách -> thử IP khác cho model đó
 		}
 		st := e.strikes(model)
 		sc := e.loadScore(med)
@@ -868,6 +871,9 @@ func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[strin
 		if !e.available(model) || (e.canRotate && int(e.inflight.Load()) >= cfg.TorMaxInflight) {
 			continue
 		}
+		if modelExhaustedOn(model, e.Name) {
+			continue // cặp (model, IP) này đã hết ngân sách -> thử IP khác cho model đó
+		}
 		st := e.strikes(model)
 		sc := e.loadScore(med)
 		if e.ipKind.Load() == ipKindShared {
@@ -914,7 +920,7 @@ func (m *Manager) triggerEmergencyWarpRenew() {
 func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, deadline time.Time, avoid ...string) (string, *Egress, *gwError) {
 	for {
 		if isPool {
-			pool := usableModels(poolSnapshot())
+			pool := poolSnapshot()
 			n := len(pool)
 			start := int(atomic.AddUint32(&poolIndex, 1))
 			for i := range n {
@@ -928,7 +934,7 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 				return model, e, nil
 			}
 			if cfg.AutoModelFallback && isFreeModelInPool(model) {
-				pool := usableModels(poolSnapshot())
+				pool := poolSnapshot()
 				n := len(pool)
 				start := int(atomic.AddUint32(&poolIndex, 1))
 				for i := range n {
@@ -991,6 +997,12 @@ func (m *Manager) anyUsableWithin(models []string, within time.Duration) bool {
 			continue // IP đã hết lượt session và chưa tới lúc thăm dò lại
 		}
 		for _, mod := range models {
+			// Phải KHỚP với bộ điều phối: nếu cặp (model, egress) đã hết ngân sách thì bộ điều phối sẽ không
+			// chọn egress này cho model đó -> ở đây cũng phải coi là không dùng được, nếu không gateway sẽ tưởng
+			// còn đường đi rồi xếp hàng tới MAX_WAIT (30 phút) thay vì trả 429 ngay.
+			if modelExhaustedOn(mod, e.Name) {
+				continue
+			}
 			if d := e.cooldownLeft(mod); d <= within {
 				return true
 			}
@@ -1007,7 +1019,19 @@ func (m *Manager) soonest(models []string) time.Duration {
 			continue
 		}
 		for _, mod := range models {
+			if modelExhaustedOn(mod, e.Name) {
+				continue // cặp (model, IP) đã hết ngân sách -> không phải lựa chọn
+			}
 			if d := e.cooldownLeft(mod); d > 0 && (best == 0 || d < best) {
+				best = d
+			}
+		}
+	}
+	// Model đã hết ngân sách -> client phải chờ tới mốc reset của model đó (thường 00:00 UTC), không phải chờ
+	// hết cooldown của egress.
+	for _, mod := range models {
+		if until, ok := modelResetAt(mod); ok {
+			if d := time.Until(until); d > best {
 				best = d
 			}
 		}
