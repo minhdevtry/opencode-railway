@@ -11,7 +11,7 @@ func TestModelBudgetIsPerModelAndEgress(t *testing.T) {
 	resetModelBudget()
 	defer resetModelBudget()
 
-	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(2*time.Hour))
+	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(2*time.Hour), 32)
 	if !modelExhaustedOn("glm-5.3-flash-free", "proxy1") {
 		t.Fatal("cặp (model, egress) vừa ghi phải bị coi là hết ngân sách")
 	}
@@ -28,7 +28,7 @@ func TestModelBudgetExpires(t *testing.T) {
 	resetModelBudget()
 	defer resetModelBudget()
 
-	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(50*time.Millisecond))
+	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(50*time.Millisecond), 32)
 	if !modelExhaustedOn("glm-5.3-flash-free", "proxy1") {
 		t.Fatal("phải còn hết ngân sách trước mốc reset")
 	}
@@ -38,25 +38,63 @@ func TestModelBudgetExpires(t *testing.T) {
 	}
 }
 
-// Khi model đã cạn trên HẦU HẾT các egress -> bỏ model khỏi routing toàn cục (lối tắt để khỏi thử mãi).
+// Khi model đã cạn ở MỌI egress còn dùng được -> bỏ model khỏi routing toàn cục (lối tắt để khỏi thử mãi).
 func TestModelBudgetGlobalShortcutWhenMostEgressesDead(t *testing.T) {
 	resetModelBudget()
 	defer resetModelBudget()
 
-	// 2 egress trong pool -> cạn trên cả 2 thì model bị loại toàn cục
-	poolMu.Lock()
-	old := freeModelPool
-	freeModelPool = []string{"proxy1", "proxy2"}
-	poolMu.Unlock()
-	defer func() { poolMu.Lock(); freeModelPool = old; poolMu.Unlock() }()
-
-	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(time.Hour))
+	// 2 egress -> cạn trên cả 2 thì model bị loại toàn cục
+	noteModelExhausted("glm-5.3-flash-free", "proxy1", time.Now().Add(time.Hour), 2)
 	if modelExhaustedOn("glm-5.3-flash-free", "proxy2") {
 		t.Fatal("mới cạn 1/2 egress thì chưa được loại toàn cục")
 	}
-	noteModelExhausted("glm-5.3-flash-free", "proxy2", time.Now().Add(time.Hour))
+	noteModelExhausted("glm-5.3-flash-free", "proxy2", time.Now().Add(time.Hour), 2)
 	if !modelExhaustedOn("glm-5.3-flash-free", "proxy3") {
 		t.Fatal("cạn trên hết các egress thì model phải bị loại toàn cục")
+	}
+}
+
+// Hồi quy 2026-10-26: ngưỡng lối tắt toàn cục từng so "số egress đã cạn" với SỐ MODEL trong pool
+// (freeModelPool) -> với 32 egress và 7 model, chỉ cần cạn 4 egress là cả model bị bỏ khỏi routing
+// tới 00:00 UTC, dù 28 egress còn tốt. Gateway trả 429 cho cả model đó.
+func TestModelBudgetNotDroppedGloballyWhileOtherEgressesAlive(t *testing.T) {
+	resetModelBudget()
+	defer resetModelBudget()
+
+	const totalEgresses = 32
+	for i := 1; i <= 4; i++ {
+		egress := "proxy" + string(rune('0'+i))
+		noteModelExhausted("glm-5.3-flash-free", egress, time.Now().Add(time.Hour), totalEgresses)
+	}
+	// 4/32 egress cạn -> các egress còn lại vẫn phải phục vụ được model này
+	for i := 5; i <= 10; i++ {
+		egress := "proxy" + string(rune('0'+i))
+		if modelExhaustedOn("glm-5.3-flash-free", egress) {
+			t.Fatalf("egress %s còn tốt thì model không được bị loại toàn cục", egress)
+		}
+	}
+	// Cạn hết 32/32 mới được loại toàn cục
+	for i := 1; i <= totalEgresses; i++ {
+		egress := "proxy" + string(rune('0'+i/10)) + string(rune('0'+i%10))
+		noteModelExhausted("glm-5.3-flash-free", egress, time.Now().Add(time.Hour), totalEgresses)
+	}
+	if !modelExhaustedOn("glm-5.3-flash-free", "proxy99") {
+		t.Fatal("cạn hết mọi egress thì model phải bị loại toàn cục")
+	}
+}
+
+// Đổi IP của 1 egress -> model không còn cạn ở mọi nơi -> phải bỏ lệnh cấm toàn cục.
+func TestModelBudgetGlobalShortcutClearedOnIPChange(t *testing.T) {
+	resetModelBudget()
+	defer resetModelBudget()
+
+	noteModelExhausted("m1", "proxy1", time.Now().Add(time.Hour), 1)
+	if !modelExhaustedOn("m1", "proxy2") {
+		t.Fatal("cạn hết egress thì model phải bị loại toàn cục")
+	}
+	clearBudgetForEgress("proxy1") // egress này có IP mới
+	if modelExhaustedOn("m1", "proxy2") {
+		t.Fatal("IP mới thì model phải dùng lại được, không được cấm toàn cục nữa")
 	}
 }
 
@@ -65,8 +103,8 @@ func TestModelBudgetKeepsLongestExpiry(t *testing.T) {
 	resetModelBudget()
 	defer resetModelBudget()
 
-	noteModelExhausted("m1", "proxy1", time.Now().Add(2*time.Hour))
-	noteModelExhausted("m1", "proxy1", time.Now().Add(30*time.Minute))
+	noteModelExhausted("m1", "proxy1", time.Now().Add(2*time.Hour), 32)
+	noteModelExhausted("m1", "proxy1", time.Now().Add(30*time.Minute), 32)
 	snap := modelBudgetSnapshot()
 	byEgress, _ := snap["m1"].(map[string]string)
 	until, err := time.Parse(time.RFC3339, byEgress["proxy1"])
@@ -87,12 +125,12 @@ func TestModelUsableEgressCount(t *testing.T) {
 	if n := modelUsableEgresses("m1", 5); n != 5 {
 		t.Fatalf("chưa có bằng chứng nào thì cả 5 IP còn ngân sách, got %d", n)
 	}
-	noteModelExhausted("m1", "proxy1", time.Now().Add(time.Hour))
+	noteModelExhausted("m1", "proxy1", time.Now().Add(time.Hour), 5)
 	if n := modelUsableEgresses("m1", 5); n != 4 {
 		t.Fatalf("còn 4 IP có ngân sách, got %d", n)
 	}
 	for _, e := range []string{"proxy2", "proxy3", "proxy4", "proxy5"} {
-		noteModelExhausted("m1", e, time.Now().Add(time.Hour))
+		noteModelExhausted("m1", e, time.Now().Add(time.Hour), 5)
 	}
 	if n := modelUsableEgresses("m1", 5); n != 0 {
 		t.Fatalf("cạn hết 5 IP thì phải là 0 (để kích hoạt xoay danh tính), got %d", n)
@@ -104,7 +142,7 @@ func TestClearBudgetForEgressOnIPChange(t *testing.T) {
 	resetModelBudget()
 	defer resetModelBudget()
 
-	noteModelExhausted("m1", "proxy1", time.Now().Add(time.Hour))
+	noteModelExhausted("m1", "proxy1", time.Now().Add(time.Hour), 1)
 	if n := modelUsableEgresses("m1", 1); n != 0 {
 		t.Fatalf("IP đã cạn thì phải = 0, got %d", n)
 	}

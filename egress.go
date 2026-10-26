@@ -502,6 +502,20 @@ func (m *Manager) snapshot() []*Egress {
 	return m.egresses
 }
 
+// usableEgresses: số egress CÒN DÙNG ĐƯỢC (key proxy chưa hết hạn). Egress đã hết hạn key thì không
+// bao giờ phục vụ được nên không tính vào mẫu số - nếu tính thì "model cạn ở mọi nơi" sẽ không bao giờ
+// đạt được và lối tắt toàn cục mất tác dụng.
+func (m *Manager) usableEgresses() int {
+	n := 0
+	for _, e := range m.snapshot() {
+		if e.expired.Load() {
+			continue
+		}
+		n++
+	}
+	return n
+}
+
 func (m *Manager) add(e *Egress) {
 	initLimit(e)
 	m.mu.Lock()

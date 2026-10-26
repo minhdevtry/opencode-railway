@@ -20,13 +20,18 @@ import (
 //
 // Gateway phải biết cặp nào đã cạn để không gửi request vào nó (mỗi request 429 là vừa lãng phí vừa làm
 // client chờ), nhưng KHÔNG được loại model ở mức toàn cục khi chỉ 1 IP đã cạn - các IP khác vẫn phục vụ được
-// model đó. Vì vậy registry ở mức (model, egress), kèm 1 lối tắt ngắn: khi model đã cạn trên hầu hết các
-// egress thì bỏ nó khỏi routing toàn cục cho tới mốc reset.
+// model đó. Vì vậy registry ở mức (model, egress), kèm 1 lối tắt ngắn: chỉ khi model đã cạn ở MỌI egress
+// còn dùng được thì mới bỏ nó khỏi routing toàn cục cho tới mốc reset.
+//
+// BUG ĐÃ SỬA 2026-10-26: ngưỡng lối tắt trước đây so "số egress đã cạn" với len(freeModelPool) - tức là
+// so với SỐ MODEL trong pool (7), không phải số egress (32). Hệ quả: model chỉ cần cạn trên 4/32 egress là
+// bị bỏ khỏi routing tới 00:00 UTC, trong khi 24 egress còn tốt vẫn phục vụ được -> gateway trả 429
+// "All egress paths are rate limited for this model" cho cả model đó.
 
 var (
 	budgetMu    sync.Mutex
 	budgetPairs map[string]map[string]time.Time // model -> egress -> mốc hết hạn
-	budgetAll   map[string]time.Time            // model -> mốc hết hạn (model cạn trên HẦU HẾT các egress)
+	budgetAll   map[string]time.Time            // model -> mốc hết hạn (model cạn ở MỌI egress còn dùng được)
 )
 
 func init() {
@@ -35,7 +40,8 @@ func init() {
 }
 
 // noteModelExhausted: model đã hết ngân sách trên egress này, tới mốc until (thường 00:00 UTC).
-func noteModelExhausted(model, egress string, until time.Time) {
+// totalEgresses: số egress CÒN DÙNG ĐƯỢC trong pool - dùng để biết khi nào model đã cạn ở mọi nơi.
+func noteModelExhausted(model, egress string, until time.Time, totalEgresses int) {
 	if model == "" || until.IsZero() {
 		return
 	}
@@ -48,21 +54,20 @@ func noteModelExhausted(model, egress string, until time.Time) {
 		return
 	}
 	budgetPairs[model][egress] = until
-	// Nếu model đã cạn trên hầu hết các egress -> bỏ model khỏi routing toàn cục (lối tắt).
-	poolMu.RLock()
-	total := len(freeModelPool)
-	poolMu.RUnlock()
+	// Lối tắt toàn cục: chỉ khi model đã cạn ở MỌI egress còn dùng được thì mới bỏ khỏi routing
+	// (không có đường nào phục vụ được nữa -> báo 429 ngay thay vì xếp hàng tới MAX_WAIT).
+	// So sánh với SỐ EGRESS, không phải số model trong pool (xem chú thích đầu file).
 	dead := 0
 	for _, u := range budgetPairs[model] {
 		if time.Now().Before(u) {
 			dead++
 		}
 	}
-	if total > 0 && dead > total/2 { // đa số rõ ràng, không phải "đúng một nửa"
+	if totalEgresses > 0 && dead >= totalEgresses {
 		if old, ok := budgetAll[model]; !ok || until.After(old) {
 			budgetAll[model] = until
-			log.Printf("[ModelBudget] %s đã hết ngân sách trên %d/%d đường -> bỏ khỏi routing tới %s",
-				model, dead, total, until.UTC().Format("15:04 UTC"))
+			log.Printf("[ModelBudget] %s đã hết ngân sách ở MỌI đường (%d/%d) -> bỏ khỏi routing tới %s",
+				model, dead, totalEgresses, until.UTC().Format("15:04 UTC"))
 		}
 	}
 }
@@ -141,6 +146,8 @@ func clearBudgetForEgress(egress string) {
 	for model, byEgress := range budgetPairs {
 		if _, ok := byEgress[egress]; ok {
 			delete(byEgress, egress)
+			// Egress này có IP mới -> model không còn cạn ở mọi nơi nữa -> bỏ lệnh cấm toàn cục.
+			delete(budgetAll, model)
 		}
 		if len(byEgress) == 0 {
 			delete(budgetPairs, model)

@@ -183,7 +183,7 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 		// hết hạn rồi lại đổi tiếp.
 		pool := poolSnapshot()
 		for _, model := range pool {
-			if modelUsableEgresses(model, len(m.snapshot())) != 0 {
+			if modelUsableEgresses(model, m.usableEgresses()) != 0 {
 				continue // model này còn IP nào có ngân sách -> không cần xoay
 			}
 			for _, e := range m.snapshot() {

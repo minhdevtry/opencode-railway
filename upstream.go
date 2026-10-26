@@ -642,11 +642,11 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if freeLimit && ra >= acctGateMinCap {
 				// Hạn mức free là CỦA CẶP (model, IP): IP này hết lượt cho model này -> ghi lại để gateway
 				// không gửi thêm request vào nó (mỗi request 429 là vừa lãng phí vừa làm client chờ).
-				noteModelExhausted(m, e.Name, time.Now().Add(ra))
+				noteModelExhausted(m, e.Name, time.Now().Add(ra), mgr.usableEgresses())
 				// Nếu model này đã cạn trên MỌI IP đang có -> phải lấy IP mới: WARP luôn có thể đổi danh tính
 				// (mỗi lần ~6-13s) và IPv6 mới có ngân sách riêng. Cứ đổi tới khi được, rồi dùng IP đó tới hết
 				// ngân sách rồi lại đổi tiếp. Giới hạn tần suất để không xoay liên tục.
-				if e.container != "" && !acctGate.capped() && modelUsableEgresses(m, len(mgr.snapshot())) == 0 {
+				if e.container != "" && !acctGate.capped() && modelUsableEgresses(m, mgr.usableEgresses()) == 0 {
 					if time.Since(time.Unix(0, e.lastIdentityChange.Load())) > 20*time.Second {
 						log.Printf("[%s] model %s đã cạn trên mọi IP -> đổi danh tính để lấy IP mới", e.Name, m)
 						e.lastIdentityChange.Store(time.Now().UnixNano())
