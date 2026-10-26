@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -254,10 +255,24 @@ func (m *Manager) checkResidentialLiveness(ctx context.Context) {
 // detectWarpIPs dò IP thoát thật của từng container WARP lúc khởi động: IPv6 riêng hay IPv4 dùng chung.
 // Cần biết vì hạn mức phía upstream tính theo IP: 9 container dùng chung 1 IPv4 thì hạn mức cũng chung.
 func (m *Manager) detectWarpIPs(ctx context.Context) {
+	// SONG SONG: dò tuần tự 36 egress × tới 8s mỗi cái = mất mấy phút, trong lúc đó gateway chưa biết egress nào
+	// có IP riêng (nên không ưu tiên đúng) và các container chỉ có IPv4 chung vẫn được dùng.
+	var wg sync.WaitGroup
 	for _, e := range m.snapshot() {
 		if e.container == "" || !e.ready.Load() {
 			continue
 		}
+		wg.Add(1)
+		go func(e *Egress) {
+			defer wg.Done()
+			m.detectWarpIP(ctx, e)
+		}(e)
+	}
+	wg.Wait()
+}
+
+func (m *Manager) detectWarpIP(ctx context.Context, e *Egress) {
+	{
 		ip := m.exitIPOf(ctx, e)
 		switch {
 		case ip == "":
