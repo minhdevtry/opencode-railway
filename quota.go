@@ -28,6 +28,10 @@ import (
 //     xử lý như sự kiện quan sát được, không dựa vào trần.
 //   - Gọi thẳng KHÔNG BAO GIỜ bị trần chặn.
 // Thứ duy nhất chặn traffic là 429 quan sát được từ upstream.
+//
+// GIỚI HẠN ĐÃ BIẾT: sổ này nằm trong RAM của tiến trình, còn ngân sách thật của upstream thì KHÔNG reset
+// khi ta restart. Restart gateway => ta tưởng cặp (IP, model) còn nguyên trong khi upstream đã dùng một phần.
+// Cơ chế leo thang theo 429 là thứ bảo vệ ta trong tình huống đó (và trần được học lại từ 429 quan sát được).
 
 type quotaState struct {
 	attemptsAuto   int // request đã gửi lên upstream qua kênh auto
