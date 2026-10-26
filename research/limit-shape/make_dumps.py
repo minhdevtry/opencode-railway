@@ -12,7 +12,7 @@ import random
 import string
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROBE = os.path.join(HERE, "..", "..", "probe")
+PROBE = os.path.join(HERE, "..", "probe")
 OUT = os.path.join(HERE, "dumps")
 
 

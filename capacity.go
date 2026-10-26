@@ -48,9 +48,18 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 	setCORS(w)
 	usable, slots, inflight := 0, 0, 0
 	budgetLeft, budgetKnown := 0, 0
+	var dead []string
 	for _, e := range mgr.snapshot() {
 		inflight += int(e.inflight.Load())
-		if !e.ready.Load() || e.expired.Load() || (cfg.SessionIDMode == "egress" && !e.sess.usable()) {
+		if e.expired.Load() {
+			why, _ := e.expiredWhy.Load().(string)
+			if why == "" {
+				why = "đã bị loại"
+			}
+			dead = append(dead, e.Name+": "+why)
+			continue
+		}
+		if !e.ready.Load() || (cfg.SessionIDMode == "egress" && !e.sess.usable()) {
 			continue
 		}
 		if time.Now().UnixNano() < e.downUntil.Load() {
@@ -80,6 +89,7 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 		"model":                   "auto",
 		"session_budget_left":     budgetLeft,  // tổng số session MỚI còn mở được hôm nay trên các IP đang dùng
 		"session_budget_known":    budgetKnown, // số egress có ngân sách hữu hạn (không tính vào tổng)
+		"dead_egress":             dead,        // các đường đã bị loại (vd key proxy hết hạn) -> cần người dùng xử lý
 		"bulk_endpoint":           "/v1/batches",
 		"note":                    "Gửi vượt recommended_concurrency vẫn không lỗi (xếp hàng tối đa MAX_WAIT); lô lớn nên dùng /v1/batches.",
 	})

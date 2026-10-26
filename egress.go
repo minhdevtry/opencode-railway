@@ -40,6 +40,7 @@ type Egress struct {
 	tier       int
 	refreshURL string
 	expired    atomic.Bool
+	expiredWhy atomic.Value // lý do bị loại (vd "key hết hạn") để hiện ra /status
 	lastRotate time.Time
 
 	client atomic.Pointer[http.Client]
@@ -594,6 +595,7 @@ func (m *Manager) rotateResidentialProxy(e *Egress) bool {
 			if res.Status == 102 || strings.Contains(msgLower, "khong ton tai") || strings.Contains(msgLower, "het han") {
 				e.expired.Store(true)
 				e.ready.Store(false)
+				e.expiredWhy.Store("key proxy hết hạn: " + res.Message)
 				log.Printf("[ProxyXoay] Key của %s đã thực sự hết hạn (%s)! Tự động loại bỏ hoàn toàn khỏi routing, chuyển sang WARP.", e.Name, res.Message)
 				return
 			}

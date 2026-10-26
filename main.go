@@ -1076,22 +1076,24 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	type egStat struct {
-		Name      string             `json:"name"`
-		Kind      string             `json:"kind"`
-		Ready     bool               `json:"ready"`
-		Inflight  int32              `json:"inflight"`
-		Requests  int64              `json:"requests"`
-		OK        int64              `json:"ok"`
-		RateLimit int64              `json:"rate_limited"`
-		Errors    int64              `json:"errors"`
-		Cooldown  map[string]float64 `json:"cooldown_seconds,omitempty"`
-		Sessions  int                `json:"sessions_alive"`
-		Opened    int                `json:"sessions_opened_today"`
-		Budget    int                `json:"session_budget_left"` // số session MỚI còn mở được trên IP này hôm nay (-1 = không giới hạn)
-		NoNewSes  bool               `json:"new_sessions_denied,omitempty"`
-		SesUses   int64              `json:"session_requests_today"`
-		Renews    int64              `json:"identity_renews,omitempty"`
-		Limit     int32              `json:"inflight_limit,omitempty"`
+		Name       string             `json:"name"`
+		Kind       string             `json:"kind"`
+		Ready      bool               `json:"ready"`
+		Inflight   int32              `json:"inflight"`
+		Requests   int64              `json:"requests"`
+		OK         int64              `json:"ok"`
+		RateLimit  int64              `json:"rate_limited"`
+		Errors     int64              `json:"errors"`
+		Cooldown   map[string]float64 `json:"cooldown_seconds,omitempty"`
+		Sessions   int                `json:"sessions_alive"`
+		Opened     int                `json:"sessions_opened_today"`
+		Budget     int                `json:"session_budget_left"` // số session MỚI còn mở được trên IP này hôm nay (-1 = không giới hạn)
+		Expired    bool               `json:"expired,omitempty"`   // bị loại khỏi routing (vd key proxy hết hạn)
+		ExpiredWhy string             `json:"expired_reason,omitempty"`
+		NoNewSes   bool               `json:"new_sessions_denied,omitempty"`
+		SesUses    int64              `json:"session_requests_today"`
+		Renews     int64              `json:"identity_renews,omitempty"`
+		Limit      int32              `json:"inflight_limit,omitempty"`
 	}
 	var list []egStat
 	for _, e := range mgr.snapshot() {
@@ -1099,6 +1101,10 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 			Requests: e.reqs.Load(), OK: e.oks.Load(), RateLimit: e.r429.Load(), Errors: e.errs.Load(), Renews: e.renews.Load(), Limit: e.limit.Load()}
 		s.Sessions, s.Opened, s.NoNewSes, s.SesUses = e.sess.stats()
 		s.Budget = e.sess.budgetLeft()
+		s.Expired = e.expired.Load()
+		if w, ok := e.expiredWhy.Load().(string); ok {
+			s.ExpiredWhy = w
+		}
 		e.mu.Lock()
 		for model, c := range e.cool {
 			if d := time.Until(c.until); d > 0 {
