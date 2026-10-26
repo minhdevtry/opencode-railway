@@ -112,12 +112,14 @@ func (g *accountGate) tripped() bool {
 	return time.Now().Before(g.until)
 }
 
-// capped: quota tài khoản vẫn bị coi là cạn -> KHÔNG đổi IP (đổi cũng vô ích) cho tới khi prober thấy quota hồi.
-// Lâu hơn cửa sổ chặn (till) vì upstream nói quota hồi lúc nửa đêm UTC.
+// capped: quota tài khoản vẫn bị coi là cạn -> KHÔNG đổi IP (đổi cũng vô ích).
+// Cửa sổ này được GIA HẠN mỗi khi có bằng chứng quota mới (prober thăm dò hoặc request thật), nên nó kéo dài suốt
+// thời gian quota cạn. Cố tình KHÔNG dùng resetAt (mốc quota hồi, có thể tới 24 giờ) làm mốc: nếu prober hỏng vì
+// lý do mạng chứ không phải vì quota, thì giữ "cạn" suốt 24 giờ là kẹt cứng - không egress nào được đổi IP nữa.
 func (g *accountGate) capped() bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return time.Now().Before(g.resetAt)
+	return time.Now().Before(g.until)
 }
 
 func (g *accountGate) untilAt() time.Time {

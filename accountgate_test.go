@@ -100,3 +100,22 @@ func TestEgressWideCooldown(t *testing.T) {
 		t.Fatal("coolEgress phải chặn MỌI model, không chỉ 1 model")
 	}
 }
+
+// Mốc "quota hồi" (24h theo Retry-After của upstream) KHÔNG được biến thành cửa sổ kẹt cứng: nếu prober hỏng vì
+// lý do mạng chứ không phải vì quota thì breaker phải tự mở lại, không giữ "capped" tới 24 giờ (sẽ không egress nào
+// được đổi IP nữa -> kẹt sức chứng). Mốc 24h chỉ dùng để báo Retry-After cho client.
+func TestAccountGateDoesNotStallFor24h(t *testing.T) {
+	g := &accountGate{recent: map[string]time.Time{}}
+	g.noteFreshCap("proxy1", 24*time.Hour, true)
+	g.noteFreshCap("proxy2", 24*time.Hour, true)
+	g.noteFreshCap("proxy3", 24*time.Hour, true)
+	if !g.capped() {
+		t.Fatal("phải capped sau khi đủ bằng chứng")
+	}
+	if d := time.Until(g.untilAt()); d > acctGateMax+time.Second {
+		t.Fatalf("cửa sổ chặn phải <= acctGateMax, got %v", d)
+	}
+	if d := time.Until(g.resetTime()); d < 20*time.Hour {
+		t.Fatalf("mốc quota hồi phải giữ theo Retry-After của upstream, got %v", d)
+	}
+}
