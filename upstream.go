@@ -703,7 +703,8 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 		if resp.StatusCode == http.StatusOK {
 			e.sess.success(es)
 			e.errRun.Store(0)
-			e.downUntil.Store(0)
+			// KHÔNG xoá downUntil ở đây: 1 request thành công không có nghĩa egress đó hết lỗi TCP (request khác
+			// vẫn đang reset). Để cooldown tự hết hạn, nếu không thì proxy hỏng lại được chọn ngay và lại rò 502.
 			e.adapt(true)
 			okRate.add()
 			e.oks.Add(1)

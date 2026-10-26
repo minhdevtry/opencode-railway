@@ -170,6 +170,9 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 // Đây là CỐNG: chỉ prober được mở lại breaker. Request thường thành công KHÔNG được mở gate - lúc quota cạn một
 // phần, session cũ vẫn trả 200, mở gate lúc đó là quay lại bão xoay IP mà breaker sinh ra để chặn.
 func (m *Manager) probeAccount() {
+	if len(freeModelPool) == 0 {
+		return // pool rỗng (mọi model đều bị loại): không có gì để thăm dò
+	}
 	for _, e := range m.snapshot() {
 		if !e.ready.Load() || e.expired.Load() || e.container == "" {
 			continue
