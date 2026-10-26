@@ -134,6 +134,26 @@ ngược lại (xem bảng trên), nên gateway dùng giới hạn tự học th
 Một model đơn lẻ vẫn tận dụng đủ 16 đường mạng (quota tính theo IP, không theo model), nên thông lượng token gần
 bằng chế độ auto; giới hạn chính là độ dài output mỗi request.
 
+## 6b. IP thoát thật của WARP: IPv6 riêng cho từng container (2026-10-26)
+
+BẪY LẦM THƯỜNG GẶP khi đo IP: dùng `api.ipify.org` để xem IP thoát thì **thấy IPv4 dùng chung** (mỗi container
+một trong vài IP `104.28.222.x` / `104.28.254.x` — 16 container chỉ ra **6 IPv4**). Nhưng opencode.ai **có AAAA**, nên
+traffic thật đi ra bằng **IPv6 riêng của từng container**:
+
+```
+docker exec warp-proxy   curl -s https://opencode.ai/cdn-cgi/trace | grep ^ip=   -> ip=2a09:bac1:7ae0:50::3d0:32
+docker exec warp-proxy-5 curl -s https://opencode.ai/cdn-cgi/trace | grep ^ip=   -> ip=2a09:bac5:d45e:e6::17:345
+docker exec warp-proxy-11 curl -s https://opencode.ai/cdn-cgi/trace | grep ^ip=  -> ip=2a09:bac1:7a80:50::245:59
+```
+
+Còn `api.ipify.org` thì ra IPv4 (domain đó không ưu tiên AAAA) → **đo sai, tưởng là dùng chung IP**. Khi cần biết
+IP mà upstream thấy thì phải hỏi đúng domain của upstream (hoặc dùng `https://[2606:4700:4700::1111]/cdn-cgi/trace`
+- đích IPv6-only - để ép dùng IPv6).
+
+Hệ quả quan trọng: **nguồn IP là 16 IPv6 khác nhau, mỗi container 1 cái**, và `warp-cli registration new` đổi được
+IPv6 mới ⇒ nguồn IP (theo góc nhìn upstream) gần như không giới hạn. Vì vậy "IP mới" trong breaker phải đo bằng IPv6
+của container, không phải bằng IPv4 dùng chung.
+
 ## 7. Circuit breaker cấp tài khoản (2026-10-25, phản hồi review của client)
 
 Đo lúc 15:12 UTC (cuối ngày UTC): một IP WARP vừa `registration new` (IPv6 mới tinh), IP nhà, và proxy dân cư đều trả
