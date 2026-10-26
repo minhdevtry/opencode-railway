@@ -14,8 +14,11 @@ Không cần API key trả phí. Client chỉ việc gửi request; gateway lo c
 | Văn bản rất dài (`auto-long`) | ~300k token/request | đọc đúng, quá giới hạn thì tự chuyển model |
 | Lô cực lớn (`/v1/batches`) | gateway tự chạy hết tốc độ | lưu bền Redis, không mất job khi khởi động lại |
 
-Gửi bao nhiêu request cùng lúc cũng được: phần vượt sức chứa xếp hàng chờ. Riêng khi toàn bộ hạn mức free trong ngày
-đã cạn (cuối ngày UTC), gateway trả 429 ngay kèm `Retry-After` thay vì giữ hàng chờ vô ích — chờ tới 07:00 giờ VN (reset).
+Gửi bao nhiêu request cùng lúc cũng được: phần vượt sức chứa xếp hàng chờ. Hạn mức free của upstream tính **riêng cho
+từng model** và **riêng cho từng cặp (model, IP)** (đo 2026-10-26: cùng IP, cùng session, `glm`/`deepseek`/`mimo` hết
+hạn còn `nemotron`/`beam` vẫn 200). Gateway tự nhớ model nào đã hết hạn và bỏ qua model đó; hết hạn thì dùng lại, không
+cần can thiệp. Khi mọi lựa chọn đều hết hạn, gateway trả 429 ngay kèm `Retry-After` (thường 00:00 UTC = 07:00 VN) thay vì
+giữ hàng chờ vô ích.
 
 **Viết chương trình gọi gateway với thông lượng cao: đọc [`docs/CLIENT_GUIDE.md`](docs/CLIENT_GUIDE.md)** (chọn chế độ,
 mức đồng thời, timeout/retry, ví dụ Python/TypeScript chạy được trong `examples/`).

@@ -52,12 +52,23 @@ curl http://127.0.0.1:8090/v1/capacity
 | Timeout phía client | **Đặt dài: 10–30 phút.** Gateway có thể giữ request trong hàng chờ; timeout ngắn (vd 30 s) làm request bị huỷ rồi gửi lại, tốn công vô ích |
 | Muốn fail nhanh thay vì chờ lâu lúc hệ thống gần cạn | Gửi header `X-Max-Wait: 30s` — gateway dùng đây làm **tổng ngân sách chờ của cả request** (xếp hàng + mọi lần thử lại qua các đường mạng + thời gian chờ upstream trả header), hết hạn thì trả 429, để client tự điều tiết. Không đặt = chờ tới MAX_WAIT (30 phút). **Phần sinh câu trả lời sau khi đã có header không bị cắt** — nên timeout HTTP vẫn phải dài (10–30 phút) cho câu trả lời dài. Lưu ý: header này không áp dụng cho job chạy nền (`/v1/batches`, `/v1/jobs`) |
 | HTTP 400 | Lỗi do request (sai định dạng, văn bản quá dài với model cố định): sửa request, **không retry** |
-| HTTP 429 | Hạn mức free trong ngày đã cạn (cả tài khoản). `Retry-After` là mốc quota hồi (thường 00:00 UTC = 07:00 VN) — chờ tới mốc đó rồi gửi lại; gửi lại sớm cũng 429. Lúc này gateway cũng ngừng đổi IP WARP (vô ích) và tự thăm dò lại để mở khi quota hồi |
+| HTTP 429 | **Hạn mức free tính RIÊNG cho từng model** (đo 2026-10-26: cùng IP, cùng session, glm/deepseek/mimo hết
+hạn còn nemotron/beam vẫn 200) và riêng cho từng cặp (model, IP). `Retry-After` là mốc hết hạn của model đó (thường
+00:00 UTC = 07:00 VN) — chờ tới mốc đó rồi gửi lại. Gateway tự nhớ model nào đã cạn và **bỏ qua model đó** thay vì
+phí request 429; hết hạn là model dùng lại được, không cần can thiệp |
 | HTTP 502/503, lỗi kết nối | Retry có backoff (2 s, 4 s, 8 s... tối đa ~30 s) |
 | `content` rỗng, `finish_reason: "length"` | Phần suy nghĩ ăn hết `max_tokens`: **tăng `max_tokens`** (xem mục 5) |
 
 Gateway đã tự xử lý phần lớn lỗi bên trong (đổi đường mạng, đổi model với `auto`, gửi lại khi stream treo/đứt), nên
 client chỉ cần retry đơn giản như bảng trên.
+
+### Theo dõi sức chứa
+
+- `GET /v1/capacity` — `usable_egress` (đường mạng đang dùng được), `upstream_slots`, `recommended_concurrency`,
+  `model_budget_exhausted` (model nào đã hết hạn, tới mốc nào), `dead_egress` (đường mạng đã bị loại, ví dụ key proxy
+  dân cư hết hạn — cần nạp lại key), `session_budget_left` (ngân sách session mới còn lại trên các IP).
+- `GET /status` — chi tiết từng đường: IP thoát thật mà upstream nhìn thấy, `ip_kind` (`own` = IPv6 riêng, `shared` =
+  IPv4 WARP dùng chung), số session đã mở hôm nay, số request đã phục vụ, số lần đổi danh tính.
 
 **Đuôi chậm:** trong một lô, vài request cuối có thể lâu hơn hẳn (gateway đang tự sửa lỗi cho chúng: đổi model, gửi lại
 qua đường khác). Kết quả vẫn đúng. Nếu cần xong nhanh cả lô, dùng `/v1/batches` hoặc để các request đó chạy nền.
