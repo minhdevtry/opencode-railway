@@ -70,6 +70,11 @@ func (p *sessionPool) acquire(want, perSession int) *egSession {
 		}
 	}
 	if (best == nil || best.inflight >= perSession) && alive < want && !p.newDenied {
+		if p.budgetSpent() {
+			// Hết ngân sách session mới của IP này trong ngày -> mở thêm chỉ để nhận 429. IP này chết tới 00:00 UTC,
+			// phải ĐỔI IP (xem Egress.sess.reset() khi đổi danh tính).
+			return nil
+		}
 		s := &egSession{id: newSessionID(), inflight: 1, gen: p.gen}
 		p.list = append(p.list, s)
 		p.opened++
@@ -145,7 +150,34 @@ func (p *sessionPool) usable() bool {
 			return true
 		}
 	}
-	return !p.newDenied && alive < max(cfg.SessionsPerEgress, 1)
+	if p.newDenied {
+		return false
+	}
+	if p.budgetSpent() {
+		return false // hết ngân sách session mới của IP này -> phải đổi IP
+	}
+	return alive < max(cfg.SessionsPerEgress, 1)
+}
+
+// budgetSpent: IP này đã mở hết số session mới được phép trong ngày UTC. Gọi khi đã khoá p.mu.
+func (p *sessionPool) budgetSpent() bool {
+	lim := cfg.SessionDailyBudget
+	return lim > 0 && p.opened >= lim
+}
+
+// budgetLeft: còn bao nhiêu session mới được mở trên IP này hôm nay (-1 = không giới hạn).
+func (p *sessionPool) budgetLeft() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.rollover()
+	lim := cfg.SessionDailyBudget
+	if lim <= 0 {
+		return -1
+	}
+	if left := lim - p.opened; left > 0 {
+		return left
+	}
+	return 0
 }
 
 // readyWithin: trong khoảng d tới có thể dùng lại không (hết nghỉ, hoặc tới lúc thăm dò lại lượt mở session).

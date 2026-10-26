@@ -175,6 +175,13 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 			if e.container != "" && e.ready.Load() && !e.renewing.Load() && !e.sess.usable() {
 				log.Printf("[WARP] %s không còn session dùng được, đổi danh tính", e.Name)
 				m.renewIdentity(e)
+				continue
+			}
+			// IP này đã hết ngân sách session mới trong ngày: IP chết tới 00:00 UTC, phải đổi IP để có ngân sách mới.
+			// Không đổi thì egress đó nằm không cho tới hết ngày.
+			if e.tier == 1 && e.refreshURL != "" && e.ready.Load() && !e.renewing.Load() && !e.sess.usable() {
+				log.Printf("[%s] hết ngân sách session của IP này, xoay IP để lấy ngân sách mới", e.Name)
+				m.rotateResidentialProxy(e)
 			}
 		}
 	}

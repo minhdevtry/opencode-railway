@@ -1087,6 +1087,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		Cooldown  map[string]float64 `json:"cooldown_seconds,omitempty"`
 		Sessions  int                `json:"sessions_alive"`
 		Opened    int                `json:"sessions_opened_today"`
+		Budget    int                `json:"session_budget_left"` // số session MỚI còn mở được trên IP này hôm nay (-1 = không giới hạn)
 		NoNewSes  bool               `json:"new_sessions_denied,omitempty"`
 		SesUses   int64              `json:"session_requests_today"`
 		Renews    int64              `json:"identity_renews,omitempty"`
@@ -1097,6 +1098,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		s := egStat{Name: e.Name, Kind: e.Kind, Ready: e.ready.Load(), Inflight: e.inflight.Load(),
 			Requests: e.reqs.Load(), OK: e.oks.Load(), RateLimit: e.r429.Load(), Errors: e.errs.Load(), Renews: e.renews.Load(), Limit: e.limit.Load()}
 		s.Sessions, s.Opened, s.NoNewSes, s.SesUses = e.sess.stats()
+		s.Budget = e.sess.budgetLeft()
 		e.mu.Lock()
 		for model, c := range e.cool {
 			if d := time.Until(c.until); d > 0 {
