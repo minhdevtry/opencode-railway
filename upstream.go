@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -255,6 +256,25 @@ func parseRetryAfter(h http.Header) time.Duration {
 		}
 	}
 	return 0
+}
+
+// penalizeStreamError: lỗi đọc body giữa chừng (mất mạng) thì phạt egress đó. Nếu không, proxy hỏng vẫn nằm trong
+// pool và tiếp tục rò lỗi về client ở mọi request sau.
+func penalizeStreamError(e *Egress, err error) {
+	if e == nil || err == nil {
+		return
+	}
+	if errors.Is(err, io.EOF) {
+		return // EOF sạch = upstream kết thúc stream, không phải lỗi mạng
+	}
+	e.errs.Add(1)
+	e.adapt(false)
+	run := e.errRun.Add(1)
+	back := 2 * time.Second << min(int(run)-1, 5)
+	if back > time.Minute {
+		back = time.Minute
+	}
+	e.coolEgress(back)
 }
 
 // pickModelsFor: danh sách model mà 1 lần forward() có thể phục vụ (dùng để tính Retry-After).
@@ -531,18 +551,32 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			// Lỗi TCP/transport không gắn với model: cho CẢ egress nghỉ (không chỉ model này), backoff 2s,4s,8s... tối đa 1 phút,
 			// để bộ điều phối sidelined egress hỏng thay vì cứ chọn lại và lại reset (tránh rò 502 về client).
 			run := e.errRun.Add(1)
-			back := 2 * time.Second << min(int(run), 5)
+			back := 2 * time.Second << min(int(run)-1, 5)
 			if back > time.Minute {
 				back = time.Minute
 			}
-			e.coolEgress(back)
+			// Tor tự xoay circuit (e.rotate) nên không cần nghỉ thêm; WARP/proxy thì cần nghỉ để bộ điều phối
+			// không chọn lại đúng chỗ vừa lỗi.
+			if !e.canRotate {
+				e.coolEgress(back)
+			}
 			if e.tier == 1 && e.refreshURL != "" && run >= 3 {
-				e.errRun.Store(0)
 				log.Printf("[%s] lỗi truyền tải liên tiếp, xoay IP dân cư", e.Name)
-				mgr.rotateResidentialProxy(e)
+				if mgr.rotateResidentialProxy(e) {
+					e.errRun.Store(0) // chỉ reset bộ đếm lỗi khi lần xoay IP thật sự bắt đầu
+				}
+			}
+			// WARP: container/IP hỏng (lỗi TCP lặp lại) thì đổi danh tính để lấy IP mới, nếu không chỉ bị "giấu"
+			// bằng cooldown rồi lại hỏng tiếp.
+			if e.container != "" && run >= 3 && !e.renewing.Load() {
+				log.Printf("[%s] lỗi truyền tải liên tiếp, đổi danh tính WARP", e.Name)
+				mgr.renewIdentity(e)
+				e.errRun.Store(0)
 			}
 			e.rotate(gen)
-			avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
+			// KHÔNG đưa egress vào avoidDaemons: cooldown toàn-egress đã loại nó khỏi vòng chọn, nếu chặn vĩnh viễn
+			// trong request này thì khi pool chỉ có 1 egress, request sẽ chờ hết MAX_WAIT rồi nhận 429 dù egress đã
+			// hồi. Có cooldown thì bộ điều phối tự bỏ qua nó cho tới khi hết hạn.
 			if slow.Load() {
 				err = fmt.Errorf("không có phản hồi sau %v (circuit chậm)", ttfbLimit)
 			}

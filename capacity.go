@@ -52,6 +52,9 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 		if !e.ready.Load() || e.expired.Load() || (cfg.SessionIDMode == "egress" && !e.sess.usable()) {
 			continue
 		}
+		if time.Now().UnixNano() < e.downUntil.Load() {
+			continue // egress đang nghỉ cả egress (lỗi TCP) -> không tính vào sức chứa dùng được
+		}
 		usable++
 		slots += int(e.limit.Load())
 	}

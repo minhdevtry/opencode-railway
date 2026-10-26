@@ -544,19 +544,21 @@ var (
 	lastResRotTime = map[string]time.Time{}
 )
 
-func (m *Manager) rotateResidentialProxy(e *Egress) {
+// rotateResidentialProxy xoay IP của proxy dân cư. Trả true nếu lần xoay ĐÃ BẮT ĐẦU (để bộ đếm lỗi chỉ reset
+// khi thật sự xoay; nếu reset cả khi lần xoay bị bỏ qua thì backoff không bao giờ leo).
+func (m *Manager) rotateResidentialProxy(e *Egress) bool {
 	if e.refreshURL == "" || e.expired.Load() {
-		return
+		return false
 	}
 	// Cờ riêng từng egress (không dùng cờ chung): lịch xoay lại của proxy này không bị proxy khác chặn mất.
 	if !e.renewing.CompareAndSwap(false, true) {
-		return
+		return false
 	}
 	resRotMu.Lock()
 	if time.Since(e.lastRotate) < 60*time.Second {
 		resRotMu.Unlock()
 		e.renewing.Store(false)
-		return
+		return false
 	}
 	e.lastRotate = time.Now()
 	resRotMu.Unlock()
@@ -627,6 +629,7 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 		m.kickSched()
 		log.Printf("[ProxyXoay] %s đã sẵn sàng với IP dân cư mới!", e.Name)
 	}()
+	return true
 }
 
 func (m *Manager) refreshRotatingProxy(e *Egress) {
@@ -951,6 +954,9 @@ func (m *Manager) anyUsableWithin(models []string, within time.Duration) bool {
 	for _, e := range m.snapshot() {
 		if !e.ready.Load() || e.expired.Load() {
 			continue
+		}
+		if time.Now().UnixNano() < e.downUntil.Load() {
+			continue // egress đang nghỉ cả egress (lỗi TCP) -> không phải đường đi nào dùng được
 		}
 		if cfg.SessionIDMode == "egress" && !e.sess.readyWithin(within) {
 			continue // IP đã hết lượt session và chưa tới lúc thăm dò lại

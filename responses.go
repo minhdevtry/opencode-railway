@@ -243,6 +243,9 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !clientStream {
 		agg, err := aggregateSSE(up.resp.Body)
+		if err != nil {
+			penalizeStreamError(up.egress, err)
+		}
 		// Không có finish_reason => nội dung có thể bị cụt: báo lỗi, không trả 200 với status "completed".
 		if agg.chunks == 0 || agg.finishReason == "" {
 			if err != nil {
@@ -360,6 +363,9 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 			emit("response.function_call_arguments.done", map[string]any{"item_id": it.id, "output_index": it.outIndex, "arguments": it.args.String()})
 			emit("response.output_item.done", map[string]any{"output_index": it.outIndex, "item": it.json(true)})
 		}
+	}
+	if err != nil {
+		penalizeStreamError(up.egress, err)
 	}
 	if err != nil || upFinish == "" {
 		// Không có finish_reason (kể cả EOF "sạch" không có [DONE]) => stream bị cụt: báo failed, không báo completed.

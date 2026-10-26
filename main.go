@@ -762,6 +762,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if err != nil {
+				penalizeStreamError(up.egress, err) // đọc body giữa chừng bị lỗi mạng -> phạt egress đó
 				break
 			}
 		}
@@ -779,6 +780,9 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 
 	if agg == nil {
 		agg, aggErr = aggregateSSE(up.resp.Body)
+		if aggErr != nil {
+			penalizeStreamError(up.egress, aggErr) // đọc body giữa chừng bị lỗi mạng -> phạt egress đó
+		}
 	}
 	// Không có finish_reason (stream đứt, kể cả EOF "sạch" không có [DONE]) => nội dung có thể bị cụt: báo 502 để
 	// client/job thử lại, không trả 200 cụt.
