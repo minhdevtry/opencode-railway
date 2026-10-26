@@ -1222,6 +1222,7 @@ func main() {
 	}
 	go startCatalogSync(ctx)
 	go mgr.warpJanitor(ctx)
+	go mgr.detectWarpIPs(ctx)
 	startJobs(ctx)
 
 	srv := &http.Server{

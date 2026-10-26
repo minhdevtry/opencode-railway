@@ -118,13 +118,19 @@ func (m *Manager) renewIdentity(e *Egress) {
 				}
 				// IPv4 của WARP (104.28.x) dùng chung cho mọi người dùng WARP trong vùng nên gần như luôn hết lượt:
 				// đổi tiếp (tối đa 3 lần liên tiếp) để lấy IPv6 riêng.
-				if ip != "" && !strings.Contains(ip, ":") && e.renewTries.Load() < 3 {
+				if ip != "" && !strings.Contains(ip, ":") && e.renewTries.Load() < 5 {
 					log.Printf("[WARP] %s nhận IPv4 dùng chung %s, đổi tiếp", e.Name, ip)
 					go func() { time.Sleep(2 * time.Second); m.renewIdentity(e) }()
 					return
 				}
 				e.renewTries.Store(0)
 				e.renews.Add(1)
+				e.ipAddr.Store(ip)
+				if strings.Contains(ip, ":") {
+					e.ipKind.Store(ipKindOwn)
+				} else {
+					e.ipKind.Store(ipKindShared)
+				}
 				e.sess.reset()
 				e.markIPChanged() // IP mới tinh: nếu IP này cũng bị cạn hạn mức thì là cạn cấp tài khoản
 				e.clearAll()
@@ -185,6 +191,47 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// detectWarpIPs dò IP thoát thật của từng container WARP lúc khởi động: IPv6 riêng hay IPv4 dùng chung.
+// Cần biết vì hạn mức phía upstream tính theo IP: 9 container dùng chung 1 IPv4 thì hạn mức cũng chung.
+func (m *Manager) detectWarpIPs(ctx context.Context) {
+	for _, e := range m.snapshot() {
+		if e.container == "" || !e.ready.Load() {
+			continue
+		}
+		ip := m.exitIPOf(ctx, e)
+		switch {
+		case ip == "":
+		case strings.Contains(ip, ":"):
+			e.ipAddr.Store(ip)
+			e.ipKind.Store(ipKindOwn)
+			log.Printf("[WARP] %s có IPv6 riêng %s", e.Name, ip)
+		default:
+			e.ipAddr.Store(ip)
+			e.ipKind.Store(ipKindShared)
+			log.Printf("[WARP] %s đang dùng IPv4 DÙNG CHUNG %s (hạn mức upstream cũng dùng chung) - sẽ đổi danh tính để lấy IPv6 riêng", e.Name, ip)
+		}
+	}
+}
+
+// exitIPOf hỏi upstream IP mà container này nhìn thấy (dùng domain upstream để đúng họ IP).
+func (m *Manager) exitIPOf(ctx context.Context, e *Egress) string {
+	c, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(c, http.MethodGet, "https://opencode.ai/cdn-cgi/trace", nil)
+	resp, err := e.Client().Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(l, "ip=") {
+			return l[3:]
+		}
+	}
+	return ""
 }
 
 // probeAccount gửi 1 request rất nhẹ để xem quota tài khoản đã hồi chưa.

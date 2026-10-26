@@ -73,12 +73,22 @@ type Egress struct {
 	renewTries atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
 	downUntil  atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
 	ipChanged  atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
-	container  string       // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
+	ipAddr     atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
+	ipKind     atomic.Int32 // 0 = chưa biết, 1 = IPv6 riêng (nguồn IP riêng), 2 = IPv4 WARP dùng chung (nhiều container
+	// dùng chung 1 IP => hạn mức phía upstream cũng dùng chung, nên ưu tiên egress có IPv6 riêng)
+	container string // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
 }
 
 // Cửa sổ coi 1 IP là "mới tinh" sau khi đổi. Trong khoảng này, IP mới bị cạn hạn mức (retry-after dài) là bằng chứng
 // quota cạn CẤP TÀI KHOẦN chứ không phải cạn riêng IP đó.
 const egressIPFreshWindow = 10 * time.Minute
+
+// Phân loại IP của egress (xem Egress.ipKind).
+const (
+	ipKindUnknown = 0 // chưa dò được
+	ipKindOwn     = 1 // IPv6 riêng của container
+	ipKindShared  = 2 // IPv4 WARP dùng chung (104.28.x): nhiều container chung 1 IP
+)
 
 func newTransport(proxy func(*http.Request) (*url.URL, error)) *http.Transport {
 	if cfg.UpstreamTLS == "bun" {
@@ -809,6 +819,11 @@ func (m *Manager) pickTierAvoid(rest []*Egress, tier int, model string, avoidMap
 		}
 		st := e.strikes(model)
 		sc := e.loadScore(med)
+		if e.ipKind.Load() == ipKindShared {
+			// IP dùng chung: hạn mức phía upstream cũng dùng chung với container khác -> chỉ dùng khi không còn
+			// egress nào có IP riêng.
+			sc += 1e9
+		}
 		if best == nil || st < bestStrikes || (st == bestStrikes && sc < bestScore) {
 			best, bestStrikes, bestScore = e, st, sc
 		}
@@ -855,6 +870,11 @@ func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[strin
 		}
 		st := e.strikes(model)
 		sc := e.loadScore(med)
+		if e.ipKind.Load() == ipKindShared {
+			// IP dùng chung: hạn mức phía upstream cũng dùng chung với container khác -> chỉ dùng khi không còn
+			// egress nào có IP riêng.
+			sc += 1e9
+		}
 		if best == nil || st < bestStrikes || (st == bestStrikes && sc < bestScore) {
 			best, bestStrikes, bestScore = e, st, sc
 		}
