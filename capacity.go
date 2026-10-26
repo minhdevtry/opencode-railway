@@ -48,6 +48,7 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 	setCORS(w)
 	usable, slots, inflight := 0, 0, 0
 	budgetLeft, budgetKnown := 0, 0
+	budgetUnlimited := false
 	var dead []string
 	for _, e := range mgr.snapshot() {
 		inflight += int(e.inflight.Load())
@@ -70,12 +71,19 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 		if b := e.sess.budgetLeft(); b >= 0 {
 			budgetKnown++
 			budgetLeft += b
+		} else {
+			// Ngân sách session mới đang TẮT (SESSION_DAILY_BUDGET=0) -> không giới hạn, báo -1
+			// (giống budgetLeft() của pool) thay vì 0 để không bị hiểu là "hết ngân sách".
+			budgetUnlimited = true
 		}
 	}
 	// Giữ hàng chờ ngắn: đủ để mọi slot luôn có việc ngay khi trống (x1.5) nhưng không dồn quá nhiều chờ lâu.
 	rec := slots * 3 / 2
 	if rec < 1 {
 		rec = 1
+	}
+	if budgetUnlimited {
+		budgetLeft = -1
 	}
 	writeJSON(w, map[string]any{
 		"object":                  "capacity",
@@ -87,7 +95,7 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 		"ok_per_second_60s":       float64(int(okRate.perSecond()*100)) / 100,
 		"recommended_concurrency": rec,
 		"model":                   "auto",
-		"session_budget_left":     budgetLeft,                       // tổng số session MỚI còn mở được hôm nay trên các IP đang dùng
+		"session_budget_left":     budgetLeft,                       // tổng số session MỚI còn mở được hôm nay trên các IP đang dùng (-1 = không giới hạn)
 		"session_budget_known":    budgetKnown,                      // số egress có ngân sách hữu hạn (không tính vào tổng)
 		"dead_egress":             dead,                             // các đường đã bị loại (vd key proxy hết hạn) -> cần người dùng xử lý
 		"model_budget_exhausted":  modelBudgetSnapshot(),            // model đã hết ngân sách free -> mốc reset (model này tự mở lại)
