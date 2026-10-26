@@ -1,0 +1,3 @@
+cell=B2 dump=gw1.json tls=bun proxy=none ses=new n=30
+ip_before=222.252.17.4 at=2026-10-26T04:07:25Z
+ip_after=117.4.246.227 at=2026-10-26T04:08:02Z

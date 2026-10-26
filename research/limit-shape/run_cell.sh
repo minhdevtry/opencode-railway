@@ -4,6 +4,7 @@
 set -u
 CELL="$1"; DUMP="$2"; TLSMODE="$3"; PROXY="$4"; SESMODE="$5"; N="$6"; shift 6 || true
 HERE="$(cd "$(dirname "$0")" && pwd)"
+case "$DUMP" in /*) ;; *) DUMP="$HERE/$DUMP" ;; esac
 LOGDIR="$HERE/logs"; mkdir -p "$LOGDIR"
 LOG="$LOGDIR/limitshape_${CELL}.jsonl"
 IPLOG="$LOGDIR/limitshape_${CELL}_ip.txt"
@@ -27,6 +28,7 @@ SOCK=""
 
 export MODEL=glm-5.3-flash-free
 export STOP429=1
+export N="$N"
 if [ "$SESMODE" = "fixed" ]; then
   export SES="${SES:-$(python3 "$HERE/gen_ses.py")}"
 else

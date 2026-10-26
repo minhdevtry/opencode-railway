@@ -1,0 +1,7 @@
+{"status": 429, "secs": 0.43, "ra": "71445", "t": "11:09:15", "text": "", "err": "{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode", "cell": "C", "i": 0}
+{"status": 200, "secs": 0.68, "ra": "", "t": "11:09:40", "text": "pong", "err": "", "cell": "C", "i": 0}
+{"status": 200, "secs": 0.49, "ra": "", "t": "11:09:41", "text": "pong", "err": "", "cell": "C", "i": 1}
+{"status": 200, "secs": 0.55, "ra": "", "t": "11:09:41", "text": "Pong", "err": "", "cell": "C", "i": 2}
+{"status": 200, "secs": 0.61, "ra": "", "t": "11:09:42", "text": "pong", "err": "", "cell": "C", "i": 3}
+{"status": 200, "secs": 0.5, "ra": "", "t": "11:09:43", "text": "pong", "err": "", "cell": "C", "i": 4}
+{"status": 200, "secs": 0.82, "ra": "", "t": "11:09:45", "text": "pong", "err": "", "cell": "C", "i": 5}

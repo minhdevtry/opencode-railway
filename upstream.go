@@ -575,10 +575,22 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if !e.canRotate {
 				e.coolEgress(back)
 			}
-			if e.tier == 1 && e.refreshURL != "" && run >= 3 {
-				log.Printf("[%s] lỗi truyền tải liên tiếp, xoay IP dân cư", e.Name)
-				if mgr.rotateResidentialProxy(e) {
-					e.errRun.Store(0) // chỉ reset bộ đếm lỗi khi lần xoay IP thật sự bắt đầu
+			if e.tier == 1 && e.refreshURL != "" {
+				// Proxy dân cư hỏng (IP chết / key hết hạn) thì MỖI lần thử tốn 20-40 giây chờ timeout -> phải
+				// LOẠI NGAY khỏi routing, không để request tiếp theo lại dính nó. Xoay IP (nếu được) sẽ đưa nó
+				// vào lại pool với IP mới; nếu key đã hết hạn thì egress bị loại hẳn.
+				log.Printf("[%s] lỗi truyền tải, loại khỏi routing và xoay IP", e.Name)
+				e.ready.Store(false)
+				if !mgr.rotateResidentialProxy(e) {
+					// Đang xoay hoặc bị giới hạn 60s giữa 2 lần xoay -> thử lại sau, nếu không egress này bị loại
+					// vĩnh viễn mà không ai xoay IP cho nó.
+					time.AfterFunc(45*time.Second, func() {
+						if e.expired.Load() {
+							return
+						}
+						e.ready.Store(true)
+						mgr.rotateResidentialProxy(e)
+					})
 				}
 			}
 			// WARP: container/IP hỏng (lỗi TCP lặp lại) thì đổi danh tính để lấy IP mới, nếu không chỉ bị "giấu"

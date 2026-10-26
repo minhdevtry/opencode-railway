@@ -1,0 +1,2 @@
+{"status": 200, "secs": 1.65, "ra": "", "t": "11:08:10", "text": "pong", "err": "", "cell": "A3", "i": 0}
+{"status": 429, "secs": 0.3, "ra": "71509", "t": "11:08:11", "text": "", "err": "{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free mode", "cell": "A3", "i": 1}

@@ -20,6 +20,11 @@ import (
 	"golang.org/x/net/proxy"
 )
 
+var (
+	lastErr string
+	respRA  string
+)
+
 func newSes() string {
 	const a = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	v := (^((uint64(time.Now().UnixMilli())*0x1000 + 1) & 0xFFFFFFFFFFFF)) & 0xFFFFFFFFFFFF
@@ -46,8 +51,11 @@ func main() {
 			ses = newSes()
 		}
 		st := once(ses)
-		if st != 200 && os.Getenv("STOP429") != "" {
-			fmt.Fprintf(os.Stderr, "stop after status %d\n", st)
+		// Chỉ dừng khi gặp lỗi HẠN MỨC (FreeUsageLimitError) hoặc 429 có Retry-After.
+		// Lỗi kiểu "Endpoint is unavailable" là sự cố nhà cung cấp, không phải hạn mức.
+		if os.Getenv("STOP429") != "" && st != 200 &&
+			(strings.Contains(lastErr, "FreeUsageLimitError") || (st == 429 && respRA != "")) {
+			fmt.Fprintf(os.Stderr, "stop after status %d (quota)\n", st)
 			return
 		}
 	}
@@ -145,6 +153,8 @@ func once(ses string) int {
 	if resp.StatusCode != 200 {
 		errS = string(body[:min(len(body), 100)])
 	}
+	lastErr = errS
+	respRA = resp.Header.Get("Retry-After")
 	fmt.Printf("{\"status\":%d,\"secs\":%.2f,\"ra\":%q,\"t\":%q,\"text\":%q,\"err\":%q}\n", resp.StatusCode, time.Since(t0).Seconds(), resp.Header.Get("Retry-After"), time.Now().Format("15:04:05"), text, errS)
 	return resp.StatusCode
 }
