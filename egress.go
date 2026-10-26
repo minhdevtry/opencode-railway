@@ -432,6 +432,7 @@ type Manager struct {
 	wg           sync.WaitGroup
 	proxyRefMu   sync.Mutex
 	proxyRefLast time.Time
+	lastProbe    time.Time // lần thăm dò quota tài khoản gần nhất (giới hạn tần suất: mỗi probe là 1 request thật)
 
 	// bộ điều phối (sched.go)
 	wmu      sync.Mutex

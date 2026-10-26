@@ -168,12 +168,17 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 }
 
 // probeAccount gửi 1 request rất nhẹ để xem quota tài khoản đã hồi chưa.
-// Đây là CỐNG: chỉ prober được mở lại breaker. Request thường thành công KHÔNG được mở gate - lúc quota cạn một
-// phần, session cũ vẫn trả 200, mở gate lúc đó là quay lại bão xoay IP mà breaker sinh ra để chặn.
+// Mục đích chính là GIA HẠN bằng chứng (mỗi lần probe vẫn thấy cạn thì breaker giữ nguyên), chứ không phải để
+// mở breaker: 200 của prober có thể là 200 của session CŨ (session cũ vẫn chạy được khi quota cạn một phần).
 func (m *Manager) probeAccount() {
 	if len(freeModelPool) == 0 {
 		return // pool rỗng (mọi model đều bị loại): không có gì để thăm dò
 	}
+	// Thăm dò là 1 request thật lên upstream (tốn quota) -> không thăm dò quá dày. Janitor quét mỗi 20s.
+	if time.Since(m.lastProbe) < 2*time.Minute {
+		return
+	}
+	m.lastProbe = time.Now()
 	for _, e := range m.snapshot() {
 		if !e.ready.Load() || e.expired.Load() || e.container == "" {
 			continue
@@ -186,15 +191,11 @@ func (m *Manager) probeAccount() {
 			return b
 		})
 		if gerr == nil && up != nil {
-			ok := up.resp.StatusCode == http.StatusOK
 			up.close()
-			cancel()
-			if ok {
-				acctGate.clear() // quota hồi thật -> mở lại bình thường
-			}
-			return
 		}
 		cancel()
+		// KHÔNG tự mở breaker ở đây: 200 của prober có thể là 200 của session CŨ (session cũ vẫn chạy được khi
+		// quota cạn một phần) -> không chứng minh quota đã hồi. Chỉ request 200 trên IP MỚI mới mở (upstream.go).
 		return
 	}
 }
