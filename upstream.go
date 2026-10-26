@@ -256,6 +256,36 @@ func parseRetryAfter(h http.Header) time.Duration {
 	}
 	return 0
 }
+
+// pickModelsFor: danh sách model mà 1 lần forward() có thể phục vụ (dùng để tính Retry-After).
+func pickModelsFor(model string, isPool bool) []string {
+	if isPool {
+		poolMu.RLock()
+		pool := append([]string(nil), freeModelPool...)
+		poolMu.RUnlock()
+		if len(pool) > 0 {
+			return pool
+		}
+	}
+	return []string{model}
+}
+
+// retryAfterForClient: Retry-After trả về client. Cooldown của egress chỉ vài chục giây, nên khi quota tài khoản
+// đang cạn (breaker chặn) thì mốc đúng để client chờ là lúc QUOTA HỒI, không phải lúc hết cooldown - client retry
+// theo hạn cooldown sẽ lại nhận 429 ngay.
+func retryAfterForClient(d time.Duration) time.Duration {
+	best := d
+	if acctGate.capped() {
+		if g := time.Until(acctGate.resetTime()); g > best {
+			best = g
+		}
+	}
+	if best > acctGateResetMax {
+		best = acctGateResetMax
+	}
+	return best
+}
+
 func appendAvoid(list []string, d string) []string {
 	for _, x := range list {
 		if x == d {
@@ -395,9 +425,15 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 	paramErrors := 0 // số lần upstream báo 400 do tham số của client
 
 	for attempt := 0; attempt < cfg.MaxAttempts; attempt++ {
-		// Tổng thời gian tối đa cho 1 request (MaxWait): đã có lỗi và hết ngân sách thì trả lỗi cuối, không thử mãi.
-		if last != nil && time.Now().After(deadline) {
-			return nil, normalizeLastError(last)
+		// Tổng thời gian tối đa cho 1 request (MaxWait / X-Max-Wait của client): hết hạn thì DỪNG, không gửi thêm
+		// request lên upstream. Kiểm tra này áp cho CẢ attempt đầu tiên - trước đây attempt đầu tiên không bao giờ
+		// bị chặn, nên 1 request có thể vừa hết hạn vẫn còn gửi đi 1 request nữa.
+		if !time.Now().Before(deadline) {
+			if last != nil {
+				return nil, normalizeLastError(last)
+			}
+			return nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+				msg: "Max wait exceeded.", retryAfter: mgr.soonest(pickModelsFor(model, isPool))}
 		}
 		if attempt > 0 {
 			select {
@@ -423,6 +459,28 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 		relE := func() { e.sess.done(es); e.release() } // trả slot egress + chỗ trên session
 		payload := prep(m)
 		actx, cancel := context.WithCancel(ctx)
+		// Hạn chờ của client áp cho cả thời gian chờ HEADER upstream: client đặt X-Max-Wait=15s thì không được ngồi
+		// đó chờ upstream trả header 3 phút. Chỉ áp tới khi có header - phần stream sau đó KHÔNG bị cắt (bài toán xử
+		// lý văn bản dài cần stream chạy tới cuối, có thể mất vài phút).
+		var timedOut atomic.Bool
+		var cancelRight atomic.Bool
+		headerCh := make(chan struct{})
+		if dl, ok := deadlineFrom(ctx); ok {
+			go func() {
+				t := time.NewTimer(time.Until(dl))
+				defer t.Stop()
+				select {
+				case <-t.C:
+					// Ai "chiếm" quyền hủy trước thì thắng: nếu header đã về thì thôi, không cắt body nữa.
+					if cancelRight.CompareAndSwap(false, true) {
+						timedOut.Store(true)
+						cancel()
+					}
+				case <-headerCh:
+				case <-actx.Done():
+				}
+			}()
+		}
 		req, err := http.NewRequestWithContext(actx, http.MethodPost, url, bytes.NewReader(payload))
 		if err != nil {
 			cancel()
@@ -452,12 +510,19 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			slowTimer = time.AfterFunc(ttfbLimit, func() { slow.Store(true); cancel() })
 		}
 		resp, err := e.Client().Do(req)
+		cancelRight.CompareAndSwap(false, true) // đã có header (hoặc đã lỗi): không ai cắt body nữa
+		close(headerCh)
 		if slowTimer != nil {
 			slowTimer.Stop()
 		}
 		if err != nil {
 			cancel()
 			relE()
+			if timedOut.Load() {
+				// Hết hạn chờ của client khi upstream chưa kịp trả header: báo 429 (nhất quán với "max wait exceeded").
+				return nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+					msg: "Max wait exceeded while waiting for upstream.", retryAfter: mgr.soonest(pickModelsFor(model, isPool))}
+			}
 			if ctx.Err() != nil {
 				return nil, &gwError{status: 499, typ: "client_closed", msg: "client closed request"}
 			}
@@ -502,7 +567,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if es != nil && freeLimit {
 				if ra >= acctGateMinCap {
 					// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
-					acctGate.noteFreshCap(e.Name, ra, e.sess.freshSession(es))
+					acctGate.noteFreshCap(e.Name, ra, e.ipIsFresh())
 				}
 				if !e.sess.blocked(es, ra) {
 					// Session của IP cũ (egress vừa đổi IP): kết quả không áp cho pool mới, thử lại ngay.
@@ -524,7 +589,8 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 					continue
 				}
 				// IP hết session hôm nay: đổi danh tính WARP để lấy IP mới (nếu là WARP), không thì nghỉ tới khi reset.
-				if e.container != "" {
+				// Nhưng nếu breaker đang chặn (quota cạn cấp tài khoản) thì đổi IP VÔ ÍCH - đừng đổi.
+				if e.container != "" && !acctGate.capped() {
 					mgr.renewIdentity(e)
 					avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
 					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
@@ -539,7 +605,8 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				if e.tier == 1 && e.refreshURL != "" {
 					mgr.rotateResidentialProxy(e)
 				} else if e.tier == 2 && cfg.SessionIDMode != "egress" {
-					if freeLimit || ra > 30*time.Minute {
+					// Quota cạn cấp tài khoản => đổi IP/restart container vô ích, breaker đang chặn.
+					if (freeLimit || ra > 30*time.Minute) && !acctGate.capped() {
 						renewWarpProxy(e.Name)
 					}
 				}
@@ -549,7 +616,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			log.Printf("[%s] attempt=%d model=%s 429 retry-after=%v cooldown=%v ttfb=%v body=%q",
 				e.Name, attempt, m, ra, d.Round(time.Second), ttfb.Round(time.Millisecond), string(snippet))
 			last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
-				msg: "Rate limited on all egress paths. Retry shortly.", retryAfter: d}
+				msg: "Rate limited on all egress paths. Retry shortly.", retryAfter: retryAfterForClient(d)}
 			modelFailures++
 			if canSwitch && modelFailures >= 3 && isFreeModelInPool(currentModel) {
 				next := nextModelInPool(currentModel)
@@ -719,6 +786,11 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 		if resp.StatusCode == http.StatusOK {
 			e.sess.success(es)
 			e.errRun.Store(0)
+			if e.ipIsFresh() {
+				// IP vừa đổi mà vẫn trả 200 => cặp (IP, session) MỚI được chấp nhận => quota đã hồi, mở breaker.
+				// (200 của một session CŨ không chứng minh được điều đó - lúc quota cạn một phần, session cũ vẫn chạy.)
+				acctGate.clear()
+			}
 			// KHÔNG xoá downUntil ở đây: 1 request thành công không có nghĩa egress đó hết lỗi TCP (request khác
 			// vẫn đang reset). Để cooldown tự hết hạn, nếu không thì proxy hỏng lại được chọn ngay và lại rò 502.
 			e.adapt(true)

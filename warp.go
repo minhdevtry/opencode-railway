@@ -126,6 +126,7 @@ func (m *Manager) renewIdentity(e *Egress) {
 				e.renewTries.Store(0)
 				e.renews.Add(1)
 				e.sess.reset()
+				e.markIPChanged() // IP mới tinh: nếu IP này cũng bị cạn hạn mức thì là cạn cấp tài khoản
 				e.clearAll()
 				if t, ok := e.Client().Transport.(*http.Transport); ok {
 					t.CloseIdleConnections()

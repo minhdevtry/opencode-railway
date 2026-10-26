@@ -353,15 +353,18 @@ func modelFallback(ctx context.Context) bool {
 type maxWaitKey struct{}
 
 func withMaxWait(ctx context.Context, r *http.Request) context.Context {
+	d := cfg.MaxWait
 	if v := strings.TrimSpace(r.Header.Get("X-Max-Wait")); v != "" {
-		if d, err := time.ParseDuration(v); err == nil && d > 0 {
-			if d > cfg.MaxWait {
-				d = cfg.MaxWait
+		if pd, err := time.ParseDuration(v); err == nil && pd > 0 {
+			// Client chỉ được RÚT NGẮN hạn, không được dài hơn MAX_WAIT của server.
+			if pd < d {
+				d = pd
 			}
-			return context.WithValue(ctx, maxWaitKey{}, time.Now().Add(d))
 		}
 	}
-	return ctx
+	// Luôn gắn mốc tuyệt đối, kể cả khi client không đặt header: nếu không, mỗi lần forward() trong vòng retry lại
+	// lấy một hạn MỚI (MAX_WAIT) => 1 HTTP request có thể chờ N x MAX_WAIT.
+	return context.WithValue(ctx, maxWaitKey{}, time.Now().Add(d))
 }
 
 // deadlineFrom: hạn chờ tuyệt đối của client (nếu client gửi X-Max-Wait).
@@ -370,8 +373,9 @@ func deadlineFrom(ctx context.Context) (time.Time, bool) {
 	return t, ok
 }
 
-// waitBudget: ngân sách chờ còn lại của request (giây). Mặc định là MAX_WAIT; nếu client đặt X-Max-Wait thì lấy phần
-// còn lại của hạn TUYỆT ĐỐI đó - nhờ vậy các lần retry trong cùng request không cộng dồn thời gian chờ.
+// waitBudget: ngân sách chờ còn lại của request (giây). Mặc định là MAX_WAIT; nếu ctx có mốc tuyệt đối (do handler
+// gắn: X-Max-Wait của client hoặc MAX_WAIT) thì lấy phần còn lại của mốc đó - nhờ vậy các lần retry trong cùng
+// 1 request không cộng dồn thời gian chờ.
 func waitBudget(ctx context.Context) time.Duration {
 	wait := cfg.MaxWait
 	if dl, ok := deadlineFrom(ctx); ok {

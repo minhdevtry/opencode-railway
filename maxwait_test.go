@@ -59,15 +59,40 @@ func TestMaxWaitCappedByServerMaxWait(t *testing.T) {
 	}
 }
 
-// Header rác / thiếu thì không đặt deadline: request dùng MAX_WAIT mặc định.
+// Header rác / thiếu thì bỏ qua và dùng MAX_WAIT của server (client không được tự ý rút ngắn).
 func TestMaxWaitIgnoresBadHeader(t *testing.T) {
+	old := cfg.MaxWait
+	cfg.MaxWait = 7 * time.Second
+	defer func() { cfg.MaxWait = old }()
+
 	for _, v := range []string{"", "abc", "0", "-5s"} {
 		r, _ := http.NewRequest("POST", "/v1/chat/completions", nil)
 		if v != "" {
 			r.Header.Set("X-Max-Wait", v)
 		}
-		if _, ok := deadlineFrom(withMaxWait(context.Background(), r)); ok {
-			t.Fatalf("header %q không được tạo deadline", v)
+		dl, ok := deadlineFrom(withMaxWait(context.Background(), r))
+		if !ok {
+			t.Fatalf("header %q: phải có deadline (fallback về MAX_WAIT)", v)
 		}
+		if d := time.Until(dl); d > 7*time.Second {
+			t.Fatalf("header %q: deadline phải theo MAX_WAIT của server, got %v", v, d)
+		}
+	}
+}
+
+// Client chỉ được RÚT NGẮN hạn, không được dài hơn MAX_WAIT của server.
+func TestMaxWaitCannotExceedServerMaxWait(t *testing.T) {
+	old := cfg.MaxWait
+	cfg.MaxWait = 3 * time.Second
+	defer func() { cfg.MaxWait = old }()
+
+	r, _ := http.NewRequest("POST", "/v1/chat/completions", nil)
+	r.Header.Set("X-Max-Wait", "1h")
+	dl, ok := deadlineFrom(withMaxWait(context.Background(), r))
+	if !ok {
+		t.Fatal("phải có deadline")
+	}
+	if d := time.Until(dl); d > 3*time.Second {
+		t.Fatalf("client không được dài hơn MAX_WAIT của server, got %v", d)
 	}
 }

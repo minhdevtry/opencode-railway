@@ -71,8 +71,13 @@ type Egress struct {
 	renews     atomic.Int64
 	renewTries atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
 	downUntil  atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
+	ipChanged  atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
 	container  string       // container WARP tương ứng (để đổi danh tính khi IP hết lượt)
 }
+
+// Cửa sổ coi 1 IP là "mới tinh" sau khi đổi. Trong khoảng này, IP mới bị cạn hạn mức (retry-after dài) là bằng chứng
+// quota cạn CẤP TÀI KHOẦN chứ không phải cạn riêng IP đó.
+const egressIPFreshWindow = 10 * time.Minute
 
 func newTransport(proxy func(*http.Request) (*url.URL, error)) *http.Transport {
 	if cfg.UpstreamTLS == "bun" {
@@ -271,7 +276,10 @@ func (e *Egress) claim(model string) bool {
 	return true
 }
 
-const probeLease = 15 * time.Second
+// probeLease: sau khi hết cooldown, chỉ 1 request được thăm dò lại egress đó; các request khác chờ tới lượt.
+// Giữ NGẮN (5s) vì đây cũng là khoảng chờ mà client phải gánh nếu request kế tiếp tới đúng lúc egress vừa hết
+// cooldown: lease 15s khiến client có ngân sách chờ ngắn bị trả 429 oan (xem sched.go anyUsableWithin).
+const probeLease = 5 * time.Second
 
 func (e *Egress) clear(model string) {
 	e.mu.Lock()
@@ -282,6 +290,20 @@ func (e *Egress) clearAll() {
 	e.mu.Lock()
 	e.cool = make(map[string]*coolState)
 	e.mu.Unlock()
+}
+
+// markIPChanged: đánh dấu IP vừa được đổi (WARP đổi danh tính, proxy dân cư xoay IP). Trong cửa sổ
+// egressIPFreshWindow thì IP này là "mới tinh": bị cạn hạn mức lúc đó mới là bằng chứng cạn CẤP TÀI KHOẢN
+// (đổi IP cũng vô ích), chứ không phải cạn riêng IP đó.
+func (e *Egress) markIPChanged() { e.ipChanged.Store(time.Now().UnixNano()) }
+
+// ipIsFresh: IP của egress này vừa được đổi (mới tinh) chưa?
+func (e *Egress) ipIsFresh() bool {
+	at := e.ipChanged.Load()
+	if at == 0 {
+		return false
+	}
+	return time.Since(time.Unix(0, at)) <= egressIPFreshWindow
 }
 
 // coolEgress cho CẢ egress nghỉ d (lỗi TCP/transport không gắn với model nào). Backoff theo số lỗi liên tiếp.
@@ -597,6 +619,7 @@ func (m *Manager) rotateResidentialProxy(e *Egress) {
 		time.Sleep(warmup)
 		e.clearAll()
 		e.sess.reset() // IP mới => ngân sách session mới
+		e.markIPChanged()
 		if t, ok := e.Client().Transport.(*http.Transport); ok {
 			t.CloseIdleConnections()
 		}

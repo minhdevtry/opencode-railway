@@ -5,8 +5,10 @@ import (
 	"time"
 )
 
+func newGate() *accountGate { return &accountGate{recent: map[string]capEvidence{}} }
+
 func TestAccountGateTripsAndClears(t *testing.T) {
-	g := &accountGate{recent: map[string]time.Time{}}
+	g := newGate()
 	// retry-after ngắn (cửa sổ tốc độ) không được trip
 	g.noteFreshCap("res1", time.Minute, true)
 	if g.tripped() {
@@ -18,8 +20,9 @@ func TestAccountGateTripsAndClears(t *testing.T) {
 	if g.tripped() {
 		t.Fatal("dưới ngưỡng distinct chưa được trip")
 	}
-	// đủ 3 egress khác nhau với retry-after dài -> trip
+	// đủ 3 egress khác nhau, có IP mới, đủ 2 họ đường mạng -> trip
 	g.noteFreshCap("proxy3", time.Hour, true)
+	g.noteFreshCap("res2", time.Hour, true)
 	if !g.tripped() {
 		t.Fatal("đủ 3 egress cạn cấp tài khoản phải trip")
 	}
@@ -27,7 +30,7 @@ func TestAccountGateTripsAndClears(t *testing.T) {
 	if d := time.Until(g.untilAt()); d > acctGateMax+time.Second {
 		t.Fatalf("thời gian chặn phải <= acctGateMax, got %v", d)
 	}
-	// prober thấy quota hồi -> mở lại
+	// IP mới trả 200 -> mở lại
 	g.clear()
 	if g.tripped() {
 		t.Fatal("clear() phải mở lại breaker")
@@ -37,9 +40,9 @@ func TestAccountGateTripsAndClears(t *testing.T) {
 	}
 }
 
-// Cạn từng IP (mọi session đều ĐÃ từng chạy) thì đổi IP vẫn có ích -> không được trip.
+// Cạn từng IP (không có IP mới nào bị cạn) thì đổi IP vẫn có ích -> không được trip.
 func TestAccountGateNeedsFreshIPEvidence(t *testing.T) {
-	g := &accountGate{recent: map[string]time.Time{}}
+	g := newGate()
 	g.noteFreshCap("proxy1", time.Hour, false)
 	g.noteFreshCap("proxy2", time.Hour, false)
 	g.noteFreshCap("proxy3", time.Hour, false)
@@ -47,19 +50,49 @@ func TestAccountGateNeedsFreshIPEvidence(t *testing.T) {
 	if g.tripped() {
 		t.Fatal("cạn từng IP không phải cạn cấp tài khoản: không được trip")
 	}
-	// thêm bằng chứng IP mới (session chưa từng chạy) -> trip
+	// thêm bằng chứng IP mới -> trip (kèm 2 họ đường mạng)
 	g.noteFreshCap("proxy5", time.Hour, true)
 	if !g.tripped() {
 		t.Fatal("có bằng chứng IP mới cũng cạn thì phải trip")
 	}
 }
 
-// Gate đang chặn thì bằng chứng mới phải gia hạn được (prober thăm dò vẫn thấy cạn).
-func TestAccountGateRefreshWhileBlocked(t *testing.T) {
-	g := &accountGate{recent: map[string]time.Time{}}
+// Bằng chứng "IP mới" cũ không được cộng dồn vào cụm mới: nó phải nằm trong cửa sổ thời gian.
+func TestAccountGateFreshEvidenceExpires(t *testing.T) {
+	g := newGate()
+	g.noteFreshCap("proxy1", time.Hour, true) // bằng chứng IP mới, 1 egress
+	// 3 egress khác bị cạn nhưng KHÔNG có IP mới, và bằng chứng cũ đã ngoài cửa sổ -> không trip
+	g.recent["proxy1"] = capEvidence{at: time.Now().Add(-2 * acctGateWindow), fresh: true}
+	g.noteFreshCap("proxy2", time.Hour, false)
+	g.noteFreshCap("proxy3", time.Hour, false)
+	g.noteFreshCap("proxy4", time.Hour, false)
+	if g.tripped() {
+		t.Fatal("bằng chứng IP mới đã hết hạn thì không được trip")
+	}
+}
+
+// 3 egress cùng họ đường mạng (vd 3 container WARP) thì chưa đủ: cần bằng chứng đa dạng.
+func TestAccountGateNeedsMultipleFamilies(t *testing.T) {
+	g := newGate()
 	g.noteFreshCap("proxy1", time.Hour, true)
 	g.noteFreshCap("proxy2", time.Hour, true)
 	g.noteFreshCap("proxy3", time.Hour, true)
+	if g.tripped() {
+		t.Fatal("3 egress cùng họ đường mạng chưa đủ bằng chứng")
+	}
+	g.noteFreshCap("res1", time.Hour, true)
+	if !g.tripped() {
+		t.Fatal("có bằng chứng từ 2 họ đường mạng thì phải trip")
+	}
+}
+
+// Gate đang chặn thì bằng chứng mới phải gia hạn được (prober thăm dò vẫn thấy cạn).
+func TestAccountGateRefreshWhileBlocked(t *testing.T) {
+	g := newGate()
+	g.noteFreshCap("proxy1", time.Hour, true)
+	g.noteFreshCap("proxy2", time.Hour, true)
+	g.noteFreshCap("proxy3", time.Hour, true)
+	g.noteFreshCap("res1", time.Hour, true)
 	if !g.tripped() {
 		t.Fatal("phải trip")
 	}
@@ -75,15 +108,33 @@ func TestAccountGateRefreshWhileBlocked(t *testing.T) {
 	}
 }
 
+// Mốc "quota hồi" phải là mốc LỚN NHẤT từng thấy, không được lùi về sớm hơn.
+func TestAccountGateResetTimeOnlyExtends(t *testing.T) {
+	g := newGate()
+	g.noteFreshCap("proxy1", 4*time.Hour, true)
+	g.noteFreshCap("proxy2", 4*time.Hour, true)
+	g.noteFreshCap("proxy3", 4*time.Hour, true)
+	g.noteFreshCap("res1", 4*time.Hour, true)
+	first := g.resetTime()
+	g.noteFreshCap("proxy4", time.Hour, true) // báo cáo RA ngắn hơn
+	if g.resetTime().Before(first) {
+		t.Fatal("mốc quota hồi không được lùi về sớm hơn")
+	}
+}
+
 // Mốc "quota hồi" (resetTime) phải xa hơn cửa sổ chặn: nó dùng cho Retry-After của client, còn cửa sổ chặn thì ngắn
 // (được gia hạn bằng bằng chứng quota mới) để không kẹt cứng khi prober hỏng vì lý do mạng.
 func TestAccountGateResetTimeBeyondBlockWindow(t *testing.T) {
-	g := &accountGate{recent: map[string]time.Time{}}
+	g := newGate()
 	g.noteFreshCap("proxy1", 2*time.Hour, true)
 	g.noteFreshCap("proxy2", 2*time.Hour, true)
 	g.noteFreshCap("proxy3", 2*time.Hour, true)
+	g.noteFreshCap("res1", 2*time.Hour, true)
 	if !g.tripped() || !g.capped() {
 		t.Fatal("phải vừa chặn vừa capped")
+	}
+	if d := time.Until(g.untilAt()); d > acctGateMax+time.Second {
+		t.Fatalf("cửa sổ chặn phải <= acctGateMax, got %v", d)
 	}
 	if d := time.Until(g.resetTime()); d <= acctGateMax {
 		t.Fatalf("mốc quota hồi phải xa hơn cửa sổ chặn, got %v", d)
@@ -102,21 +153,14 @@ func TestEgressWideCooldown(t *testing.T) {
 	}
 }
 
-// Mốc "quota hồi" (24h theo Retry-After của upstream) KHÔNG được biến thành cửa sổ kẹt cứng: nếu prober hỏng vì
-// lý do mạng chứ không phải vì quota thì breaker phải tự mở lại, không giữ "capped" tới 24 giờ (sẽ không egress nào
-// được đổi IP nữa -> kẹt sức chứng). Mốc 24h chỉ dùng để báo Retry-After cho client.
-func TestAccountGateDoesNotStallFor24h(t *testing.T) {
-	g := &accountGate{recent: map[string]time.Time{}}
-	g.noteFreshCap("proxy1", 24*time.Hour, true)
-	g.noteFreshCap("proxy2", 24*time.Hour, true)
-	g.noteFreshCap("proxy3", 24*time.Hour, true)
-	if !g.capped() {
-		t.Fatal("phải capped sau khi đủ bằng chứng")
+// IP mới (vừa đổi) là bằng chứng "cạn cấp tài khoản"; IP cũ thì không.
+func TestEgressIPFreshness(t *testing.T) {
+	e := newEgress("p", kindProxy, nil)
+	if e.ipIsFresh() {
+		t.Fatal("egress chưa đổi IP thì không được coi là IP mới")
 	}
-	if d := time.Until(g.untilAt()); d > acctGateMax+time.Second {
-		t.Fatalf("cửa sổ chặn phải <= acctGateMax, got %v", d)
-	}
-	if d := time.Until(g.resetTime()); d < 20*time.Hour {
-		t.Fatalf("mốc quota hồi phải giữ theo Retry-After của upstream, got %v", d)
+	e.markIPChanged()
+	if !e.ipIsFresh() {
+		t.Fatal("sau khi đổi IP thì phải coi là IP mới")
 	}
 }
