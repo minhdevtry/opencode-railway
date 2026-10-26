@@ -139,21 +139,21 @@ func TestQuotaModelCapacity(t *testing.T) {
 
 	const model = "glm-5.3-flash-free"
 	egs := []string{"proxy1", "proxy2"}
-	if c := quotaModelCapacity(model, true, egs); c != 2*38 {
+	if c := quotaModelCapacities([]string{model}, true, egs)[model]; c != 2*38 {
 		t.Fatalf("sức chứng auto ban đầu = 2 x 38, got %d", c)
 	}
-	if c := quotaModelCapacity(model, false, egs); c != 2*64 {
+	if c := quotaModelCapacities([]string{model}, false, egs)[model]; c != 2*64 {
 		t.Fatalf("sức chứng gọi thẳng ban đầu = 2 x 64, got %d", c)
 	}
 	// Auto ăn hết share của proxy1 -> sức chứng auto chỉ còn proxy2.
 	for i := 0; i < 38; i++ {
 		quotaAttempt(model, "proxy1", true)
 	}
-	if c := quotaModelCapacity(model, true, egs); c != 38 {
+	if c := quotaModelCapacities([]string{model}, true, egs)[model]; c != 38 {
 		t.Fatalf("sức chứng auto sau khi ăn hết share proxy1 phải = 38, got %d", c)
 	}
 	// Gọi thẳng vẫn thấy cả 2 cặp (dùng chung bucket với auto nên sức chứng bị trừ theo tổng).
-	if c := quotaModelCapacity(model, false, egs); c != 2*64-38 {
+	if c := quotaModelCapacities([]string{model}, false, egs)[model]; c != 2*64-38 {
 		t.Fatalf("sức chứng gọi thẳng phải trừ phần auto đã dùng, got %d", c)
 	}
 }

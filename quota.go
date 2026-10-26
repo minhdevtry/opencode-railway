@@ -184,34 +184,6 @@ func quotaAutoShareLeft(model, egress string) (left, total int) {
 	return left, total
 }
 
-// quotaModelCapacity: tổng sức chứng còn lại của model trên các egress đưa vào.
-// auto=true: tính theo phần share dành cho auto; auto=false: tính theo trần đầy đủ (gọi thẳng).
-func quotaModelCapacity(model string, auto bool, egresses []string) int {
-	quotaMu.Lock()
-	defer quotaMu.Unlock()
-	quotaResetDayLocked()
-	cap := quotaCapLocked(model)
-	limit := cap
-	if auto {
-		limit = int(float64(cap) * cfg.QuotaAutoShare)
-	}
-	total := 0
-	for _, e := range egresses {
-		var used int
-		if st := quotaMap[model][e]; st != nil {
-			if auto {
-				used = st.attemptsAuto
-			} else {
-				used = st.attemptsAuto + st.attemptsDirect
-			}
-		}
-		if r := limit - used; r > 0 {
-			total += r
-		}
-	}
-	return total
-}
-
 // quotaClearEgress: egress vừa đổi IP -> ngân sách (IP, model) cũ hết hiệu lực, bộ đếm về 0.
 func quotaClearEgress(egress string) {
 	quotaMu.Lock()
@@ -262,6 +234,39 @@ func quotaSnapshot(egresses []string) map[string]any {
 	return out
 }
 
+// quotaModelCapacities: sức chứng còn lại của NHIỀU model, gộp trong 1 lần khoá (đường nóng:
+// mỗi request đều xếp lại pool, không thể khoá 7 lần cho 7 model).
+// auto=true: tính theo phần share dành cho auto; auto=false: tính theo trần đầy đủ (gọi thẳng).
+func quotaModelCapacities(models []string, auto bool, egresses []string) map[string]int {
+	quotaMu.Lock()
+	defer quotaMu.Unlock()
+	quotaResetDayLocked()
+	out := make(map[string]int, len(models))
+	for _, model := range models {
+		cap := quotaCapLocked(model)
+		limit := cap
+		if auto {
+			limit = int(float64(cap) * cfg.QuotaAutoShare)
+		}
+		total := 0
+		for _, e := range egresses {
+			var used int
+			if st := quotaMap[model][e]; st != nil {
+				if auto {
+					used = st.attemptsAuto
+				} else {
+					used = st.attemptsAuto + st.attemptsDirect
+				}
+			}
+			if r := limit - used; r > 0 {
+				total += r
+			}
+		}
+		out[model] = total
+	}
+	return out
+}
+
 // egressNames: tên các egress đang có (dùng để tính sức chứng theo model).
 func (m *Manager) egressNames() []string {
 	list := m.snapshot()
@@ -273,7 +278,6 @@ func (m *Manager) egressNames() []string {
 }
 
 // orderModelsByCapacity: xếp model theo sức chứng còn lại GIẢM DẦN.
-// auto=true: tính theo phần share dành cho auto; auto=false: tính theo trần đầy đủ (gọi thẳng).
 // Khi bằng nhau thì xoay vòng theo bộ đếm round-robin để không dồn hết vào một model.
 func (m *Manager) orderModelsByCapacity(pool []string, auto bool) []string {
 	n := len(pool)
@@ -281,20 +285,15 @@ func (m *Manager) orderModelsByCapacity(pool []string, auto bool) []string {
 		return pool
 	}
 	start := int(atomic.AddUint32(&poolIndex, 1)) % n
-	names := make([]string, n)
-	caps := make([]int, n)
-	egs := m.egressNames()
-	for i, mdl := range pool {
-		names[i] = mdl
-		caps[i] = quotaModelCapacity(mdl, auto, egs)
-	}
+	caps := quotaModelCapacities(pool, auto, m.egressNames())
 	idx := make([]int, n)
 	for i := range idx {
 		idx[i] = i
 	}
 	sort.SliceStable(idx, func(a, b int) bool {
-		if caps[idx[a]] != caps[idx[b]] {
-			return caps[idx[a]] > caps[idx[b]]
+		ca, cb := caps[pool[idx[a]]], caps[pool[idx[b]]]
+		if ca != cb {
+			return ca > cb
 		}
 		ra := (idx[a] - start + n) % n
 		rb := (idx[b] - start + n) % n
@@ -302,7 +301,7 @@ func (m *Manager) orderModelsByCapacity(pool []string, auto bool) []string {
 	})
 	out := make([]string, n)
 	for i, j := range idx {
-		out[i] = names[j]
+		out[i] = pool[j]
 	}
 	return out
 }
