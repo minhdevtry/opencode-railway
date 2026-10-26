@@ -535,6 +535,14 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 		if slowTimer != nil {
 			slowTimer.Stop()
 		}
+		if timedOut.Load() && err == nil {
+			// Watchdog vừa kịp hủy đúng lúc header về: body có thể đã bị cắt -> không dùng, trả lỗi hết hạn.
+			cancel()
+			relE()
+			resp.Body.Close()
+			return nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+				msg: "Max wait exceeded while waiting for upstream.", retryAfter: mgr.soonest(pickModelsFor(model, isPool))}
+		}
 		if err != nil {
 			cancel()
 			relE()
