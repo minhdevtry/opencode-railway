@@ -10,19 +10,19 @@ func newGate() *accountGate { return &accountGate{recent: map[string]capEvidence
 func TestAccountGateTripsAndClears(t *testing.T) {
 	g := newGate()
 	// retry-after ngắn (cửa sổ tốc độ) không được trip
-	g.noteFreshCap("res1", time.Minute, true)
+	g.noteFreshCap("res1", time.Minute, true, "m2")
 	if g.capped() {
 		t.Fatal("retry-after ngắn không được trip breaker")
 	}
 	// 1-2 egress chưa đủ
-	g.noteFreshCap("proxy1", time.Hour, true)
-	g.noteFreshCap("proxy2", time.Hour, true)
+	g.noteFreshCap("proxy1", time.Hour, true, "m1")
+	g.noteFreshCap("proxy2", time.Hour, true, "m1")
 	if g.capped() {
 		t.Fatal("dưới ngưỡng distinct chưa được trip")
 	}
 	// đủ 3 egress khác nhau, có IP mới, đủ 2 họ đường mạng -> trip
-	g.noteFreshCap("proxy3", time.Hour, true)
-	g.noteFreshCap("res2", time.Hour, true)
+	g.noteFreshCap("proxy3", time.Hour, true, "m1")
+	g.noteFreshCap("res2", time.Hour, true, "m2")
 	if !g.capped() {
 		t.Fatal("đủ 3 egress cạn cấp tài khoản phải trip")
 	}
@@ -40,10 +40,10 @@ func TestAccountGateTripsAndClears(t *testing.T) {
 // Cạn từng IP (không có IP mới nào bị cạn) thì đổi IP vẫn có ích -> không được trip.
 func TestAccountGateNeedsFreshIPEvidence(t *testing.T) {
 	g := newGate()
-	g.noteFreshCap("proxy1", time.Hour, false)
-	g.noteFreshCap("proxy2", time.Hour, false)
-	g.noteFreshCap("proxy3", time.Hour, false)
-	g.noteFreshCap("proxy4", time.Hour, false)
+	g.noteFreshCap("proxy1", time.Hour, false, "m1")
+	g.noteFreshCap("proxy2", time.Hour, false, "m1")
+	g.noteFreshCap("proxy3", time.Hour, false, "m1")
+	g.noteFreshCap("proxy4", time.Hour, false, "m1")
 	if g.capped() {
 		t.Fatal("cạn từng IP không phải cạn cấp tài khoản: không được trip")
 	}
@@ -54,12 +54,12 @@ func TestAccountGateNeedsFreshIPEvidence(t *testing.T) {
 func TestAccountGateNeedsMultipleFamilies(t *testing.T) {
 	g := newGate()
 	for _, e := range []string{"proxy1", "proxy2", "proxy3", "proxy4"} {
-		g.noteFreshCap(e, time.Hour, true)
+		g.noteFreshCap(e, time.Hour, true, "m1")
 	}
 	if g.capped() {
 		t.Fatal("4 egress cùng họ WARP (có thể chung 1 IPv4) không được trip breaker tài khoản")
 	}
-	g.noteFreshCap("res1", time.Hour, true) // họ đường mạng thứ 2
+	g.noteFreshCap("res1", time.Hour, true, "m2") // họ đường mạng thứ 2
 	if !g.capped() {
 		t.Fatal("có bằng chứng từ 2 họ đường mạng thì phải trip")
 	}
@@ -68,12 +68,12 @@ func TestAccountGateNeedsMultipleFamilies(t *testing.T) {
 // Bằng chứng "IP mới" cũ không được cộng dồn vào cụm mới: nó phải nằm trong cửa sổ thời gian.
 func TestAccountGateFreshEvidenceExpires(t *testing.T) {
 	g := newGate()
-	g.noteFreshCap("proxy1", time.Hour, true) // bằng chứng IP mới, 1 egress
+	g.noteFreshCap("proxy1", time.Hour, true, "m1") // bằng chứng IP mới, 1 egress
 	// 3 egress khác bị cạn nhưng KHÔNG có IP mới, và bằng chứng cũ đã ngoài cửa sổ -> không trip
 	g.recent["proxy1"] = capEvidence{at: time.Now().Add(-2 * acctGateWindow), fresh: true}
-	g.noteFreshCap("proxy2", time.Hour, false)
-	g.noteFreshCap("proxy3", time.Hour, false)
-	g.noteFreshCap("res1", time.Hour, false)
+	g.noteFreshCap("proxy2", time.Hour, false, "m1")
+	g.noteFreshCap("proxy3", time.Hour, false, "m1")
+	g.noteFreshCap("res1", time.Hour, false, "m2")
 	if g.capped() {
 		t.Fatal("bằng chứng IP mới đã hết hạn thì không được trip")
 	}
@@ -82,17 +82,17 @@ func TestAccountGateFreshEvidenceExpires(t *testing.T) {
 // Gate đang chặn thì bằng chứng mới phải gia hạn được (prober thăm dò vẫn thấy cạn).
 func TestAccountGateRefreshWhileBlocked(t *testing.T) {
 	g := newGate()
-	g.noteFreshCap("proxy1", time.Hour, true)
-	g.noteFreshCap("proxy2", time.Hour, true)
-	g.noteFreshCap("proxy3", time.Hour, true)
-	g.noteFreshCap("res1", time.Hour, true)
+	g.noteFreshCap("proxy1", time.Hour, true, "m1")
+	g.noteFreshCap("proxy2", time.Hour, true, "m1")
+	g.noteFreshCap("proxy3", time.Hour, true, "m1")
+	g.noteFreshCap("res1", time.Hour, true, "m2")
 	if !g.capped() {
 		t.Fatal("phải trip")
 	}
 	first := g.untilAt()
 	// prober thăm dò lại sau 1s, vẫn cạn -> gia hạn
 	time.Sleep(1100 * time.Millisecond)
-	g.noteFreshCap("proxy1", time.Hour, true)
+	g.noteFreshCap("proxy1", time.Hour, true, "m1")
 	if !g.capped() {
 		t.Fatal("gate phải vẫn chặn sau khi gia hạn")
 	}
@@ -104,12 +104,12 @@ func TestAccountGateRefreshWhileBlocked(t *testing.T) {
 // Mốc "quota hồi" cũ không được sót sang lần cap mới: client phải được báo "2 giờ" chứ không "24 giờ" cũ.
 func TestAccountGateResetTimeOnlyExtends(t *testing.T) {
 	g := newGate()
-	g.noteFreshCap("proxy1", 4*time.Hour, true)
-	g.noteFreshCap("proxy2", 4*time.Hour, true)
-	g.noteFreshCap("proxy3", 4*time.Hour, true)
-	g.noteFreshCap("res1", 4*time.Hour, true)
+	g.noteFreshCap("proxy1", 4*time.Hour, true, "m1")
+	g.noteFreshCap("proxy2", 4*time.Hour, true, "m1")
+	g.noteFreshCap("proxy3", 4*time.Hour, true, "m1")
+	g.noteFreshCap("res1", 4*time.Hour, true, "m2")
 	first := g.resetTime()
-	g.noteFreshCap("proxy4", time.Hour, true) // báo cáo RA ngắn hơn, trong lúc vẫn đang chặn -> gia hạn, không lùi
+	g.noteFreshCap("proxy4", time.Hour, true, "m1") // báo cáo RA ngắn hơn, trong lúc vẫn đang chặn -> gia hạn, không lùi
 	if g.resetTime().Before(first) {
 		t.Fatal("mốc quota hồi không được lùi về sớm hơn")
 	}
@@ -118,17 +118,17 @@ func TestAccountGateResetTimeOnlyExtends(t *testing.T) {
 // Lần cap MỚI (cửa sổ chặn cũ đã hết hạn) phải thay mốc quota hồi cũ.
 func TestAccountGateNewEpisodeReplacesStaleResetTime(t *testing.T) {
 	g := newGate()
-	g.noteFreshCap("proxy1", 24*time.Hour, true)
-	g.noteFreshCap("proxy2", 24*time.Hour, true)
-	g.noteFreshCap("proxy3", 24*time.Hour, true)
-	g.noteFreshCap("res1", 24*time.Hour, true)
+	g.noteFreshCap("proxy1", 24*time.Hour, true, "m1")
+	g.noteFreshCap("proxy2", 24*time.Hour, true, "m1")
+	g.noteFreshCap("proxy3", 24*time.Hour, true, "m1")
+	g.noteFreshCap("res1", 24*time.Hour, true, "m2")
 	if !g.capped() {
 		t.Fatal("phải trip")
 	}
 	// giả lập cửa sổ chặn cũ đã hết hạn
 	g.until = time.Now().Add(-time.Second)
 	// lần cap mới, upstream nói còn 2 giờ
-	g.noteFreshCap("proxy1", 2*time.Hour, true)
+	g.noteFreshCap("proxy1", 2*time.Hour, true, "m1")
 	if d := time.Until(g.resetTime()); d > 3*time.Hour {
 		t.Fatalf("lần cap mới phải thay mốc quota hồi cũ, còn %v", d)
 	}
@@ -138,10 +138,10 @@ func TestAccountGateNewEpisodeReplacesStaleResetTime(t *testing.T) {
 // (được gia hạn bằng bằng chứng quota mới) để không kẹt cứng khi prober hỏng vì lý do mạng.
 func TestAccountGateResetTimeBeyondBlockWindow(t *testing.T) {
 	g := newGate()
-	g.noteFreshCap("proxy1", 2*time.Hour, true)
-	g.noteFreshCap("proxy2", 2*time.Hour, true)
-	g.noteFreshCap("proxy3", 2*time.Hour, true)
-	g.noteFreshCap("res1", 2*time.Hour, true)
+	g.noteFreshCap("proxy1", 2*time.Hour, true, "m1")
+	g.noteFreshCap("proxy2", 2*time.Hour, true, "m1")
+	g.noteFreshCap("proxy3", 2*time.Hour, true, "m1")
+	g.noteFreshCap("res1", 2*time.Hour, true, "m2")
 	if !g.capped() {
 		t.Fatal("phải capped")
 	}
@@ -188,5 +188,24 @@ func TestSessionGenerationDistinguishesOldIP(t *testing.T) {
 	p.reset() // đổi IP -> thế hệ tăng, session cũ không còn hiệu lực
 	if es.gen == p.genNow() {
 		t.Fatal("session của IP cũ phải khác thế hệ sau khi đổi IP")
+	}
+}
+
+// Hạn mức là RIÊNG từng MODEL: cùng một model bị cạn trên nhiều egress KHÔNG được trip breaker tài khoản
+// (đó là ngân sách của model đó, đã được loại khỏi routing ở modelbudget.go). Trip sẽ dừng xoay IP vô ích
+// và fast-fail oan trong khi các model khác vẫn phục vụ được.
+func TestAccountGateDoesNotTripForSingleModel(t *testing.T) {
+	g := newGate()
+	g.noteFreshCap("proxy1", time.Hour, true, "glm-5.3-flash-free")
+	g.noteFreshCap("proxy2", time.Hour, true, "glm-5.3-flash-free")
+	g.noteFreshCap("proxy3", time.Hour, true, "glm-5.3-flash-free")
+	g.noteFreshCap("res1", time.Hour, true, "glm-5.3-flash-free")
+	if g.capped() {
+		t.Fatal("cạn 1 model trên nhiều egress không phải hạn cấp tài khoản: không được trip breaker")
+	}
+	// Thêm bằng chứng của model thứ 2 -> lúc đó mới đáng ngờ là hạn cấp tài khoản
+	g.noteFreshCap("res2", time.Hour, true, "nemotron-3.5-lightning-free")
+	if !g.capped() {
+		t.Fatal("cạn nhiều model khác nhau thì phải trip breaker")
 	}
 }

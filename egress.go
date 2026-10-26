@@ -914,7 +914,7 @@ func (m *Manager) triggerEmergencyWarpRenew() {
 func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, deadline time.Time, avoid ...string) (string, *Egress, *gwError) {
 	for {
 		if isPool {
-			pool := poolSnapshot()
+			pool := usableModels(poolSnapshot())
 			n := len(pool)
 			start := int(atomic.AddUint32(&poolIndex, 1))
 			for i := range n {
@@ -928,7 +928,7 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 				return model, e, nil
 			}
 			if cfg.AutoModelFallback && isFreeModelInPool(model) {
-				pool := poolSnapshot()
+				pool := usableModels(poolSnapshot())
 				n := len(pool)
 				start := int(atomic.AddUint32(&poolIndex, 1))
 				for i := range n {

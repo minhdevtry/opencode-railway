@@ -412,17 +412,19 @@ func isModelParamError(body []byte) bool {
 
 func nextModelInPool(current string) string {
 	poolMu.RLock()
-	defer poolMu.RUnlock()
-	n := len(freeModelPool)
-	for i, m := range freeModelPool {
+	pool := append([]string(nil), freeModelPool...)
+	poolMu.RUnlock()
+	pool = usableModels(pool) // bỏ model đã hết ngân sách
+	n := len(pool)
+	if n == 0 {
+		return current
+	}
+	for i, m := range pool {
 		if m == current {
-			return freeModelPool[(i+1)%n]
+			return pool[(i+1)%n]
 		}
 	}
-	if n > 0 {
-		return freeModelPool[0]
-	}
-	return current
+	return pool[0]
 }
 
 // forward gửi request tới upstream, tự chọn egress (direct trước) và model (nếu isPool).
@@ -626,11 +628,14 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
 			}
 			if freeLimit && ra >= acctGateMinCap {
+				// Hạn mức free là CỦA MODEL: model này đã cạn tới mốc reset -> ghi lại để gateway không gửi
+				// thêm request vào nó (mỗi request 429 là vừa lãng phí vừa làm client chờ).
+				noteModelExhausted(m, time.Now().Add(ra))
 				// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
 				// "IP mới" phải gắn với SESSION của request này: request đang chạy với session của IP CŨ (lấy trước lúc
 				// đổi IP) thì không được tính là bằng chứng. Thế hệ pool (gen) là dấu hiệu sẵn có.
 				fresh := e.ipIsFresh() && (es == nil || es.gen == e.sess.genNow())
-				acctGate.noteFreshCap(e.Name, ra, fresh)
+				acctGate.noteFreshCap(e.Name, ra, fresh, m)
 			}
 			if es != nil && freeLimit {
 				if !e.sess.blocked(es, ra) {

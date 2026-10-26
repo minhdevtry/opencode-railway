@@ -1,0 +1,44 @@
+# IP mà UPSTREAM thực sự thấy (đo 2026-10-26 ~11:27-11:34 UTC)
+#
+# Cảnh báo (từ coordinator): api.ipify.org đi ra bằng IPv4 DÙNG CHUNG của Cloudflare WARP
+# (domain đó không ưu tiên AAAA) -> đo IP bằng ipify là bẫy đo. opencode.ai CÓ AAAA nên
+# traffic thật đi ra bằng IPv6 RIÊNG của từng container. Dưới đây là cả 2 lớp.
+#
+# port  container        IPv6 upstream thấy (opencode.ai/cdn-cgi/trace)   IPv4 ipify (không phải IP upstream thấy)
+1080   warp-proxy       2a09:bac1:7ae0:50::3d0:32                    104.28.222.73
+1081   warp-proxy-2     2a09:bac5:d45c:263c::3cf:17                   104.28.222.73
+1082   warp-proxy-3     2a09:bac1:7ac0:50::17:331                     104.28.222.74
+1083   warp-proxy-4     2a09:bac5:d45c:16c8::245:29                   104.28.222.73
+1084   warp-proxy-5     2a09:bac5:d45e:e6::17:345                     104.28.254.73
+1085   warp-proxy-6     2a09:bac5:d45c:16c8::245:88                   104.28.222.73
+1086   warp-proxy-7     2a09:bac5:d459:16c8::245:c3                   104.28.254.75
+1087   warp-proxy-8     2a09:bac5:d45b:16c8::245:c2                   104.28.254.75
+1088   warp-proxy-9     2a09:bac1:7ae0:50::3cf:51                     104.28.222.73
+1089   warp-proxy-10    2a09:bac5:d458:16d2::246:74                   104.28.254.74
+1090   warp-proxy-11    2a09:bac1:7a80:50::245:59                     104.28.222.75
+1091   warp-proxy-12    2a09:bac1:7aa0:50::498:7b                     104.28.222.73
+1092   warp-proxy-13    2a09:bac5:d45b:263c::3cf:4                    104.28.222.73
+1093   warp-proxy-14    2a09:bac5:d45c:16dc::247:f4                   104.28.222.73
+1094   warp-proxy-15    2a09:bac5:d459:16c8::245:87                   104.28.222.73
+1095   warp-proxy-16    2a09:bac5:d45c:16c8::245:f3 (sau xoay 11:33) 104.28.222.75
+       (warp-proxy-16 trước khi xoay lúc 11:33: 2a09:bac1:7aa0:50::17:367 / 104.28.254.73)
+#
+# Host (IP nhà, đi thẳng không proxy): opencode.ai/cdn-cgi/trace -> ip=117.4.246.227
+#   ép IPv4 (-4) -> ip=222.252.17.4  => egress nhà XOAY giữa 2 IP công cộng (CGNAT ISP).
+#
+# Kiểm chứng "xoay danh tính WARP đổi IP upstream thật" (11:33, warp-proxy-16):
+#   IPv6: 2a09:bac1:7aa0:50::17:367 -> 2a09:bac5:d45c:16c8::245:f3   (IPV6_CHANGED_OK)
+#   IPv4 (ipify): 104.28.254.73 -> 104.28.222.75
+#
+# Khả dụng của IPv6 WARP lúc 11:34 (1 request Bun TLS mỗi container):
+#   SỐNG (200): 1080, 1081, 1082, 1084, 1089, 1090, 1091, 1092
+#   CHẾT ngay (429, IP vừa đổi cũng chết): 1083, 1087, 1093, 1095(mới xoay)  (~1/3 số IPv6 WARP bị "cạn sẵn")
+#   1086: đã dùng 95 request trong ô C/D -> 429 (cạn)
+#
+# Ánh xạ ô đo -> IP thật (upstream thấy):
+#   A, A2, A3, B, B2, REC_home, E  -> IP nhà IPv4 (117.4.246.227 / 222.252.17.4, xen kẽ)
+#   C lần 1 (1095)                 -> 2a09:bac1:7aa0:50::17:367  (429 ngay request đầu)
+#   C lần 2, D, C2, Z (1086)       -> 2a09:bac5:d459:16c8::245:c3
+#   E2, Y (1084)                   -> 2a09:bac5:d45e:e6::17:345
+#   G_short, G_long (1082)         -> 2a09:bac1:7ac0:50::17:331
+#   X (1080)                       -> 2a09:bac1:7ae0:50::3d0:32

@@ -159,10 +159,10 @@ func TestOldSessionSuccessDoesNotOpenBreaker(t *testing.T) {
 
 	// breaker đang chặn
 	g := newGate()
-	g.noteFreshCap("proxy1", time.Hour, true)
-	g.noteFreshCap("proxy2", time.Hour, true)
-	g.noteFreshCap("proxy3", time.Hour, true)
-	g.noteFreshCap("res1", time.Hour, true)
+	g.noteFreshCap("proxy1", time.Hour, true, "m1")
+	g.noteFreshCap("proxy2", time.Hour, true, "m1")
+	g.noteFreshCap("proxy3", time.Hour, true, "m1")
+	g.noteFreshCap("res1", time.Hour, true, "m2")
 	oldGate := acctGate
 	acctGate = g
 	defer func() { acctGate = oldGate }()

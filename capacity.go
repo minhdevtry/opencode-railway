@@ -87,9 +87,10 @@ func liveCapacityHandler(w http.ResponseWriter, r *http.Request) {
 		"ok_per_second_60s":       float64(int(okRate.perSecond()*100)) / 100,
 		"recommended_concurrency": rec,
 		"model":                   "auto",
-		"session_budget_left":     budgetLeft,  // tổng số session MỚI còn mở được hôm nay trên các IP đang dùng
-		"session_budget_known":    budgetKnown, // số egress có ngân sách hữu hạn (không tính vào tổng)
-		"dead_egress":             dead,        // các đường đã bị loại (vd key proxy hết hạn) -> cần người dùng xử lý
+		"session_budget_left":     budgetLeft,            // tổng số session MỚI còn mở được hôm nay trên các IP đang dùng
+		"session_budget_known":    budgetKnown,           // số egress có ngân sách hữu hạn (không tính vào tổng)
+		"dead_egress":             dead,                  // các đường đã bị loại (vd key proxy hết hạn) -> cần người dùng xử lý
+		"model_budget_exhausted":  modelBudgetSnapshot(), // model đã hết ngân sách free -> mốc reset (model này tự mở lại)
 		"bulk_endpoint":           "/v1/batches",
 		"note":                    "Gửi vượt recommended_concurrency vẫn không lỗi (xếp hàng tối đa MAX_WAIT); lô lớn nên dùng /v1/batches.",
 	})

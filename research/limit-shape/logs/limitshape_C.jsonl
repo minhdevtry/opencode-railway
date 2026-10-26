@@ -5,3 +5,57 @@
 {"status": 200, "secs": 0.61, "ra": "", "t": "11:09:42", "text": "pong", "err": "", "cell": "C", "i": 3}
 {"status": 200, "secs": 0.5, "ra": "", "t": "11:09:43", "text": "pong", "err": "", "cell": "C", "i": 4}
 {"status": 200, "secs": 0.82, "ra": "", "t": "11:09:45", "text": "pong", "err": "", "cell": "C", "i": 5}
+{"status": 200, "secs": 19.94, "ra": "", "t": "11:10:05", "text": "pong", "err": "", "cell": "C", "i": 6}
+{"status": 200, "secs": 0.54, "ra": "", "t": "11:10:06", "text": "pong", "err": "", "cell": "C", "i": 7}
+{"status": 200, "secs": 0.51, "ra": "", "t": "11:10:07", "text": "pong", "err": "", "cell": "C", "i": 8}
+{"status": 200, "secs": 0.53, "ra": "", "t": "11:10:08", "text": "Pong", "err": "", "cell": "C", "i": 9}
+{"status": 200, "secs": 0.8, "ra": "", "t": "11:10:09", "text": "pong", "err": "", "cell": "C", "i": 10}
+{"status": 200, "secs": 0.52, "ra": "", "t": "11:10:10", "text": "pong", "err": "", "cell": "C", "i": 11}
+{"status": 200, "secs": 0.52, "ra": "", "t": "11:10:11", "text": "pong", "err": "", "cell": "C", "i": 12}
+{"status": 429, "secs": 0.36, "ra": "", "t": "11:10:11", "text": "", "err": "{\"error\":{\"type\":\"server_error\",\"message\":\"Upstream request failed: Endpoint is unavailable.\"}}", "cell": "C", "i": 13}
+{"status": 200, "secs": 0.56, "ra": "", "t": "11:10:12", "text": "pong", "err": "", "cell": "C", "i": 14}
+{"status": 429, "secs": 0.4, "ra": "", "t": "11:10:13", "text": "", "err": "{\"error\":{\"type\":\"server_error\",\"message\":\"Upstream request failed: Endpoint is unavailable.\"}}", "cell": "C", "i": 15}
+{"status": 200, "secs": 0.55, "ra": "", "t": "11:10:14", "text": "Pong", "err": "", "cell": "C", "i": 16}
+{"status": 200, "secs": 0.6, "ra": "", "t": "11:10:15", "text": "Pong", "err": "", "cell": "C", "i": 17}
+{"status": 200, "secs": 0.64, "ra": "", "t": "11:10:16", "text": "pong", "err": "", "cell": "C", "i": 18}
+{"status": 200, "secs": 0.73, "ra": "", "t": "11:10:17", "text": "pong", "err": "", "cell": "C", "i": 19}
+{"status": 200, "secs": 0.52, "ra": "", "t": "11:10:18", "text": "Pong", "err": "", "cell": "C", "i": 20}
+{"status": 200, "secs": 0.61, "ra": "", "t": "11:10:19", "text": "Pong", "err": "", "cell": "C", "i": 21}
+{"status": 429, "secs": 0.39, "ra": "", "t": "11:10:20", "text": "", "err": "{\"error\":{\"type\":\"server_error\",\"message\":\"Upstream request failed: Endpoint is unavailable.\"}}", "cell": "C", "i": 22}
+{"status": 200, "secs": 0.86, "ra": "", "t": "11:10:21", "text": "pong", "err": "", "cell": "C", "i": 23}
+{"status": 200, "secs": 0.62, "ra": "", "t": "11:10:22", "text": "Pong", "err": "", "cell": "C", "i": 24}
+{"status": 200, "secs": 0.6, "ra": "", "t": "11:10:23", "text": "pong", "err": "", "cell": "C", "i": 25}
+{"status": 200, "secs": 0.53, "ra": "", "t": "11:10:24", "text": "pong", "err": "", "cell": "C", "i": 26}
+{"status": 200, "secs": 0.5, "ra": "", "t": "11:10:25", "text": "Pong", "err": "", "cell": "C", "i": 27}
+{"status": 200, "secs": 0.49, "ra": "", "t": "11:10:26", "text": "pong", "err": "", "cell": "C", "i": 28}
+{"status": 200, "secs": 0.52, "ra": "", "t": "11:10:27", "text": "pong", "err": "", "cell": "C", "i": 29}
+{"status": 200, "secs": 0.7, "ra": "", "t": "11:10:28", "text": "Pong", "err": "", "cell": "C", "i": 30}
+{"status": 200, "secs": 0.48, "ra": "", "t": "11:10:29", "text": "pong", "err": "", "cell": "C", "i": 31}
+{"status": 200, "secs": 0.77, "ra": "", "t": "11:10:30", "text": "pong", "err": "", "cell": "C", "i": 32}
+{"status": 200, "secs": 0.69, "ra": "", "t": "11:10:31", "text": "Pong", "err": "", "cell": "C", "i": 33}
+{"status": 200, "secs": 0.57, "ra": "", "t": "11:10:32", "text": "pong", "err": "", "cell": "C", "i": 34}
+{"status": 200, "secs": 0.49, "ra": "", "t": "11:10:33", "text": "pong", "err": "", "cell": "C", "i": 35}
+{"status": 200, "secs": 0.73, "ra": "", "t": "11:10:34", "text": "Pong", "err": "", "cell": "C", "i": 36}
+{"status": 200, "secs": 0.61, "ra": "", "t": "11:10:35", "text": "Pong", "err": "", "cell": "C", "i": 37}
+{"status": 200, "secs": 0.54, "ra": "", "t": "11:10:36", "text": "Pong", "err": "", "cell": "C", "i": 38}
+{"status": 200, "secs": 0.67, "ra": "", "t": "11:10:37", "text": "Pong", "err": "", "cell": "C", "i": 39}
+{"status": 200, "secs": 0.53, "ra": "", "t": "11:10:38", "text": "pong", "err": "", "cell": "C", "i": 40}
+{"status": 200, "secs": 0.64, "ra": "", "t": "11:10:39", "text": "pong", "err": "", "cell": "C", "i": 41}
+{"status": 200, "secs": 0.66, "ra": "", "t": "11:10:40", "text": "pong", "err": "", "cell": "C", "i": 42}
+{"status": 200, "secs": 0.79, "ra": "", "t": "11:10:41", "text": "Pong", "err": "", "cell": "C", "i": 43}
+{"status": 200, "secs": 0.61, "ra": "", "t": "11:10:42", "text": "pong", "err": "", "cell": "C", "i": 44}
+{"status": 200, "secs": 0.93, "ra": "", "t": "11:10:43", "text": "Pong", "err": "", "cell": "C", "i": 45}
+{"status": 200, "secs": 0.64, "ra": "", "t": "11:10:44", "text": "pong", "err": "", "cell": "C", "i": 46}
+{"status": 200, "secs": 0.49, "ra": "", "t": "11:10:45", "text": "Pong", "err": "", "cell": "C", "i": 47}
+{"status": 200, "secs": 0.78, "ra": "", "t": "11:10:46", "text": "pong", "err": "", "cell": "C", "i": 48}
+{"status": 200, "secs": 0.49, "ra": "", "t": "11:10:47", "text": "pong", "err": "", "cell": "C", "i": 49}
+{"status": 200, "secs": 0.78, "ra": "", "t": "11:10:49", "text": "Pong", "err": "", "cell": "C", "i": 50}
+{"status": 200, "secs": 0.6, "ra": "", "t": "11:10:50", "text": "Pong", "err": "", "cell": "C", "i": 51}
+{"status": 200, "secs": 0.74, "ra": "", "t": "11:10:51", "text": "pong", "err": "", "cell": "C", "i": 52}
+{"status": 429, "secs": 0.38, "ra": "", "t": "11:10:51", "text": "", "err": "{\"error\":{\"type\":\"server_error\",\"message\":\"Upstream request failed: Endpoint is unavailable.\"}}", "cell": "C", "i": 53}
+{"status": 200, "secs": 0.52, "ra": "", "t": "11:10:52", "text": "Pong", "err": "", "cell": "C", "i": 54}
+{"status": 200, "secs": 20.18, "ra": "", "t": "11:11:13", "text": "Pong", "err": "", "cell": "C", "i": 55}
+{"status": 200, "secs": 0.51, "ra": "", "t": "11:11:14", "text": "pong", "err": "", "cell": "C", "i": 56}
+{"status": 200, "secs": 0.48, "ra": "", "t": "11:11:15", "text": "pong", "err": "", "cell": "C", "i": 57}
+{"status": 200, "secs": 0.48, "ra": "", "t": "11:11:16", "text": "pong", "err": "", "cell": "C", "i": 58}
+{"status": 200, "secs": 0.58, "ra": "", "t": "11:11:16", "text": "pong", "err": "", "cell": "C", "i": 59}

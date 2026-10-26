@@ -1118,15 +1118,16 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		list = append(list, s)
 	}
 	out, _ := json.Marshal(map[string]any{
-		"uptime_seconds": int(time.Since(started).Seconds()),
-		"inflight":       inflightTotal.Load(),
-		"max_inflight":   cfg.MaxConcurrency,
-		"jobs":           jobStats(r.Context()),
-		"context_limits": contextLimits(),
-		"queued_sync":    queuedHigh.Load(),
-		"queued_jobs":    queuedLow.Load(),
-		"model_quality":  modelQualitySnapshot(),
-		"egress":         list,
+		"uptime_seconds":         int(time.Since(started).Seconds()),
+		"inflight":               inflightTotal.Load(),
+		"max_inflight":           cfg.MaxConcurrency,
+		"jobs":                   jobStats(r.Context()),
+		"context_limits":         contextLimits(),
+		"queued_sync":            queuedHigh.Load(),
+		"queued_jobs":            queuedLow.Load(),
+		"model_quality":          modelQualitySnapshot(),
+		"model_budget_exhausted": modelBudgetSnapshot(), // model đã hết ngân sách free -> mốc reset
+		"egress":                 list,
 	})
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(out)

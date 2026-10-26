@@ -46,9 +46,9 @@ func TestRetryAfterUsesQuotaResetWhenCapped(t *testing.T) {
 
 	// dựng trạng thái "quota cạn cấp tài khoản": 3 egress, có IP mới, 2 họ đường mạng
 	g := newGate()
-	g.noteFreshCap("proxy1", 2*time.Hour, true)
-	g.noteFreshCap("proxy2", 2*time.Hour, true)
-	g.noteFreshCap("res1", 2*time.Hour, true)
+	g.noteFreshCap("proxy1", 2*time.Hour, true, "m1")
+	g.noteFreshCap("proxy2", 2*time.Hour, true, "m1")
+	g.noteFreshCap("res1", 2*time.Hour, true, "m2")
 	old := acctGate
 	acctGate = g
 	defer func() { acctGate = old }()

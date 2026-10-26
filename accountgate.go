@@ -37,6 +37,7 @@ import (
 type capEvidence struct {
 	at    time.Time // lúc egress này bị cạn dài
 	fresh bool      // IP của egress này vừa được đổi (mới tinh) tại thời điểm đó
+	model string    // model nào bị cạn (hạn mức là RIÊNG từng model - xem modelbudget.go)
 }
 
 type accountGate struct {
@@ -64,16 +65,17 @@ const (
 //	egress     - tên egress (phải là duy nhất theo đường mạng, không phải theo model)
 //	retryAfter - Retry-After của upstream
 //	freshIP    - IP của egress này vừa được đổi (mới tinh) => bằng chứng cạn cấp tài khoản
-func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, freshIP bool) {
+func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, freshIP bool, model string) {
 	if retryAfter < acctGateMinCap {
 		return // cửa sổ tốc độ ngắn của 1 session, không phải cạn cả ngày
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	now := time.Now()
-	g.recent[egress] = capEvidence{at: now, fresh: freshIP}
+	g.recent[egress] = capEvidence{at: now, fresh: freshIP, model: model}
 	n, freshSeen := 0, false
 	fams := map[string]bool{}
+	models := map[string]bool{}
 	for name, ev := range g.recent {
 		if now.Sub(ev.at) > acctGateWindow {
 			delete(g.recent, name)
@@ -83,6 +85,9 @@ func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, fres
 		if ev.fresh {
 			freshSeen = true
 		}
+		if ev.model != "" {
+			models[ev.model] = true
+		}
 		if gr := egressGroupOf(name); gr != "" {
 			fams[gr] = true
 		}
@@ -91,7 +96,10 @@ func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, fres
 	// Cần đủ 3 egress + có bằng chứng IP mới + bằng chứng đa dạng (≥2 họ đường mạng). KHÔNG nới điều kiện họ:
 	// 16 container WARP dùng chung IPv4 Cloudflare nên 4 tên egress có thể là 1 IP => cạn từng IP bị coi nhầm là
 	// cạn tài khoản (lúc đó đổi IP vẫn có ích). Muốn nới thì phải đo IP THẬT, không đếm tên egress.
-	proven := freshSeen && n >= acctGateDistinct && len(fams) >= acctGateFamilies
+	// Đo 2026-10-26: hạn mức là RIÊNG từng MODEL. Nếu chỉ MỘT model bị cạn trên nhiều egress thì đó là ngân
+	// sách của model đó (đã loại model khỏi routing ở modelbudget.go), KHÔNG phải hạn mức cấp tài khoản -> không
+	// được trip breaker (trip sẽ dừng xoay IP vô ích và fast-fail oan).
+	proven := freshSeen && n >= acctGateDistinct && len(fams) >= acctGateFamilies && len(models) >= 2
 	if !proven && !blocked {
 		return // chưa đủ bằng chứng: đừng chặn (cạn từng IP thì đổi IP vẫn có ích)
 	}

@@ -77,7 +77,13 @@ func once(ses string) int {
 		}
 		dial = pd.Dial
 	}
-	raw, err := dial("tcp", "opencode.ai:443")
+	// DIALHOST: ép địa chỉ đích (vd IPv4 literal của opencode.ai) để đo lớp IP khác,
+	// trong khi SNI/Host vẫn là opencode.ai.
+	dialHost := "opencode.ai:443"
+	if h := os.Getenv("DIALHOST"); h != "" {
+		dialHost = h
+	}
+	raw, err := dial("tcp", dialHost)
 	if err != nil {
 		fmt.Printf("{\"status\":0,\"err\":%q}\n", err.Error())
 		return 0
@@ -102,8 +108,10 @@ func once(ses string) int {
 			panic(err)
 		}
 		if err := uc.Handshake(); err != nil {
-			panic(err)
+			fmt.Fprintf(os.Stderr, "HANDSHAKE_ERR: %v\n", err)
+			return 0
 		}
+		fmt.Fprintln(os.Stderr, "handshake ok")
 		conn = uc
 	}
 	if m := os.Getenv("MODEL"); m != "" {
@@ -124,12 +132,19 @@ func once(ses string) int {
 			v = "msg_" + newSes()[4:]
 		}
 		req.Header.Set(k, v)
+		// Host trong URL có thể là IP literal (đo lớp IPv4) nhưng SNI/Host phải là opencode.ai.
+		if h, ok := d.Headers["Host"]; ok {
+			req.Host = h
+		}
 	}
 	t0 := time.Now()
 	if err := req.Write(conn); err != nil {
 		panic(err)
 	}
 	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "READRESP_ERR: %v\n", err)
+	}
 	if err != nil {
 		fmt.Printf("{\"status\":0,\"err\":%q}\n", err.Error())
 		return 0
