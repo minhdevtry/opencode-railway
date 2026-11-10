@@ -39,8 +39,10 @@ curl http://127.0.0.1:8090/v1/capacity
   mạng đang dùng được). Đây là mức cho thông lượng cao nhất mà hàng chờ vẫn ngắn.
 - Gửi nhiều hơn khi hệ thống còn sức: phần dư xếp hàng trong gateway (tối đa 30 phút), không bị lỗi.
 - **Ngoại lệ:** về cuối ngày UTC khi **toàn bộ hạn mức free trong ngày đã cạn** (mọi IP, kể cả IP mới đổi, đều bị chặn
-  tới 00:00 UTC), gateway trả **429 ngay** kèm `Retry-After`, KHÔNG giữ request trong hàng chờ vô ích. Lúc này chờ tới
-  mốc reset (07:00 giờ VN) hoặc thêm proxy dân cư mới. Đây là hành vi cố ý: xếp hàng 30 phút rồi vẫn 429 thì vô nghĩa.
+  tới 00:00 UTC), gateway **xoay danh tính WARP lấy IP mới và chờ thêm tối đa `FRESH_PATH_WAIT` (mặc định 60 s)**;
+  nếu vẫn không có đường nào thì trả **429** kèm `Retry-After` (≤ `RETRY_AFTER_MAX`, mặc định 60 s) và
+  `X-Quota-Reset` (mốc quota hồi thật, thường 00:00 UTC = 07:00 VN). Lúc này chờ tới mốc reset, thêm proxy dân cư
+  mới, hoặc bật `AUTO_MODEL_FALLBACK` để chuyển sang model khác còn quota.
 - Gửi ít hơn nhiều so với khuyến nghị là để phí sức chứa.
 
 ---
@@ -53,9 +55,11 @@ curl http://127.0.0.1:8090/v1/capacity
 | Muốn fail nhanh thay vì chờ lâu lúc hệ thống gần cạn | Gửi header `X-Max-Wait: 30s` — gateway dùng đây làm **tổng ngân sách chờ của cả request** (xếp hàng + mọi lần thử lại qua các đường mạng + thời gian chờ upstream trả header), hết hạn thì trả 429, để client tự điều tiết. Không đặt = chờ tới MAX_WAIT (30 phút). **Phần sinh câu trả lời sau khi đã có header không bị cắt** — nên timeout HTTP vẫn phải dài (10–30 phút) cho câu trả lời dài. Lưu ý: header này không áp dụng cho job chạy nền (`/v1/batches`, `/v1/jobs`) |
 | HTTP 400 | Lỗi do request (sai định dạng, văn bản quá dài với model cố định): sửa request, **không retry** |
 | HTTP 429 | **Hạn mức free tính RIÊNG cho từng model** (đo 2026-10-26: cùng IP, cùng session, glm/deepseek/mimo hết
-hạn còn nemotron/beam vẫn 200) và riêng cho từng cặp (model, IP). `Retry-After` là mốc hết hạn của model đó (thường
-00:00 UTC = 07:00 VN) — chờ tới mốc đó rồi gửi lại. Gateway tự nhớ model nào đã cạn và **bỏ qua model đó** thay vì
-phí request 429; hết hạn là model dùng lại được, không cần can thiệp |
+hạn còn nemotron/beam vẫn 200) và riêng cho từng cặp (model, IP). `Retry-After` là số giây nên thử lại, **luôn được
+giới hạn ≤ `RETRY_AFTER_MAX` (mặc định 60 s)** để mọi client SDK retry được: client chỉ honor Retry-After tới
+`retry.maxDelayMs` (mặc định 5 phút), header dài hơn thì client abort chứ không retry. **Mốc quota hồi thật** (thường
+00:00 UTC = 07:00 VN) nằm ở header `X-Quota-Reset` (epoch giây). Gateway tự nhớ model nào đã cạn và **bỏ qua model
+đó** thay vì phí request 429; hết hạn là model dùng lại được, không cần can thiệp |
 | HTTP 502/503, lỗi kết nối | Retry có backoff (2 s, 4 s, 8 s... tối đa ~30 s) |
 | `content` rỗng, `finish_reason: "length"` | Phần suy nghĩ ăn hết `max_tokens`: **tăng `max_tokens`** (xem mục 5) |
 

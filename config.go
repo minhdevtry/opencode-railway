@@ -27,6 +27,8 @@ type Config struct {
 	DirectWarnReqs     int             // số request direct cho 1 model trong 2 phút được coi là "gần ngưỡng nguy hiểm" => bật Tor sẵn
 	DirectWarnInflight int             // số request direct đang chạy cùng lúc được coi là nguy hiểm
 	AutoModelFallback  bool            // tự động failover sang model khác trong freeModelPool khi model yêu cầu cạn quota trên mọi egress
+	RetryAfterMax      time.Duration   // trần cho header Retry-After trả về client (client SDK chỉ honor được vài phút)
+	FreshPathWait      time.Duration   // request chờ tối đa bao lâu để một IP WARP mới (đổi danh tính) thay đường đã cạn quota
 	DirectCooldown     time.Duration   // thời gian direct nghỉ khi bị 429 (mặc định 2m: cửa sổ trượt upstream); trong thời gian này request vào thẳng Tor
 	QueueWait          time.Duration   // chờ slot tối đa trước khi trả 503
 	TorBackoffMax      time.Duration   // trần backoff của Tor sau chuỗi 429 liên tiếp (exit cạn quota thì đừng đập thêm)
@@ -160,6 +162,8 @@ func loadConfig() Config {
 		DirectCooldown:         envDur("DIRECT_COOLDOWN", 2*time.Minute),
 		QueueWait:              envDur("QUEUE_WAIT", 30*time.Second),
 		AutoModelFallback:      envBool("AUTO_MODEL_FALLBACK"),
+		RetryAfterMax:          envDur("RETRY_AFTER_MAX", 60*time.Second),
+		FreshPathWait:          envDur("FRESH_PATH_WAIT", 60*time.Second),
 		DisableTor:             envBool("DISABLE_TOR"),
 		ForceTor:               envBool("FORCE_TOR"),
 		TorMax:                 torMax,

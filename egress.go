@@ -75,7 +75,7 @@ type Egress struct {
 	ipChanged          atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
 	ipAddr             atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
 	proxyAddr          string       // host:port của proxy (kiểm tra sống lúc khởi động)
-	lastIdentityChange time.Time    // lần đổi danh tính gần nhất (giới hạn tần suất xoay IP)
+	lastIdentityChange atomic.Int64 // unixnano: lần đổi danh tính gần nhất (giới hạn tần suất xoay IP)
 	ipKind             atomic.Int32 // 0 = chưa biết, 1 = IPv6 riêng (nguồn IP riêng), 2 = IPv4 WARP dùng chung (nhiều container
 	// dùng chung 1 IP => hạn mức phía upstream cũng dùng chung, nên ưu tiên egress có IPv6 riêng)
 	container string // container WARP tương ứng (để đổi danh tính khi IP hết lượt)

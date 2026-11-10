@@ -185,10 +185,18 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 	if isPool || (fb && isFreeModelInPool(model)) {
 		models = poolSnapshot()
 	}
+	// Hạn chờ để có 1 IP mới (đổi danh tính WARP) thay cho đường đã cạn quota.
+	freshUntil := time.Now().Add(cfg.FreshPathWait)
 	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
-		m.wmu.Unlock()
-		return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
-			msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
+		// Không còn đường nào phục vụ được model này. TRƯỚC khi trả 429: kích hoạt đổi danh tính WARP ngay
+		// để lấy IP mới rồi xếp hàng chờ (8-25s). Trả 429 luôn kèm Retry-After tới nửa đêm UTC là sai:
+		// client SDK chỉ honor Retry-After tới retry.maxDelayMs (5 phút) nên sẽ ABORT chứ không retry ->
+		// request chết cứng (đo 2026-11-10: proxy1 đổi danh tính xong 3s sau là glm phục vụ lại).
+		if !m.triggerRenewFor(models) {
+			m.wmu.Unlock()
+			return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+				msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
+		}
 	}
 	w := &waiter{model: model, isPool: isPool, avoid: append([]string(nil), avoid...), excl: excl, fb: fb, res: make(chan pickRes, 1)}
 	if low {
@@ -231,6 +239,10 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 			m.growTor()
 			// Không đường nào có thể phục vụ trong thời gian còn lại (vd chỉ có direct đã cạn): báo sớm thay vì giữ.
 			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
+				// Vẫn chưa có đường: xoay tiếp (IP mới có thể còn quota) cho tới khi hết hạn chờ.
+				if time.Now().Before(freshUntil) && m.triggerRenewFor(models) {
+					continue
+				}
 				leave()
 				return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
 					msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
@@ -244,6 +256,45 @@ func (m *Manager) anyRenewing() bool {
 		if e.renewing.Load() {
 			return true
 		}
+	}
+	return false
+}
+
+// renewCooldown: tối thiểu bao lâu giữa 2 lần đổi danh tính của cùng 1 egress (mỗi lần xoay tốn 1 IP mới).
+const renewCooldown = 20 * time.Second
+
+// triggerRenewFor: model đã cạn quota trên mọi đường hiện có -> kích hoạt đổi danh tính WARP để lấy
+// IP mới (IP mới = ngân sách mới cho model đó). Trả true nếu request nên CHỜ (đã kích hoạt xoay, hoặc
+// đang có egress xoay sẵn), false nếu không xoay được thì phải trả 429.
+//
+// Vì sao phải làm: nhánh 429 cũ trả ngay kèm Retry-After tới nửa đêm UTC (hàng giờ) -> client SDK không
+// honor được (retry.maxDelayMs mặc định 5 phút) nên request chết cứng. Một lần đổi danh tính chỉ mất
+// 8-25s và thường cứu được model (đo 2026-11-10: sau khi proxy1/proxy2 đổi danh tính thì glm phục vụ lại).
+func (m *Manager) triggerRenewFor(models []string) bool {
+	if acctGate.capped() {
+		return false // quota cạn cấp tài khoản: đổi IP không giúp
+	}
+	if m.anyRenewing() {
+		return true // đã có egress đang xoay -> chờ nó xong
+	}
+	pool := len(models) > 1
+	for _, e := range m.snapshot() {
+		if e.container == "" || !e.ready.Load() || e.renewing.Load() {
+			continue
+		}
+		if time.Since(time.Unix(0, e.lastIdentityChange.Load())) < renewCooldown {
+			continue // giới hạn tần suất xoay
+		}
+		// Model cụ thể: chỉ xoay egress đã chết với model đó (IP mới có thể còn quota cho model này).
+		// Pool: không còn đường nào cho bất kỳ model nào -> xoay bất kỳ egress nào.
+		if !pool && !modelExhaustedOn(models[0], e.Name) {
+			continue
+		}
+		log.Printf("[Sched] %s không còn đường nào phục vụ được -> xoay danh tính %s để lấy IP mới",
+			strings.Join(models, ","), e.Name)
+		e.lastIdentityChange.Store(time.Now().UnixNano())
+		m.renewIdentity(e)
+		return true
 	}
 	return false
 }

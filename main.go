@@ -518,9 +518,7 @@ func (a *aggregate) orderedTools() []*aggTool {
 // ======================== HTTP HELPERS ========================
 
 func writeGWError(w http.ResponseWriter, e *gwError) {
-	if e.retryAfter > 0 {
-		w.Header().Set("Retry-After", fmt.Sprint(int(e.retryAfter.Seconds())+1))
-	}
+	setRetryAfterHeaders(w, e.retryAfter)
 	writeJSONError(w, e.status, e.typ, e.msg)
 }
 
