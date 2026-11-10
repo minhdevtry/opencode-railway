@@ -181,6 +181,8 @@ bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` kh
 | `MAX_WAIT` | 300s (compose: 1800s) | Thời gian tối đa 1 request chờ đường mạng |
 | `MAX_CONCURRENCY` | 1000 (compose: 20000) | Số request gateway nhận cùng lúc |
 | `AUTO_MODEL_FALLBACK` | false | true: model cố định được đổi sang model khác khi hết đường |
+| `RETRY_AFTER_MAX` | 60s | Trần header `Retry-After` trả về client (client SDK chỉ honor được vài phút; header dài hơn làm client abort chứ không retry). Mốc quota hồi thật nằm ở header `X-Quota-Reset` |
+| `FRESH_PATH_WAIT` | 60s | Khi model cạn quota trên mọi đường: chờ tối đa bao lâu để WARP đổi danh tính lấy IP mới |
 | `AUTO_FAST_MODELS`, `AUTO_BEST_MODELS`, `AUTO_LONG_MODELS` | xem mục 2.1 | Danh sách model của profile |
 | `SESSIONS_PER_EGRESS`, `SESSION_INFLIGHT` | 8, 4 | Số session mỗi đường mạng, số request song song mỗi session |
 | `LIMIT_WARP`, `LIMIT_RES`, `LIMIT_DIRECT`, `LIMIT_MAX` | 4, 4, 2, 32 | Trần đồng thời ban đầu / tối đa mỗi đường (tự co giãn) |

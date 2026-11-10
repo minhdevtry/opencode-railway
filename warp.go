@@ -190,11 +190,11 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
 					continue
 				}
-				if time.Since(e.lastIdentityChange) < 30*time.Second {
+				if time.Since(time.Unix(0, e.lastIdentityChange.Load())) < 30*time.Second {
 					continue // giới hạn tần suất: không xoay liên tục
 				}
 				log.Printf("[WARP] %s xoay danh tính để lấy IP mới cho model %s (đã cạn trên mọi IP)", e.Name, model)
-				e.lastIdentityChange = time.Now()
+				e.lastIdentityChange.Store(time.Now().UnixNano())
 				m.renewIdentity(e)
 				break // mỗi model 1 lần mỗi vòng
 			}

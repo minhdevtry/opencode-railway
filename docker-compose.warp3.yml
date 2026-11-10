@@ -1,0 +1,122 @@
+# Bản nhẹ: chỉ 3 container WARP (thay vì 16) + Redis + gateway.
+#
+# Dùng khi: chạy nhẹ trên máy yếu / IP WARP hiện tại đã cạn quota nên thêm container cũng không giúp
+# (xem research/README.md §6c: đổi danh tính WARP không cứu được model đã cạn quota).
+#
+#   docker compose -f docker-compose.warp3.yml up -d --build
+#
+# PROXY_POOL phải khớp đúng thứ tự container WARP (warp, warp2, warp3).
+services:
+  warp:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1080:1080"
+    mem_limit: 256m
+
+  warp2:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-2
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1081:1080"
+    mem_limit: 256m
+
+  warp3:
+    image: caomingjun/warp:latest
+    container_name: warp-proxy-3
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "1082:1080"
+    mem_limit: 256m
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: orw-redis
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "400mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - orw-redis:/data
+    mem_limit: 512m
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: orw-new:latest
+    container_name: orw-prod
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - redis
+      - warp
+      - warp2
+      - warp3
+    ports:
+      - "8090:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      DISABLE_TOR: "true"
+      PROXY_POOL: "socks5://warp:1080,socks5://warp2:1080,socks5://warp3:1080"
+      # Proxy dân cư + link đổi IP: BÍ MẬT, đọc từ file .env cạnh compose (xem .env.example). Không commit key vào repo.
+      RESIDENTIAL_PROXIES: "${RESIDENTIAL_PROXIES:-}"
+      RESIDENTIAL_REFRESH_URLS: "${RESIDENTIAL_REFRESH_URLS:-}"
+      AUTO_MODELS: "${AUTO_MODELS:-}"
+      MAX_ATTEMPTS: "8"
+      DEFAULT_MODEL: "deepseek"
+      AUTO_MODEL_FALLBACK: "true"
+      SESSION_DAILY_BUDGET: "40"
+      MAX_WAIT: "1800s"
+      QUEUE_WAIT: "1800s"
+      # Khi model đã cạn quota trên mọi đường: xoay danh tính WARP lấy IP mới và chờ tối đa FRESH_PATH_WAIT.
+      # Retry-After trả về client luôn được giới hạn ở RETRY_AFTER_MAX (client SDK chỉ honor được vài phút;
+      # header hàng giờ làm client abort chứ không retry). Mốc quota hồi thật nằm ở header X-Quota-Reset.
+      FRESH_PATH_WAIT: "60s"
+      RETRY_AFTER_MAX: "60s"
+      DIRECT_COOLDOWN: "2m"
+      MAX_CONCURRENCY: "20000"
+      RATE_LIMIT_RPM: "0"
+      REDIS_URL: "redis://redis:6379"
+      JOB_WORKERS: "256"
+    mem_limit: 1024m
+
+volumes:
+  orw-redis:

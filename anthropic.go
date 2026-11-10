@@ -40,9 +40,7 @@ func anthropicModel(name string) string {
 }
 
 func writeAnthropicError(w http.ResponseWriter, e *gwError) {
-	if e.retryAfter > 0 {
-		w.Header().Set("Retry-After", fmt.Sprint(int(e.retryAfter.Seconds())+1))
-	}
+	setRetryAfterHeaders(w, e.retryAfter)
 	typ := e.typ
 	switch e.status {
 	case http.StatusTooManyRequests:
