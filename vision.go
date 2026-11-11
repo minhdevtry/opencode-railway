@@ -177,6 +177,12 @@ func isEndpointUnavailable(body []byte) bool {
 	return bytes.Contains(body, []byte("Endpoint is unavailable"))
 }
 
+// isModelUnavailable: upstream không còn phục vụ model này ("Model is unavailable").
+// Model bị gỡ khỏi catalog hoặc backend tạm hạ -> phải failover, không phải lỗi của client.
+func isModelUnavailable(body []byte) bool {
+	return bytes.Contains(body, []byte("Model is unavailable"))
+}
+
 // ======================== CONTEXT: REQUEST CÓ ẢNH KHÔNG ========================
 
 type visionKey struct{}

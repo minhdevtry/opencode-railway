@@ -873,6 +873,28 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error", msg: "Upstream HTTP 400: " + strings.TrimSpace(string(snippet))}
 				return nil, last
 			}
+			if isModelUnavailable(snippet) {
+				// Upstream không còn phục vụ model này (bị gỡ khỏi catalog / backend tạm hạ).
+				// Chuyển sang model khác thay vì trả 400 chết client.
+				resp.Body.Close()
+				cancel()
+				relE()
+				log.Printf("[Router] model=%s không còn được phục vụ, tự động chuyển model khác", m)
+				last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error",
+					msg: "Upstream HTTP 400: " + strings.TrimSpace(string(snippet))}
+				// Không yêu cầu currentModel nằm trong pool: alias cũ (vd "cat-jam") trỏ tới model
+				// upstream đã gỡ, vẫn phải chuyển sang model còn sống trong pool.
+				if canSwitch {
+					next := nextModelInPool(currentModel, needsVision(ctx))
+					if next != currentModel {
+						currentModel = next
+						modelFailures = 0
+						avoidDaemons = nil
+						continue
+					}
+				}
+				return nil, last
+			}
 			if isModelDeprecated(resp.StatusCode, snippet) {
 				resp.Body.Close()
 				cancel()

@@ -15,6 +15,16 @@ func TestIsVisionUnsupported(t *testing.T) {
 	}
 }
 
+// isModelUnavailable phải nhận ra model upstream đã bị gỡ.
+func TestIsModelUnavailable(t *testing.T) {
+	if !isModelUnavailable([]byte(`{"error":{"type":"server_error","message":"Upstream request failed: Model is unavailable."}}`)) {
+		t.Error("phải nhận ra lỗi Model is unavailable")
+	}
+	if isModelUnavailable([]byte(`{"error":{"message":"model not found for vision"}}`)) {
+		t.Error("lỗi vision không phải Model is unavailable")
+	}
+}
+
 // Bảng vision phải phân biệt được model nhận ảnh và model chỉ text.
 func TestVisionState(t *testing.T) {
 	visionMu.Lock()

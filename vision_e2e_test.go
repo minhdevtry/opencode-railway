@@ -86,6 +86,60 @@ func TestVision400FailsOverToVisionModel(t *testing.T) {
 	}
 }
 
+// TestModelUnavailableFailsOver: upstream báo "Model is unavailable" -> gateway phải
+// chuyển model khác thay vì trả 400 chết client.
+func TestModelUnavailableFailsOver(t *testing.T) {
+	var served atomic.Value
+	gw, _ := setupVisionFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		m, _ := body["model"].(string)
+		served.Store(m)
+		// Model ghim bị upstream gỡ -> phải failover.
+		if m == "glm-5.3-flash-free" {
+			w.WriteHeader(400)
+			w.Write([]byte(`{"error":{"type":"server_error","message":"Upstream request failed: Model is unavailable."}}`))
+			return
+		}
+		sse(w, `{"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}`)
+	})
+
+	resp, out := post(t, gw.URL+"/v1/chat/completions", imgBody)
+	if resp.StatusCode != 200 {
+		t.Fatalf("model bị gỡ upstream không được chết client, got %d: %s", resp.StatusCode, out)
+	}
+	if m, _ := served.Load().(string); m == "glm-5.3-flash-free" {
+		t.Error("không được phục vụ bằng model upstream đã gỡ")
+	}
+}
+
+// TestDeadAliasFailsOver: alias trỏ tới model upstream đã gỡ (ngoài pool) vẫn phải
+// failover được, không chết client.
+func TestDeadAliasFailsOver(t *testing.T) {
+	var served atomic.Value
+	gw, _ := setupVisionFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		m, _ := body["model"].(string)
+		served.Store(m)
+		if m == "cat-jam-free" {
+			w.WriteHeader(400)
+			w.Write([]byte(`{"error":{"type":"server_error","message":"Upstream request failed: Model is unavailable."}}`))
+			return
+		}
+		sse(w, `{"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}`)
+	})
+
+	resp, out := post(t, gw.URL+"/v1/chat/completions",
+		`{"model":"cat-jam","messages":[{"role":"user","content":"x"}]}`)
+	if resp.StatusCode != 200 {
+		t.Fatalf("alias chết không được chết client, got %d: %s", resp.StatusCode, out)
+	}
+	if m, _ := served.Load().(string); m == "cat-jam-free" {
+		t.Error("không được phục vụ bằng model upstream đã gỡ")
+	}
+}
+
 // TestImageNotSentToTextOnlyModel: khi model phục vụ là text-only, ảnh phải được hạ
 // xuống text để upstream không trả 400.
 func TestImageNotSentToTextOnlyModel(t *testing.T) {

@@ -1088,11 +1088,21 @@ func modelsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	// Model trong pool (id upstream có hậu tố "-free") cũng phải tra được: đó mới là id thật
+	// mà client nhận ảnh được (ví dụ "glm-5.3-flash-free" nhận image/png, "iceman-free" thì không).
+	poolIDs := poolSnapshot()
 	if id := strings.TrimPrefix(r.URL.Path, "/v1/models/"); id != "" && id != r.URL.Path {
 		want := anthropicModel(id)
 		for _, m := range modelList {
 			if m.id == want || m.id == strings.ToLower(id) {
 				out, _ := json.Marshal(modelObj(m.id, m.owner))
+				_, _ = w.Write(out)
+				return
+			}
+		}
+		for _, pid := range poolIDs {
+			if pid == strings.ToLower(id) {
+				out, _ := json.Marshal(modelObj(pid, "opencode"))
 				_, _ = w.Write(out)
 				return
 			}
@@ -1103,6 +1113,16 @@ func modelsHandler(w http.ResponseWriter, r *http.Request) {
 	var models []map[string]any
 	for _, m := range modelList {
 		models = append(models, modelObj(m.id, m.owner))
+	}
+	// Thêm model trong pool (nếu chưa có trong danh sách) để client biết model nào nhận ảnh.
+	seen := map[string]bool{}
+	for _, m := range modelList {
+		seen[m.id] = true
+	}
+	for _, pid := range poolIDs {
+		if !seen[pid] {
+			models = append(models, modelObj(pid, "opencode"))
+		}
 	}
 	out, _ := json.Marshal(map[string]any{"object": "list", "data": models, "has_more": false,
 		"first_id": modelList[0].id, "last_id": modelList[len(modelList)-1].id})
