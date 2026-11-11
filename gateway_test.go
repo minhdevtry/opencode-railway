@@ -680,14 +680,25 @@ func TestImageDowngradedForTextOnlyModels(t *testing.T) {
 	var req map[string]any
 	json.Unmarshal([]byte(`{"messages":[{"role":"user","content":[{"type":"text","text":"look"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAA"}}]}]}`), &req)
 	cfg = Config{ImageModels: map[string]bool{}}
-	msg := anthropicToOpenAI(req, "deepseek-v4.1-flash-free")["messages"].([]any)[0].(map[string]any)
+	// iceman-free là model text-only trong catalog upstream -> phải hạ ảnh xuống text.
+	msg := anthropicToOpenAI(req, "iceman-free")["messages"].([]any)[0].(map[string]any)
 	if s, ok := msg["content"].(string); !ok || !strings.Contains(s, "[image attached]") {
 		t.Errorf("model text-only phải nhận ghi chú thay vì image_url: %v", msg["content"])
 	}
-	cfg.ImageModels["vision-model"] = true
+	// glm-5.3-flash-free CÓ nhận ảnh upstream -> phải giữ image_url.
+	msg = anthropicToOpenAI(req, "glm-5.3-flash-free")["messages"].([]any)[0].(map[string]any)
+	if _, ok := msg["content"].([]any); !ok {
+		t.Errorf("model có vision phải nhận image_url: %v", msg["content"])
+	}
+	// IMAGE_MODELS là allowlist: model có trong danh sách mới được nhận ảnh.
+	cfg.ImageModels = map[string]bool{"vision-model": true}
 	msg = anthropicToOpenAI(req, "vision-model")["messages"].([]any)[0].(map[string]any)
 	if _, ok := msg["content"].([]any); !ok {
 		t.Errorf("model có vision phải nhận image_url: %v", msg["content"])
+	}
+	msg = anthropicToOpenAI(req, "glm-5.3-flash-free")["messages"].([]any)[0].(map[string]any)
+	if s, ok := msg["content"].(string); !ok || !strings.Contains(s, "[image attached]") {
+		t.Errorf("ngoài allowlist IMAGE_MODELS thì ảnh phải bị hạ xuống text: %v", msg["content"])
 	}
 }
 

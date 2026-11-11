@@ -213,7 +213,9 @@ func anthropicToOpenAI(req map[string]any, model string) map[string]any {
 					userParts = append(userParts, map[string]any{"type": "text", "text": s})
 				}
 			case "image":
-				if cfg.ImageModels[model] {
+				// Model nhan anh? Dung bang vision (dong bo tu catalog upstream).
+				// Neu khong -> ha anh xuong text, tranh upstream tra 400 "not supported for vision".
+				if modelSupportsImages(model) {
 					if u := imageURL(bm); u != "" {
 						hasImage = true
 						userParts = append(userParts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": u}})
@@ -475,11 +477,15 @@ func messagesHandler(w http.ResponseWriter, r *http.Request) {
 	inputEst := estimateTokens(oa["messages"]) + estimateTokens(oa["tools"])
 	t0 := time.Now()
 
-	up, gerr := forward(withMaxWait(withFallback(withProfile(r.Context(), anthropicModel(modelIn)), r), r), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
-		oa["model"] = m
-		oa["stream_options"] = map[string]any{"include_usage": true}
-		applyFingerprint(oa, m, cfg.InjectToolsAnthropic, stubDescription)
-		b, _ := jsonMarshalNoEscape(oa)
+	// Request mang anh -> failover uu tien model nhan anh.
+	hasImage := bodyHasImage(oa)
+	ctx := withVision(withMaxWait(withFallback(withProfile(r.Context(), anthropicModel(modelIn)), r), r), hasImage)
+	up, gerr := forward(ctx, target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
+		body := bodyForModel(oa, m)
+		body["model"] = m
+		body["stream_options"] = map[string]any{"include_usage": true}
+		applyFingerprint(body, m, cfg.InjectToolsAnthropic, stubDescription)
+		b, _ := jsonMarshalNoEscape(body)
 		return b
 	})
 	if gerr != nil {

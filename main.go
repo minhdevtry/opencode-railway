@@ -166,18 +166,39 @@ func syncCatalog() {
 	defer resp.Body.Close()
 	var env struct {
 		Data []struct {
-			ID string `json:"id"`
+			ID         string `json:"id"`
+			Modalities struct {
+				Input []string `json:"input"`
+			} `json:"modalities"`
+			Limit struct {
+				Context int `json:"context"`
+			} `json:"limit"`
 		} `json:"data"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&env) != nil || len(env.Data) == 0 {
 		return
 	}
 	active := map[string]bool{}
+	// Bảng năng lực vision: model nào nhận ảnh (modalities.input có image/*), model nào chỉ text.
+	hasImage := map[string]bool{}
+	ctxLimit := map[string]int{}
 	for _, m := range env.Data {
+		img := false
+		for _, mod := range m.Modalities.Input {
+			if strings.HasPrefix(mod, "image") {
+				img = true
+				break
+			}
+		}
+		hasImage[m.ID] = img
+		if m.Limit.Context > 0 {
+			ctxLimit[m.ID] = m.Limit.Context
+		}
 		if strings.HasSuffix(m.ID, "-free") || m.ID == "big-pickle" {
 			active[m.ID] = true
 		}
 	}
+	setVisionFromCatalog(hasImage, ctxLimit)
 	poolMu.Lock()
 	defer poolMu.Unlock()
 	live := reconcilePool(freeModelPool, active, cfg.AutoModels)
@@ -224,6 +245,9 @@ func resolveModelName(name string) (resolved string, isPool bool) {
 		return "space-bunny-free", false
 	case "minimax", "minimax-m3.1", "minimax-m3.1-flash", "minimax-m3.1-flash-free":
 		return "deepseek-v4.1-flash-free", false
+	case "glm", "glm-5.3", "glm-5.3-flash":
+		// Upstream không còn model "glm" (trả "Model is unavailable"); chỉ có glm-5.3-flash-free.
+		return "glm-5.3-flash-free", false
 	case "mimo", "mimo-v2.6-flash":
 		return "mimo-v2.6-flash-free", false
 	case "deepseek", "deepseek-v4.1-flash", "deepseek-v4.1", "deepseek-flash", "deepseek-chat", "deepseek-reasoner":
@@ -233,7 +257,8 @@ func resolveModelName(name string) (resolved string, isPool bool) {
 	case "step-5", "step-5-preview":
 		return "step-5-preview-free", false
 	case "longcat", "longcat-2.5", "longcat-2.5-preview":
-		return "longcat-2.5-preview-free", false
+		// Upstream không còn "longcat-2.5-preview-free" (trả "Model is unavailable").
+		return "longcat-2.5-free", false
 	}
 	if !strings.HasSuffix(clean, "-free") {
 		for _, p := range freeModelPool {
@@ -639,7 +664,9 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	excl := map[string]bool{}
 	// Hạn chờ của client (X-Max-Wait) tính MỘT LẦN cho cả request: nếu tính lại ở mỗi vòng retry thì client
 	// chờ N x X-Max-Wait, tức vượt hạn client đã đặt (client yêu cầu 15s nhưng thực tế chờ 8 x 15s).
-	baseCtx := withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r)
+	// Request mang anh -> failover uu tien model nhan anh, va ha anh xuong text neu model
+	// chon duoc khong nhan anh (upstream se tra 400 "not supported for vision").
+	baseCtx := withVision(withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r), bodyHasImage(reqData))
 	for try := 0; ; try++ {
 		ctx := baseCtx
 		if len(excl) > 0 {
@@ -663,6 +690,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 				dropped = d
 				droppedMu.Unlock()
 			}
+			body = bodyForModel(body, m)
 			body["model"] = m
 			applyFingerprint(body, m, true, stubDescription)
 			b, _ := jsonMarshalNoEscape(body)
@@ -1000,6 +1028,24 @@ func modelObj(id, owner string) map[string]any {
 		if strings.Contains(clean, "vision") || strings.Contains(clean, "vl") || strings.Contains(clean, "image") {
 			inputMods = []string{"text", "image"}
 			vision = true
+		}
+	}
+
+	// Ưu tiên sự thật từ catalog upstream (đồng bộ ở syncCatalog): gateway quảng bá sai
+	// sẽ khiến client gửi ảnh tới model text-only (hoặc bỏ ảnh đáng lẽ model nhận được).
+	// Tra theo model gateway THỰC SỰ phục vụ (alias "deepseek" -> "deepseek-v4.1-flash-free"),
+	// không phải id client gõ.
+	if lookup := servedModelID(id); lookup != "" {
+		if v, known := visionState(lookup); known {
+			vision = v
+			if v {
+				inputMods = []string{"text", "image"}
+			} else {
+				inputMods = []string{"text"}
+			}
+		}
+		if c := visionContextOf(lookup); c > 0 {
+			contextWin = c
 		}
 	}
 

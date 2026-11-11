@@ -946,9 +946,18 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 				pool := poolSnapshot()
 				n := len(pool)
 				start := int(atomic.AddUint32(&poolIndex, 1))
-				for i := range n {
-					cand := pool[(start+i)%n]
-					if cand != model {
+				// Request mang ảnh: ưu tiên model nhận ảnh (model text-only sẽ bị upstream trả 400
+				// "not supported for vision"). Vòng 2 mới chấp nhận model text-only.
+				vision := needsVision(ctx)
+				for pass := 0; pass < 2; pass++ {
+					for i := range n {
+						cand := pool[(start+i)%n]
+						if cand == model {
+							continue
+						}
+						if pass == 0 && vision && modelRejectsImages(cand) {
+							continue
+						}
 						if e := m.pickAvoid(cand, avoid...); e != nil {
 							log.Printf("[Router] model=%s cạn quota trên mọi đường, tự động failover sang model=%s", model, cand)
 							return cand, e, nil

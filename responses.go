@@ -219,10 +219,15 @@ func responsesHandler(w http.ResponseWriter, r *http.Request) {
 	chat := responsesToChat(req)
 	target, isPool := resolveModelName(modelIn)
 	t0 := time.Now()
-	up, gerr := forward(withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r), target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
-		chat["model"] = m
-		applyFingerprint(chat, m, true, stubDescription)
-		b, _ := json.Marshal(chat)
+	// Request mang anh -> failover uu tien model nhan anh, va ha anh xuong text neu model
+	// chon duoc khong nhan anh (upstream se tra 400 "not supported for vision").
+	hasImage := bodyHasImage(chat)
+	ctx := withVision(withMaxWait(withFallback(withProfile(r.Context(), modelIn), r), r), hasImage)
+	up, gerr := forward(ctx, target, isPool, infURL+"/chat/completions", "*/*", sessionKey(r, req), func(m string) []byte {
+		body := bodyForModel(chat, m)
+		body["model"] = m
+		applyFingerprint(body, m, true, stubDescription)
+		b, _ := json.Marshal(body)
 		return b
 	})
 	if gerr != nil {

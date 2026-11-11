@@ -91,7 +91,21 @@ Chuẩn chung, mọi model: `"reasoning_effort": "none" | "low" | "medium" | "hi
 Lưu ý: tắt suy nghĩ thì nhanh nhưng **dễ sai ở câu cần suy luận** (đo: câu tính giờ học, 2/4 model trả lời sai khi tắt).
 Việc gán nhãn/tóm tắt thì tắt được; việc cần lập luận thì để bật.
 
-### 2.4. Giới hạn đo thực tế (không theo catalog, catalog sai)
+### 2.4. Gửi ảnh (vision)
+
+Gateway biết model nào nhận ảnh nhờ `modalities.input` trong catalog upstream (`GET /zen/v1/models`, tự đồng bộ mỗi 10 phút).
+
+- Request có ảnh: failover **ưu tiên model nhận ảnh** (tránh rơi vào model chỉ nhận text).
+- Model được chọn mà không nhận ảnh: ảnh bị hạ xuống text `[image attached]` — request vẫn chạy, upstream không trả 400.
+- Upstream báo `not supported for vision`: gateway ghi nhớ model đó chỉ nhận text và chuyển model khác.
+- `GET /v1/models` quảng bá `capabilities.vision` và `context_window` theo catalog upstream.
+
+Model **nhận ảnh** (đo 2026-11-11): glm-5.3-flash, deepseek-v4.1-flash, mimo-v2.6-flash, nemotron-3.5-super-vl.
+Model **chỉ nhận text**: big-pickle, beam, nemotron-3.5-lightning, iceman-free, flint-40b.
+
+Đặt `IMAGE_MODELS` để ghi đè bằng allowlist riêng (chỉ model trong danh sách mới nhận ảnh).
+
+### 2.5. Giới hạn đo thực tế (không theo catalog, catalog sai)
 
 | Model | Đọc đúng tới | Ghi chú |
 |---|---|---|
@@ -181,6 +195,7 @@ bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` kh
 | `MAX_WAIT` | 300s (compose: 1800s) | Thời gian tối đa 1 request chờ đường mạng |
 | `MAX_CONCURRENCY` | 1000 (compose: 20000) | Số request gateway nhận cùng lúc |
 | `AUTO_MODEL_FALLBACK` | false | true: model cố định được đổi sang model khác khi hết đường |
+| `IMAGE_MODELS` | trống | Allowlist model nhận ảnh. Trống = dùng `modalities.input` từ catalog upstream (tự đồng bộ). Đặt = chỉ model trong danh sách mới nhận ảnh, model khác bị hạ ảnh xuống text |
 | `RETRY_AFTER_MAX` | 60s | Trần header `Retry-After` trả về client (client SDK chỉ honor được vài phút; header dài hơn làm client abort chứ không retry). Mốc quota hồi thật nằm ở header `X-Quota-Reset` |
 | `FRESH_PATH_WAIT` | 60s | Khi model cạn quota trên mọi đường: chờ tối đa bao lâu để WARP đổi danh tính lấy IP mới |
 | `AUTO_FAST_MODELS`, `AUTO_BEST_MODELS`, `AUTO_LONG_MODELS` | xem mục 2.1 | Danh sách model của profile |
@@ -201,7 +216,7 @@ bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` kh
 | Nhiều 429 | `/status`: `new_sessions_denied`, `identity_renews` | WARP tự đổi IP; nếu `identity_renews` không tăng, xem log `[WARP]` |
 | `Failed to communicate with the WARP API` | log `[WARP]` | API đăng ký của Cloudflare tạm từ chối, gateway tự thử lại sau 30 s |
 | Proxy dân cư lỗi | log `[resN]`, `[ProxyXoay]` | Tự xoay IP sau 5 lỗi liên tiếp; key hết hạn thì tự loại |
-| Request lớn báo 400 vượt context | `/status` → `context_limits` | Với `auto`: tự chuyển model. Với model cố định: chọn model đọc dài hơn (mục 2.4) |
+| Request lớn báo 400 vượt context | `/status` → `context_limits` | Với `auto`: tự chuyển model. Với model cố định: chọn model đọc dài hơn (mục 2.5) |
 | Hàng loạt 429, log `[AccountGate]` | toàn bộ quota free trong ngày đã cạn | Circuit breaker ngừng đổi IP (đổi cũng vô ích khi quota cạn cả tài khoản) và thăm dò lại mỗi 2 phút. Chỉ mở lại khi có bằng chứng quota hồi thật: ≥3 đường mạng khác nhau cùng bị cạn, trong đó có ít nhất 1 IP **vừa đổi** (IP mới tinh cũng cạn) và từ ≥2 họ đường mạng (WARP / dân cư / direct) — nếu chỉ cạn riêng từng IP thì đổi IP vẫn có ích nên không chặn. `Retry-After` trả về là mốc quota hồi (thường 00:00 UTC = 07:00 VN) |
 | 1 proxy dân cư lỗi TCP liên tục | log `[resN] ... transport error` | Gateway cho cả egress đó nghỉ (backoff 2–60 s), xoay IP sau 3 lỗi; request tự sang egress khác |
 
@@ -240,7 +255,7 @@ daemon WARP lỗi "Too many open files" và ghi ~640 MB log/giờ mỗi containe
 }
 ```
 
-`AUTO_COMPACT_WINDOW` để dưới ~300k token vì đó là mức đọc đúng đo được (mục 2.4).
+`AUTO_COMPACT_WINDOW` để dưới ~300k token vì đó là mức đọc đúng đo được (mục 2.5).
 
 ---
 

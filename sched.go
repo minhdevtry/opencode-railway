@@ -31,6 +31,7 @@ type waiter struct {
 	avoid  []string
 	excl   map[string]bool
 	fb     bool // model cụ thể được phép đổi sang model khác khi hết đường
+	vision bool // request mang ảnh -> ưu tiên model nhận ảnh
 	res    chan pickRes
 	gone   bool
 	key    string // lớp (tính 1 lần): cùng lớp mà người trước không có slot thì người sau cũng không
@@ -110,7 +111,7 @@ func initLimit(e *Egress) {
 }
 
 // pickAny chọn (model, egress) cho 1 yêu cầu và giữ chỗ. Gọi khi đang giữ m.wmu.
-func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[string]bool, fallback bool) (string, *Egress) {
+func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[string]bool, fallback bool, vision bool) (string, *Egress) {
 	try := func(cand string) *Egress {
 		if e := m.pickAvoid(cand, avoid...); e != nil {
 			e.inflight.Add(1)
@@ -132,13 +133,19 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 				break
 			}
 		}
-		for i := range n {
-			cand := pool[(start+i)%n]
-			if excl[cand] || (!allPoor && modelPoor(cand)) {
-				continue
-			}
-			if e := try(cand); e != nil {
-				return cand, e
+		// Vong 1: chi model nhan anh. Vong 2: moi model (ke ca text-only) de khong chet dung.
+		for pass := 0; pass < 2; pass++ {
+			for i := range n {
+				cand := pool[(start+i)%n]
+				if excl[cand] || (!allPoor && modelPoor(cand)) {
+					continue
+				}
+				if pass == 0 && vision && modelRejectsImages(cand) {
+					continue
+				}
+				if e := try(cand); e != nil {
+					return cand, e
+				}
 			}
 		}
 		return "", nil
@@ -149,8 +156,15 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 	if fallback && isFreeModelInPool(model) && len(pool) > 0 {
 		n := len(pool)
 		start := int(atomic.AddUint32(&poolIndex, 1))
-		for i := range n {
-			if cand := pool[(start+i)%n]; cand != model {
+		for pass := 0; pass < 2; pass++ {
+			for i := range n {
+				cand := pool[(start+i)%n]
+				if cand == model {
+					continue
+				}
+				if pass == 0 && vision && modelRejectsImages(cand) {
+					continue
+				}
 				if e := try(cand); e != nil {
 					return cand, e
 				}
@@ -161,11 +175,11 @@ func (m *Manager) pickAny(model string, isPool bool, avoid []string, excl map[st
 }
 
 // fastPick: không ai xếp hàng trước thì lấy slot ngay (khoá được trả kể cả khi pick panic).
-func (m *Manager) fastPick(model string, isPool bool, avoid []string, excl map[string]bool, fb, low bool) (string, *Egress, bool) {
+func (m *Manager) fastPick(model string, isPool bool, avoid []string, excl map[string]bool, fb, low, vision bool) (string, *Egress, bool) {
 	m.wmu.Lock()
 	defer m.wmu.Unlock()
 	if len(m.waitHigh) == 0 && (!low || len(m.waitLow) == 0) {
-		if mod, e := m.pickAny(model, isPool, avoid, excl, fb); e != nil {
+		if mod, e := m.pickAny(model, isPool, avoid, excl, fb, vision); e != nil {
 			return mod, e, true
 		}
 	}
@@ -177,7 +191,8 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 	low := isLowPriority(ctx)
 	excl := excludedModels(ctx)
 	fb := modelFallback(ctx)
-	if mod, e, ok := m.fastPick(model, isPool, avoid, excl, fb, low); ok {
+	vision := needsVision(ctx)
+	if mod, e, ok := m.fastPick(model, isPool, avoid, excl, fb, low, vision); ok {
 		return mod, e, nil
 	}
 	m.wmu.Lock()
@@ -198,7 +213,7 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 				msg: "All egress paths are rate limited for this model. Retry later.", retryAfter: m.soonest(models)}
 		}
 	}
-	w := &waiter{model: model, isPool: isPool, avoid: append([]string(nil), avoid...), excl: excl, fb: fb, res: make(chan pickRes, 1)}
+	w := &waiter{model: model, isPool: isPool, avoid: append([]string(nil), avoid...), excl: excl, fb: fb, vision: vision, res: make(chan pickRes, 1)}
 	if low {
 		m.waitLow = append(m.waitLow, w)
 		queuedLow.Add(1)
@@ -346,7 +361,7 @@ func (m *Manager) serve(q []*waiter, counter *atomic.Int32) []*waiter {
 			out = append(out, w)
 			continue
 		}
-		if mod, e := m.pickAny(w.model, w.isPool, w.avoid, w.excl, w.fb); e != nil {
+		if mod, e := m.pickAny(w.model, w.isPool, w.avoid, w.excl, w.fb, w.vision); e != nil {
 			w.res <- pickRes{model: mod, e: e}
 			counter.Add(-1)
 			continue

@@ -410,7 +410,9 @@ func isModelParamError(body []byte) bool {
 		bytes.Contains(body, []byte("Endpoint is unavailable"))
 }
 
-func nextModelInPool(current string) string {
+// nextModelInPool: model kế tiếp trong pool để failover. Nếu request mang ảnh, ưu tiên
+// model nhận ảnh (model text-only sẽ bị upstream trả 400 "not supported for vision").
+func nextModelInPool(current string, vision bool) string {
 	poolMu.RLock()
 	pool := append([]string(nil), freeModelPool...)
 	poolMu.RUnlock()
@@ -419,12 +421,22 @@ func nextModelInPool(current string) string {
 	if n == 0 {
 		return current
 	}
+	idx := 0
 	for i, m := range pool {
 		if m == current {
-			return pool[(i+1)%n]
+			idx = i
+			break
 		}
 	}
-	return pool[0]
+	if vision {
+		for k := 1; k <= n; k++ {
+			cand := pool[(idx+k)%n]
+			if !modelRejectsImages(cand) {
+				return cand
+			}
+		}
+	}
+	return pool[(idx+1)%n]
 }
 
 // forward gửi request tới upstream, tự chọn egress (direct trước) và model (nếu isPool).
@@ -701,7 +713,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				msg: "Rate limited on all egress paths. Retry shortly.", retryAfter: retryAfterForClient(d)}
 			modelFailures++
 			if canSwitch && modelFailures >= 3 && isFreeModelInPool(currentModel) {
-				next := nextModelInPool(currentModel)
+				next := nextModelInPool(currentModel, needsVision(ctx))
 				if next != currentModel {
 					log.Printf("[Router] model=%s bị 429, tự động chuyển ngay sang model=%s", currentModel, next)
 					currentModel = next
@@ -724,6 +736,40 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			log.Printf("[%s] attempt=%d model=%s HTTP %d, thử đường khác", e.Name, attempt, m, resp.StatusCode)
 			last = &gwError{status: http.StatusBadGateway, typ: "upstream_error", msg: fmt.Sprintf("Upstream HTTP %d", resp.StatusCode)}
 			continue
+
+		case resp.StatusCode == http.StatusNotFound:
+			// "Endpoint is unavailable" là sự cố nhà cung cấp, KHÔNG phải hạn mức và cũng không phải
+			// lỗi của client (xem research/limit-shape/probe/main.go). Trước đây lỗi này đi thẳng ra
+			// client dưới dạng 404 => request chết cứng. Giờ đổi egress rồi thử lại.
+			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+			resp.Body.Close()
+			cancel()
+			relE()
+			if isEndpointUnavailable(snippet) {
+				e.errs.Add(1)
+				e.adapt(false)
+				e.transient(m, 15*time.Second)
+				if e.canRotate {
+					e.rotate(gen)
+				}
+				avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
+				log.Printf("[%s] attempt=%d model=%s 404 Endpoint is unavailable, thử đường/model khác", e.Name, attempt, m)
+				last = &gwError{status: http.StatusBadGateway, typ: "upstream_error", msg: "Upstream endpoint temporarily unavailable"}
+				modelFailures++
+				if canSwitch && modelFailures >= 2 && isFreeModelInPool(currentModel) {
+					next := nextModelInPool(currentModel, needsVision(ctx))
+					if next != currentModel {
+						log.Printf("[Router] model=%s lỗi endpoint, tự động chuyển sang model=%s", currentModel, next)
+						currentModel = next
+						modelFailures = 0
+						avoidDaemons = nil
+						continue
+					}
+				}
+				continue
+			}
+			last = &gwError{status: http.StatusNotFound, typ: "not_found_error", msg: "Upstream HTTP 404: " + strings.TrimSpace(string(snippet))}
+			return nil, last
 
 		case resp.StatusCode == http.StatusForbidden:
 			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
@@ -748,7 +794,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			last = &gwError{status: http.StatusForbidden, typ: "permission_error", msg: "Egress blocked: " + strings.TrimSpace(string(snippet))}
 			modelFailures++
 			if canSwitch && modelFailures >= 3 && isFreeModelInPool(currentModel) {
-				next := nextModelInPool(currentModel)
+				next := nextModelInPool(currentModel, needsVision(ctx))
 				if next != currentModel {
 					log.Printf("[Router] model=%s bị lỗi liên tiếp, tự động failover sang model=%s", currentModel, next)
 					currentModel = next
@@ -764,7 +810,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			relE()
 			replacement := parseReplacement(snippet)
 			if replacement == "" {
-				replacement = nextModelInPool(currentModel)
+				replacement = nextModelInPool(currentModel, needsVision(ctx))
 			}
 			log.Printf("[Router] model=%s bị 410/ModelDeprecated! Tự động chuyển vĩnh viễn sang model=%s", currentModel, replacement)
 			registerDynamicAlias(currentModel, replacement)
@@ -778,6 +824,26 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 
 		case resp.StatusCode == http.StatusBadRequest:
 			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+			if isVisionUnsupported(snippet) {
+				// Model này không nhận ảnh. Ghi nhớ và chuyển sang model khác trong pool (ưu tiên model nhận ảnh).
+				resp.Body.Close()
+				cancel()
+				relE()
+				markNoVision(m)
+				log.Printf("[Vision] model=%s không nhận ảnh, tự động chuyển sang model khác", m)
+				last = &gwError{status: http.StatusBadRequest, typ: "invalid_request_error",
+					msg: "Upstream HTTP 400: " + strings.TrimSpace(string(snippet))}
+				if canSwitch && isFreeModelInPool(currentModel) {
+					next := nextModelInPool(currentModel, needsVision(ctx))
+					if next != currentModel {
+						currentModel = next
+						modelFailures = 0
+						avoidDaemons = nil
+						continue
+					}
+				}
+				return nil, last
+			}
 			if isContextError(snippet) {
 				// Model này không đọc nổi request cỡ này: ghi nhớ giới hạn; với auto thì chuyển sang model khác ngay.
 				resp.Body.Close()
@@ -813,7 +879,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				relE()
 				replacement := parseReplacement(snippet)
 				if replacement == "" {
-					replacement = nextModelInPool(currentModel)
+					replacement = nextModelInPool(currentModel, needsVision(ctx))
 				}
 				log.Printf("[Router] model=%s báo ModelDeprecated (400)! Tự động chuyển sang model=%s", currentModel, replacement)
 				registerDynamicAlias(currentModel, replacement)
@@ -849,7 +915,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 					// Trả 400 luôn thay vì thử hết pool rồi ra 502 "No upstream attempt made".
 					return nil, last
 				}
-				next := nextModelInPool(currentModel)
+				next := nextModelInPool(currentModel, needsVision(ctx))
 				if next != currentModel {
 					currentModel = next
 					modelFailures = 0
