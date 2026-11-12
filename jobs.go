@@ -65,9 +65,34 @@ func startJobs(ctx context.Context) {
 		}
 	}
 	log.Printf("[Jobs] Redis sẵn sàng, %d worker", cfg.JobWorkers)
+	// Nạp lại sổ quota + bằng chứng cạn hạn mức của lần chạy trước (restart không mất lịch sử dùng).
+	quotaPersistLoad(ctx)
+	budgetPersistLoad(ctx)
+	go quotaPersistLoop(ctx, cfg.StatePersist)
+	go budgetPersistLoop(ctx, cfg.StatePersist)
 	go jobMover(ctx)
 	for i := 0; i < cfg.JobWorkers; i++ {
 		go jobWorker(ctx)
+	}
+}
+
+// budgetPersistLoop chụp bằng chứng cạn hạn mức định kỳ, lần cuối lúc tắt.
+func budgetPersistLoop(ctx context.Context, every time.Duration) {
+	if rdb == nil || every <= 0 {
+		return
+	}
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			fin, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			budgetPersistSave(fin)
+			cancel()
+			return
+		case <-t.C:
+			budgetPersistSave(ctx)
+		}
 	}
 }
 
