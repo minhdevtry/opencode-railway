@@ -96,12 +96,14 @@ func (m *Manager) renewIdentityFor(e *Egress, probeModel string) {
 	if time.Since(time.Unix(0, e.lastIdentityChange.Load())) < 45*time.Second {
 		return // giới hạn tần suất: mỗi egress tối đa 1 lần / 45s
 	}
+	noteIdentityRenew()
 	m.renewIdentityNow(e, probeModel)
 }
 
 // renewIdentityNow: xoay danh tính NGAY (không qua guard tần suất). Dùng cho:
 //   - vòng "đổi tiếp" khi IP vừa xoay vẫn rơi vào /64 đã cạn;
 //   - nơi gọi đã tự kiểm tra tần suất riêng.
+//
 // Lưu ý: KHÔNG set lastIdentityChange ở nơi gọi, vì hàm này sẽ tự set -> sẽ tự chặn chính nó.
 func (m *Manager) renewIdentityNow(e *Egress, probeModel string) {
 	if e.container == "" {

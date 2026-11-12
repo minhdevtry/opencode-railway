@@ -885,8 +885,10 @@ func logReq(ep, mode string, up *upstream, t0 time.Time, first time.Duration) {
 
 // logReqTok ghi thêm số token prompt và token trúng cache (nếu upstream báo) để đo hiệu quả prompt cache.
 func logReqTok(ep, mode string, up *upstream, t0 time.Time, first time.Duration, prompt, cached int) {
+	total := time.Since(t0)
+	observeRequestLatency(total) // /metrics histogram (mọi endpoint đi qua đây)
 	log.Printf("[req] %s %s model=%s egress=%s ttfb=%v first=%v total=%v prompt=%d cached=%d",
-		ep, mode, up.model, up.egress.Name, up.ttfb.Round(time.Millisecond), first.Round(time.Millisecond), time.Since(t0).Round(time.Millisecond), prompt, cached)
+		ep, mode, up.model, up.egress.Name, up.ttfb.Round(time.Millisecond), first.Round(time.Millisecond), total.Round(time.Millisecond), prompt, cached)
 }
 
 func systemoneHandler(w http.ResponseWriter, r *http.Request) {
@@ -1175,8 +1177,8 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		Budget     int                `json:"session_budget_left"` // số session MỚI còn mở được trên IP này hôm nay (-1 = không giới hạn)
 		Expired    bool               `json:"expired,omitempty"`   // bị loại khỏi routing (vd key proxy hết hạn)
 		ExpiredWhy string             `json:"expired_reason,omitempty"`
-		IP         string             `json:"ip,omitempty"`      // IP thoát thật mà upstream nhìn thấy
-		IPKind     string             `json:"ip_kind,omitempty"` // own = IPv6 riêng của container, shared = IPv4 WARP dùng chung
+		IP         string             `json:"ip,omitempty"`        // IP thoát thật mà upstream nhìn thấy
+		IPKind     string             `json:"ip_kind,omitempty"`   // own = IPv6 riêng của container, shared = IPv4 WARP dùng chung
 		IPPrefix   string             `json:"ip_prefix,omitempty"` // /64 (IPv6) hoặc /24 (IPv4): dải mà upstream tính hạn mức
 		NoNewSes   bool               `json:"new_sessions_denied,omitempty"`
 		SesUses    int64              `json:"session_requests_today"`
@@ -1225,7 +1227,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"queued_jobs":            queuedLow.Load(),
 		"model_quality":          modelQualitySnapshot(),
 		"model_budget_exhausted": modelBudgetSnapshot(),            // model đã hết ngân sách free -> mốc reset
-		"dead_prefix":            prefixDeadSnapshot(),            // /64 đã cạn hạn mức cho model (hạn mức tính theo dải)
+		"dead_prefix":            prefixDeadSnapshot(),             // /64 đã cạn hạn mức cho model (hạn mức tính theo dải)
 		"quota":                  quotaSnapshot(mgr.egressNames()), // ngân sách per (IP, model): đã dùng / còn lại
 		"egress":                 list,
 	})
@@ -1252,6 +1254,7 @@ func buildMux() *http.ServeMux {
 	mux.HandleFunc("/v1/jobs", grd.wrap(jobsHandler, false))
 	mux.HandleFunc("/v1/jobs/", grd.wrap(jobsHandler, false))
 	mux.HandleFunc("/status", grd.wrap(statusHandler, false))
+	mux.HandleFunc("/metrics", grd.wrap(metricsHandler, false))
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/", healthHandler)
 	return mux
@@ -1324,6 +1327,7 @@ func main() {
 	go startCatalogSync(ctx)
 	go mgr.warpJanitor(ctx)
 	go mgr.detectWarpIPs(ctx)
+	go mgr.limitRecoverLoop(ctx)
 	go mgr.checkResidentialLiveness(ctx)
 	startJobs(ctx)
 

@@ -780,6 +780,7 @@ func renewWarpProxy(egressName string) {
 		isRenewing.Store(false)
 	})
 	go func() {
+		noteIdentityRenew()
 		log.Printf("[WARP-Renew] Egress %s (%s) bị 429 quota cứng -> Tự động khởi động lại container để lấy IP Cloudflare mới...", egressName, container)
 		tr := &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
