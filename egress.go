@@ -64,17 +64,18 @@ type Egress struct {
 	mu   sync.Mutex
 	cool map[string]*coolState
 
-	limit              atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
-	errRun             atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
-	okRun              atomic.Int32
-	sess               sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
-	renewing           atomic.Bool
-	renews             atomic.Int64
-	renewTries         atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
-	downUntil          atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
-	ipChanged          atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
-	ipAddr             atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
-	ipPrefix           atomic.Value // /64 (IPv6) hoặc /24 (IPv4) của IP: hạn mức upstream tính theo DẢI này
+	limit      atomic.Int32 // trần in-flight hiện tại (AIMD, sched.go)
+	limitCutAt atomic.Int64 // unixnano lần AIMD giảm trần gần nhất (mốc cho hồi trần theo thời gian)
+	errRun     atomic.Int32 // lỗi truyền tải liên tiếp (proxy dân cư chập chờn thì xoay IP)
+	okRun      atomic.Int32
+	sess       sessionPool // session sống lâu của riêng egress này (quota upstream tính theo cặp IP×session)
+	renewing   atomic.Bool
+	renews     atomic.Int64
+	renewTries atomic.Int32 // số lần đổi liên tiếp chưa ra IPv6
+	downUntil  atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
+	ipChanged  atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
+	ipAddr     atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
+	ipPrefix   atomic.Value // /64 (IPv6) hoặc /24 (IPv4) của IP: hạn mức upstream tính theo DẢI này
 	// chứ không theo IP đơn lẻ (đo 2026-11-03: 2a09:bac1:7aa0:50:: còn quota, 2a09:bac1:7a80:50:: cạn)
 	proxyAddr          string       // host:port của proxy (kiểm tra sống lúc khởi động)
 	lastIdentityChange atomic.Int64 // unixnano: lần đổi danh tính gần nhất (giới hạn tần suất xoay IP)

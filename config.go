@@ -93,9 +93,11 @@ type Config struct {
 
 	// Trần in-flight thích ứng mỗi egress (AIMD)
 	LimitWarp, LimitRes, LimitDirect, LimitMin, LimitMax int
+	LimitRecover                                         time.Duration // AIMD: trần được nới +1 mỗi khoảng này kể cả khi ít traffic (hồi nhanh sau sự cố chập chờn)
 
 	// Hàng đợi job bền
 	RedisURL       string
+	StatePersist   time.Duration // chu kỳ chụp sổ quota + ngân sách vào Redis (0 = tắt; cần REDIS_URL)
 	JobWorkers     int
 	JobMaxAttempts int
 	JobMaxBackoff  time.Duration
@@ -258,7 +260,9 @@ func loadConfig() Config {
 		LimitDirect:            envInt("LIMIT_DIRECT", 2, 1),
 		LimitMin:               envInt("LIMIT_MIN", 1, 1),
 		LimitMax:               envInt("LIMIT_MAX", 32, 1),
+		LimitRecover:           envDur("LIMIT_RECOVER", 30*time.Second),
 		RedisURL:               envStr("REDIS_URL", ""),
+		StatePersist:           envDur("STATE_PERSIST_INTERVAL", 15*time.Second),
 		JobWorkers:             envInt("JOB_WORKERS", 256, 1),
 		JobMaxAttempts:         envInt("JOB_MAX_ATTEMPTS", 200, 1),
 		JobMaxBackoff:          envDur("JOB_MAX_BACKOFF", 60*time.Second),

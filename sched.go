@@ -92,6 +92,52 @@ func (e *Egress) adapt(ok bool) {
 	} else {
 		e.limit.Store(int32(max(cfg.LimitMin, 1)))
 	}
+	e.limitCutAt.Store(time.Now().UnixNano())
+}
+
+// recoverLimits: nới trần AIMD +1 cho các egress chạy ổn định sau LIMIT_RECOVER kể từ lần giảm
+// trần gần nhất. Không có bước này, trần bị giảm vĩnh viễn khi egress chập chờn rồi hồi: đường
+// thành công cần 2*lim request mới nhích +1, mà traffic thấp thì không bao giờ đủ (PRIVATE-BRANCH.md).
+// Chỉ nới khi egress sẵn sàng, không bị cooldown toàn đường, và không có lỗi truyền tải gần đây.
+func (m *Manager) recoverLimits() {
+	if cfg.LimitMax <= 0 || cfg.LimitRecover <= 0 {
+		return
+	}
+	now := time.Now()
+	for _, e := range m.snapshot() {
+		if !e.ready.Load() || e.expired.Load() || e.downUntil.Load() > now.UnixNano() || e.errRun.Load() > 0 {
+			continue
+		}
+		cut := e.limitCutAt.Load()
+		if cut == 0 || now.Sub(time.Unix(0, cut)) < cfg.LimitRecover {
+			continue
+		}
+		lim := e.limit.Load()
+		if lim < int32(cfg.LimitMax) && e.limit.CompareAndSwap(lim, lim+1) {
+			e.limitCutAt.Store(now.UnixNano())
+		}
+	}
+}
+
+// limitRecoverLoop chạy recoverLimits định kỳ cho tới khi ctx kết thúc.
+func (m *Manager) limitRecoverLoop(ctx context.Context) {
+	if cfg.LimitMax <= 0 || cfg.LimitRecover <= 0 {
+		return
+	}
+	iv := cfg.LimitRecover / 2
+	if iv < time.Second {
+		iv = time.Second
+	}
+	t := time.NewTicker(iv)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			m.recoverLimits()
+		}
+	}
 }
 
 func initLimit(e *Egress) {
