@@ -703,7 +703,8 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				// "IP mới" phải gắn với SESSION của request này: request đang chạy với session của IP CŨ (lấy trước lúc
 				// đổi IP) thì không được tính là bằng chứng. Thế hệ pool (gen) là dấu hiệu sẵn có.
 				fresh := e.ipIsFresh() && (es == nil || es.gen == e.sess.genNow())
-				acctGate.noteFreshCap(e.Name, ra, fresh, m)
+				ip, _ := e.ipAddr.Load().(string)
+				acctGate.noteFreshCap(e.Name, ra, fresh, m, ip)
 			}
 			if es != nil && freeLimit {
 				if !e.sess.blocked(es, ra) {

@@ -35,16 +35,29 @@ import (
 // thành công trên IP MỚI (vừa đổi) mới chứng minh "cặp (IP, session) mới vẫn được chấp nhận" => quota đã hồi.
 
 type capEvidence struct {
-	at    time.Time // lúc egress này bị cạn dài
-	fresh bool      // IP của egress này vừa được đổi (mới tinh) tại thời điểm đó
-	model string    // model nào bị cạn (hạn mức là RIÊNG từng model - xem modelbudget.go)
+	at     time.Time // lúc egress này bị cạn dài
+	fresh  bool      // IP của egress này vừa được đổi (mới tinh) tại thời điểm đó
+	model  string    // model nào bị cạn (hạn mức là RIÊNG từng model - xem modelbudget.go)
+	ip     string    // IP thoát THẬT lúc bị cạn (rỗng = chưa dò được, đếm theo tên egress)
+	egress string    // tên egress báo bằng chứng (để suy ra họ đường mạng khi khoá là IP)
 }
 
 type accountGate struct {
 	mu      sync.Mutex
 	until   time.Time              // đang chặn tới lúc này
 	resetAt time.Time              // upstream nói quota hồi lúc này
-	recent  map[string]capEvidence // egress -> bằng chứng cạn dài gần nhất
+	recent  map[string]capEvidence // khoá bằng chứng (xem evidenceKeyOf) -> bằng chứng cạn dài gần nhất
+}
+
+// evidenceKeyOf: khoá đếm bằng chứng. Nhiều container WARP có thể dùng CHUNG một IPv4 Cloudflare
+// (đếm theo tên egress thì 4 tên = 1 IP thật, trip breaker oan). Khi đã dò được IP thật thì khoá
+// theo IP để các egress chung IP gộp làm MỘT bằng chứng; chưa dò được thì theo tên egress.
+// Họ đường mạng vẫn lấy từ tên egress gốc lưu trong bằng chứng.
+func evidenceKeyOf(egress, ip string) string {
+	if ip != "" {
+		return "ip:" + ip
+	}
+	return "eg:" + egress
 }
 
 var acctGate = &accountGate{recent: map[string]capEvidence{}}
@@ -65,20 +78,26 @@ const (
 //	egress     - tên egress (phải là duy nhất theo đường mạng, không phải theo model)
 //	retryAfter - Retry-After của upstream
 //	freshIP    - IP của egress này vừa được đổi (mới tinh) => bằng chứng cạn cấp tài khoản
-func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, freshIP bool, model string) {
+func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, freshIP bool, model, ip string) {
 	if retryAfter < acctGateMinCap || egress == "direct" {
 		return // direct là IP máy chủ cố định (không đổi được IP) -> không tính làm bằng chứng cạn cấp tài khoản
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	now := time.Now()
-	g.recent[egress] = capEvidence{at: now, fresh: freshIP, model: model}
+	key := evidenceKeyOf(egress, ip)
+	// Cùng 1 IP thật: bằng chứng mới hơn ghi đè, nhưng KHÔNG được xoá cờ fresh của bằng chứng cũ
+	// trong cùng cửa sổ (IP vừa đổi rồi bị cạn ở request sau vẫn là bằng chứng "IP mới cũng cạn").
+	if old, ok := g.recent[key]; ok && now.Sub(old.at) <= acctGateWindow && old.fresh {
+		freshIP = true
+	}
+	g.recent[key] = capEvidence{at: now, fresh: freshIP, model: model, ip: ip, egress: egress}
 	n, freshSeen := 0, false
 	fams := map[string]bool{}
 	models := map[string]bool{}
-	for name, ev := range g.recent {
+	for key, ev := range g.recent {
 		if now.Sub(ev.at) > acctGateWindow {
-			delete(g.recent, name)
+			delete(g.recent, key)
 			continue
 		}
 		n++
@@ -88,7 +107,7 @@ func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, fres
 		if ev.model != "" {
 			models[ev.model] = true
 		}
-		if gr := egressGroupOf(name); gr != "" {
+		if gr := egressGroupOf(ev.egress); gr != "" {
 			fams[gr] = true
 		}
 	}
