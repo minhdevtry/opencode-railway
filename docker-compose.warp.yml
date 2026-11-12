@@ -144,6 +144,10 @@ services:
       RATE_LIMIT_RPM: "0" # gateway nội bộ: không giới hạn tốc độ theo IP client (đã có ALLOWED_IPS)
       REDIS_URL: "redis://redis:6379"
       JOB_WORKERS: "256"
+      # Chụp sổ quota + bằng chứng cạn hạn mức vào Redis mỗi 15s; restart gateway không mất lịch sử dùng.
+      STATE_PERSIST_INTERVAL: "${STATE_PERSIST_INTERVAL:-15s}"
+      # AIMD hồi trần: egress chạy ổn được nới +1 trần in-flight mỗi 30s (không cần đủ traffic).
+      LIMIT_RECOVER: "${LIMIT_RECOVER:-30s}"
     mem_limit: 1024m
 
 volumes:

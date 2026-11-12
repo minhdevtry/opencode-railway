@@ -52,6 +52,7 @@ curl http://127.0.0.1:8090/v1/chat/completions -H 'Content-Type: application/jso
 | `GET /v1/capacity` | Sức chứa hiện tại + mức đồng thời nên gửi |
 | `GET /v1/models` | Danh sách model |
 | `GET /status` | Trạng thái chi tiết từng đường mạng (cho vận hành) |
+| `GET /metrics` | Prometheus text format (counter/gauge/histogram, không cần thư viện ngoài) |
 | `GET /health` | Kiểm tra sống |
 
 ---
@@ -158,8 +159,10 @@ Hướng dẫn đầy đủ cho client (mức đồng thời, timeout, retry, v�
 1. **Giả danh đúng client OpenCode.** Free tier của OpenCode chỉ tính request vào quota "client thật" khi có cùng lúc:
    dấu vân tay TLS của Bun (gateway dùng uTLS phát lại ClientHello của Bun, `tlsfp.go`), khối `<env>` trong system
    prompt (`withEnvBlock`, ghép sau prompt của client), và có tool. Thiếu 1 trong 3 là rơi vào quota chung đã cạn (429).
-2. **Quota tính theo (IP, session).** Mỗi IP mở được ~50 session/ngày. Gateway giữ session sống lâu cho từng đường mạng
-   (`sessions.go`), session bị chặn thì cho nghỉ rồi thử lại.
+2. **Quota tính theo cặp (IP, model), đếm theo request** (đo lại 2026-10-26, `research/limit-shape`), reset 00:00 UTC;
+   hạn mức bám theo **dải /64** chứ không IP lẻ. Gateway giữ session sống lâu cho từng đường mạng (`sessions.go`),
+   đếm ngân sách từng cặp trong sổ (`quota.go`) và nhớ dải chết (`modelbudget.go`). Có Redis thì sổ được chụp định kỳ
+   và nạp lại lúc khởi động — restart không mất lịch sử dùng.
 3. **Nhiều đường mạng, tự làm mới.** 16 container WARP (mỗi cái 1 IPv6 riêng). WARP hết lượt thì gateway tự đăng ký lại
    danh tính để lấy IP mới (~15–25 s, không restart, `warp.go`). Proxy dân cư hết lượt hoặc chập chờn thì tự xoay IP.
 4. **Bộ điều phối** (`sched.go`): hàng đợi FIFO 2 mức (request đồng bộ trước, job nền sau), giữ chỗ nguyên tử, trần
@@ -196,7 +199,9 @@ quản lý `warp-proxy`, `warp-proxy-2`, `warp-proxy-3`, `warp-proxy-4`; đổi 
 | `PROXY_POOL` | | Danh sách SOCKS5 của WARP (thứ tự khớp container `warp-proxy`, `warp-proxy-2`, ...) |
 | `WARP_CONTAINERS` | suy ra từ thứ tự | Tên container WARP nếu đặt tên khác |
 | `RESIDENTIAL_PROXIES`, `RESIDENTIAL_REFRESH_URLS` | | Proxy dân cư SOCKS5 và link API đổi IP tương ứng |
-| `REDIS_URL` | | Bật hàng đợi job bền (`redis://redis:6379`) |
+| `REDIS_URL` | | Bật hàng đợi job bền (`redis://redis:6379`) **và** bền vững hoá sổ quota (restart không mất lịch sử dùng) |
+| `STATE_PERSIST_INTERVAL` | 15s | Chu kỳ chụp sổ quota + bằng chứng cạn hạn mức vào Redis (0 = tắt). Chỉ nhận lại bản chụp của ngày UTC hiện tại |
+| `LIMIT_RECOVER` | 30s | AIMD: trần in-flight được nới +1 mỗi khoảng này khi egress chạy ổn (hồi nhanh sau sự cố chập chờn, không cần đủ traffic) |
 | `JOB_WORKERS` | 256 | Số job chạy song song tối đa |
 | `MAX_WAIT` | 300s (compose: 1800s) | Thời gian tối đa 1 request chờ đường mạng |
 | `MAX_CONCURRENCY` | 1000 (compose: 20000) | Số request gateway nhận cùng lúc |
@@ -226,6 +231,25 @@ quản lý `warp-proxy`, `warp-proxy-2`, `warp-proxy-3`, `warp-proxy-4`; đổi 
 | Request lớn báo 400 vượt context | `/status` → `context_limits` | Với `auto`: tự chuyển model. Với model cố định: chọn model đọc dài hơn (mục 2.5) |
 | Hàng loạt 429, log `[AccountGate]` | toàn bộ quota free trong ngày đã cạn | Circuit breaker ngừng đổi IP (đổi cũng vô ích khi quota cạn cả tài khoản) và thăm dò lại mỗi 2 phút. Chỉ mở lại khi có bằng chứng quota hồi thật: ≥3 đường mạng khác nhau cùng bị cạn, trong đó có ít nhất 1 IP **vừa đổi** (IP mới tinh cũng cạn) và từ ≥2 họ đường mạng (WARP / dân cư / direct) — nếu chỉ cạn riêng từng IP thì đổi IP vẫn có ích nên không chặn. `Retry-After` trả về là mốc quota hồi (thường 00:00 UTC = 07:00 VN) |
 | 1 proxy dân cư lỗi TCP liên tục | log `[resN] ... transport error` | Gateway cho cả egress đó nghỉ (backoff 2–60 s), xoay IP sau 3 lỗi; request tự sang egress khác |
+
+### Giám sát bằng Prometheus
+
+`GET /metrics` (cùng lớp bảo vệ IP với `/status`) trả text format chuẩn, scrape được ngay:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: orw
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["127.0.0.1:8090"]
+```
+
+Metric chính: `orw_requests_ok_total` / `orw_rate_limited_total` (tỷ lệ 429), `orw_egress_ready`
+(đường mạng sống), `orw_account_gate_capped` (breaker đang chặn = quota cạn cả tài khoản),
+`orw_queued_requests{class="sync"}` (hàng chờ), `orw_request_duration_seconds` (histogram p50/p95
+qua `histogram_quantile`), `orw_egress_identity_renews_total` (tần suất xoay IP — tăng đột biến
+là dấu hiệu bão xoay).
 
 **Không chạy quá 16 container WARP** trừ khi đã nâng giới hạn kernel
 (`sudo sysctl -w fs.inotify.max_user_instances=1024 fs.inotify.max_user_watches=1048576`): đo thực tế 32 container làm
@@ -288,6 +312,8 @@ research/ceiling.sh                       # đo trần theo bậc concurrency (n
 | `autoguard.go` | Tham số theo model, thinking, kiểm tra stream, chất lượng model |
 | `profiles.go` | Profile auto-fast/best/long, giới hạn context tự học |
 | `jobs.go`, `redis.go` | Hàng đợi job bền, client Redis tối giản |
+| `metrics.go` | `/metrics` Prometheus: request/429/lỗi theo egress, hàng đợi, breaker, histogram độ trễ |
+| `quota.go`, `modelbudget.go` | Sổ ngân sách per (IP, model) + bằng chứng cạn /64; chụp/nạp Redis khi restart |
 | `capacity.go` | `/v1/capacity` |
 | `examples/` | Client mẫu thông lượng cao (Python, TypeScript, batch) |
 | `docs/CLIENT_GUIDE.md` | Hướng dẫn client |

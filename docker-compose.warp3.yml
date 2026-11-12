@@ -116,6 +116,8 @@ services:
       RATE_LIMIT_RPM: "0"
       REDIS_URL: "redis://redis:6379"
       JOB_WORKERS: "256"
+      STATE_PERSIST_INTERVAL: "${STATE_PERSIST_INTERVAL:-15s}"
+      LIMIT_RECOVER: "${LIMIT_RECOVER:-30s}"
     mem_limit: 1024m
 
 volumes:

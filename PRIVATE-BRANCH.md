@@ -59,11 +59,25 @@ trong cả 3 tính năng mới của `c24ed75`:
 
 ## Còn để mở
 
-- Đếm "3 egress" theo **IP thật** thay vì theo tên egress (3 container WARP có thể dùng chung 1 IPv4).
-- AIMD: trần in-flight bị giảm vĩnh viễn khi egress chập chờn — cần cơ chế hồi trần nhanh hơn.
 - `probeLease` / cooldown: số liệu chọn 5 s (probe) và 2–60 s (TCP) mới suy ra từ logic, chưa đo trên prod.
-- Chưa có test nào chạm `jobs.go` / `redis.go` (hàng đợi job bền) — 15 lỗi blind review đầu tiên của phiên trước đã được
-  sửa trong code nhưng **chưa có test hồi quy** cho các nhánh đó.
+- Bằng chứng IP thật của breaker mới dò lúc khởi động (`detectWarpIPs`); IP đổi giữa chừng chưa được dò lại định kỳ.
+- Sổ quota bền vững hoá qua Redis chỉ chụp mỗi `STATE_PERSIST_INTERVAL` (15 s): restart đột ngột mất tối đa 15 s số đếm.
+
+## Đã đóng trong phiên 2026-11-12 (nhánh `upgrade/gateway-v2`)
+
+- **Breaker đếm theo IP thật**: `accountgate.go` khoá bằng chứng theo IP thoát thật khi đã dò được
+  (3 container WARP chung 1 IPv4 = 1 bằng chứng), chưa dò được thì đếm theo tên như cũ. Cờ "IP mới"
+  dính trong cửa sổ bằng chứng. Test: `TestAccountGateSharedIPCountsOnce`, `...UnknownIPFallsBack...`, `...FreshFlagSticky...`.
+- **AIMD hồi trần theo thời gian**: `LIMIT_RECOVER` (mặc định 30 s) nới trần +1 cho egress chạy ổn,
+  không cần đủ traffic (`sched.go: recoverLimits`). Test: `aimd_test.go`.
+- **Test hồi quy hàng đợi job**: `miniredis_test.go` (Redis trong tiến trình, đủ lệnh jobs.go dùng) +
+  `jobs_test.go`: happy path, retry backoff, fail vĩnh viễn, lease reclaim, shutdown requeue, batch HTTP,
+  long-poll, RESP parsing, pool reuse. Chạy được cả `-race`.
+- **Sổ quota + bằng chứng cạn bền vững hoá qua Redis** (`quota.go`, `modelbudget.go`): chụp định kỳ +
+  lần cuối lúc tắt, nạp lúc khởi động; chỉ nhận bản chụp ngày UTC hiện tại, không ghi đè số đếm đang lớn hơn,
+  không hồi sinh bằng chứng đã hết hạn. Test: `statepersist_test.go`.
+- **`/metrics` Prometheus** (`metrics.go`): counter request/429/lỗi theo egress, hàng chờ, breaker,
+  xoay IP, histogram độ trễ mọi endpoint. Không thêm dependency. Test: `metrics_test.go`.
 
 ## Quy trình đã dùng (để lần sau làm tiếp)
 
