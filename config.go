@@ -81,6 +81,11 @@ type Config struct {
 	QuotaAutoShare float64        // phần ngân sách mỗi cặp dành cho kênh auto; phần còn lại dành cho gọi thẳng
 	QuotaHardAfter int            // số 429 hạn mức liên tiếp của 1 cặp thì mới coi là cặp đó thật sự cạn
 
+	// ModelRenewCooldown: khi 1 model đã cạn hạn mức ở MỌI đường, xoay danh tính cho nó thường vô ích
+	// (IP mới hay rơi vào đúng dải /64 đã chết) nhưng vẫn làm mất sức chứng: mỗi lần xoay chặn egress
+	// 10-15s. Nên mỗi model chỉ được xoay 1 lần trong khoảng này (tính trên TẤT CẢ egress).
+	ModelRenewCooldown time.Duration
+
 	AutoGuard                                      bool // model auto: tool_choice=none, tắt reasoning ở model hỗ trợ, đổi model khi kết quả rỗng/gọi tool
 	AutoRetries                                    int
 	AutoFirstToken                                 time.Duration // auto: quá hạn này chưa có token đầu thì bỏ, thử egress/model khác
@@ -241,6 +246,7 @@ func loadConfig() Config {
 		QuotaOverrides:         envMap("MODEL_QUOTA_OVERRIDES"),
 		QuotaAutoShare:         envFloat("QUOTA_AUTO_SHARE", 0.6, 0, 1),
 		QuotaHardAfter:         envInt("QUOTA_HARD_AFTER", 2, 1),
+		ModelRenewCooldown:     envDur("MODEL_RENEW_COOLDOWN", 2*time.Minute),
 		AutoGuard:              envBoolDef("AUTO_GUARD", true),
 		AutoRetries:            envInt("AUTO_RETRIES", 3, 0),
 		AutoFirstToken:         envDur("AUTO_FIRST_TOKEN", 25*time.Second),

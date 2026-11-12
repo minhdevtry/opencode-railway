@@ -485,6 +485,13 @@ type Manager struct {
 	lastProbe      time.Time // lần thăm dò quota tài khoản gần nhất (giới hạn tần suất: mỗi probe là 1 request thật)
 	lastProbeRenew time.Time // lần đổi 1 danh tính để thăm dò quota gần nhất (để có IP mới thật sự khi đang capped)
 
+	// renewMu + modelRenew: giới hạn tần suất xoay danh tính THEO MODEL, tính trên tất cả egress.
+	// Không có giới hạn này, 1 model cạn hạn mức ở mọi đường làm cả pool WARP xoay liên tục
+	// (đo 2026-11-12: 7 lần/3 phút, mỗi lần chặn 1 egress 10-15s -> sức chứng tụt, request xếp hàng
+	// rồi 429 sau hết MAX_WAIT).
+	renewMu    sync.Mutex
+	modelRenew map[string]time.Time // model -> lần xoay danh tính gần nhất
+
 	// bộ điều phối (sched.go)
 	wmu      sync.Mutex
 	waitHigh []*waiter
@@ -981,6 +988,65 @@ func (m *Manager) route(ctx context.Context, model string, isPool bool, deadline
 	return m.routeAvoid(ctx, model, isPool, deadline)
 }
 
+// allowModelRenew: được xoay danh tính cho model này chưa?
+// Mỗi model chỉ được xoay 1 lần trong cfg.ModelRenewCooldown (tính trên TẤT CẢ egress).
+// Lý do: khi model đã cạn ở mọi đường, IP mới hay rơi vào đúng dải /64 đã chết -> xoay tiếp gần như
+// chắc chắn vô ích, trong khi mỗi lần xoay lại làm mất sức chứng (egress đó nằm ngoài tuyến 10-15s).
+func (m *Manager) allowModelRenew(model string) bool {
+	if model == "" {
+		return true
+	}
+	m.renewMu.Lock()
+	defer m.renewMu.Unlock()
+	last, ok := m.modelRenew[model]
+	return !ok || time.Since(last) >= cfg.ModelRenewCooldown
+}
+
+// noteModelRenew: ghi nhận đã xoay danh tính cho model này.
+func (m *Manager) noteModelRenew(model string) {
+	if model == "" {
+		return
+	}
+	m.renewMu.Lock()
+	defer m.renewMu.Unlock()
+	if m.modelRenew == nil {
+		m.modelRenew = map[string]time.Time{}
+	}
+	m.modelRenew[model] = time.Now()
+}
+
+// modelRenewKey: khoá throttle xoay danh tính. Gọi thẳng 1 model -> tên model; pool -> danh sách model.
+func modelRenewKey(models []string) string {
+	return strings.Join(models, ",")
+}
+
+// allModelsExhausted: mọi model trong danh sách đã cạn hạn mức ở MỌI đường -> không còn đường nào
+// phục vụ được cho chúng.
+func (m *Manager) allModelsExhausted(models []string) bool {
+	if len(models) == 0 {
+		return false
+	}
+	for _, mod := range models {
+		if modelUsableEgresses(mod, m.usableEgresses()) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// hopelessModels: các model trong danh sách đã cạn ở MỌI đường VÀ đã hết cửa xoay danh tính
+// (vừa xoay gần đây) -> không có đường nào phục vụ được. Trả 429 ngay thay vì giữ request trong hàng
+// đợi tới hết MAX_WAIT (đo 2026-11-12: request treo 60s rồi mới nhận 429).
+func (m *Manager) hopelessModels(models []string) bool {
+	if !m.allModelsExhausted(models) {
+		return false
+	}
+	if m.anyRenewing() {
+		return false // đang xoay danh tính: chờ IP mới xong
+	}
+	return !m.allowModelRenew(modelRenewKey(models))
+}
+
 func (m *Manager) triggerEmergencyWarpRenew() {
 	for _, eg := range m.snapshot() {
 		if eg.Kind == kindProxy && strings.HasPrefix(eg.Name, "proxy") {
@@ -1037,6 +1103,17 @@ func (m *Manager) routeAvoid(ctx context.Context, model string, isPool bool, dea
 		models := []string{model}
 		if isPool || (cfg.AutoModelFallback && isFreeModelInPool(model)) {
 			models = poolSnapshot()
+		}
+		// Model đã cạn hạn mức ở MỌI đường mà lần xoay danh tính gần nhất vẫn không cứu được (IP mới vẫn
+		// cạn) -> xoay tiếp gần như vô ích, chỉ làm mất sức chứng của cả pool. Trả 429 NGAY kèm mốc hồi
+		// thay vì bắt client ngồi hết MAX_WAIT rồi mới nhận 429 (đo 2026-11-12: request treo 60s).
+		if !m.anyRenewing() && !m.allowModelRenew(modelRenewKey(models)) && m.allModelsExhausted(models) {
+			return "", nil, &gwError{
+				status:     http.StatusTooManyRequests,
+				typ:        "rate_limit_error",
+				msg:        "All egress paths are rate limited for this model. Retry at quota reset.",
+				retryAfter: m.soonest(models),
+			}
 		}
 		// Khi chỉ có 1 đường direct duy nhất (không có proxy pool để renew) và không có Tor: báo 429 nhanh.
 		// Khi CÓ proxy pool (16-24 WARP proxies): KHÔNG ĐƯỢC NUỐT/VỨT BỎ REQUEST, kích hoạt renew IP khẩn cấp và giữ request chờ đường mới!

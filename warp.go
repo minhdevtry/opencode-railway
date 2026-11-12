@@ -282,7 +282,7 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 		//   khi không có container nào khác đang xoay.
 		target := targetModelName()
 		targetUsable := modelUsableEgresses(target, m.usableEgresses())
-		if targetUsable == 0 || !m.anyRenewing() {
+		if (targetUsable == 0 || !m.anyRenewing()) && m.allowModelRenew(target) {
 			for _, e := range m.snapshot() {
 				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
 					continue
@@ -292,6 +292,7 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 				}
 				if egressExhaustedOn(target, e.Name) {
 					log.Printf("[WARP] %s xoay danh tính gối đầu cho model mục tiêu %s (usable=%d)", e.Name, target, targetUsable)
+					m.noteModelRenew(target)
 					m.renewIdentityFor(e, target)
 					break // xoay từng container một
 				}
@@ -308,6 +309,9 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 			if modelUsableEgresses(model, m.usableEgresses()) == 0 {
 				continue // model cạn khắp mọi egress -> xử lý ở mục 2
 			}
+			if !m.allowModelRenew(model) {
+				continue // đã xoay cho model này gần đây -> xoay tiếp chỉ làm mất sức chứng của cả pool
+			}
 			for _, e := range m.snapshot() {
 				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
 					continue
@@ -317,6 +321,7 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 				}
 				if egressExhaustedOn(model, e.Name) {
 					log.Printf("[WARP] %s xoay danh tính để lấy quota mới cho model %s (IP này đã cạn riêng model này)", e.Name, model)
+					m.noteModelRenew(model)
 					m.renewIdentityFor(e, model)
 					break
 				}
@@ -329,6 +334,9 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 			if model == target || modelUsableEgresses(model, m.usableEgresses()) != 0 {
 				continue // target đã xử lý ở trên, hoặc model còn IP có ngân sách
 			}
+			if !m.allowModelRenew(model) {
+				continue // đã xoay cho model này gần đây -> xoay liên tục chỉ làm mất sức chứng
+			}
 			for _, e := range m.snapshot() {
 				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
 					continue
@@ -337,6 +345,7 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 					continue // giới hạn tần suất: không xoay liên tục
 				}
 				log.Printf("[WARP] %s xoay danh tính để lấy IP mới cho model %s (đã cạn trên mọi IP)", e.Name, model)
+				m.noteModelRenew(model)
 				m.renewIdentityFor(e, model)
 				break // mỗi model 1 lần mỗi vòng
 			}

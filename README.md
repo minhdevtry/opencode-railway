@@ -20,6 +20,11 @@ hạn còn `nemotron`/`beam` vẫn 200). Gateway tự nhớ model nào đã hế
 cần can thiệp. Khi mọi lựa chọn đều hết hạn, gateway trả 429 ngay kèm `Retry-After` (thường 00:00 UTC = 07:00 VN) thay vì
 giữ hàng chờ vô ích.
 
+Khi 1 model đã cạn ở **mọi** đường, gateway chỉ xoay danh tính WARP cho model đó **1 lần trong
+`MODEL_RENEW_COOLDOWN`** (mặc định 2 phút): xoay tiếp gần như vô ích (IP mới hay rơi vào đúng dải /64 đã chết)
+nhưng làm mất sức chứng của cả pool. Nếu lần xoay đó không cứu được, request trả **429 ngay** kèm `Retry-After`
+là mốc quota hồi, thay vì bị giữ trong hàng đợi tới hết `MAX_WAIT` (60 s) rồi mới trả 429.
+
 **Viết chương trình gọi gateway với thông lượng cao: đọc [`docs/CLIENT_GUIDE.md`](docs/CLIENT_GUIDE.md)** (chọn chế độ,
 mức đồng thời, timeout/retry, ví dụ Python/TypeScript chạy được trong `examples/`).
 
@@ -199,6 +204,7 @@ quản lý `warp-proxy`, `warp-proxy-2`, `warp-proxy-3`, `warp-proxy-4`; đổi 
 | `IMAGE_MODELS` | trống | Allowlist model nhận ảnh. Trống = dùng `modalities.input` từ catalog upstream (tự đồng bộ). Đặt = chỉ model trong danh sách mới nhận ảnh, model khác bị hạ ảnh xuống text |
 | `RETRY_AFTER_MAX` | 60s | Trần header `Retry-After` trả về client (client SDK chỉ honor được vài phút; header dài hơn làm client abort chứ không retry). Mốc quota hồi thật nằm ở header `X-Quota-Reset` |
 | `FRESH_PATH_WAIT` | 60s | Khi model cạn quota trên mọi đường: chờ tối đa bao lâu để WARP đổi danh tính lấy IP mới |
+| `MODEL_RENEW_COOLDOWN` | 2m | Mỗi model chỉ được xoay danh tính WARP 1 lần trong khoảng này (tính trên mọi egress). 0 = không giới hạn |
 | `AUTO_FAST_MODELS`, `AUTO_BEST_MODELS`, `AUTO_LONG_MODELS` | xem mục 2.1 | Danh sách model của profile |
 | `SESSIONS_PER_EGRESS`, `SESSION_INFLIGHT` | 8, 4 | Số session mỗi đường mạng, số request song song mỗi session |
 | `LIMIT_WARP`, `LIMIT_RES`, `LIMIT_DIRECT`, `LIMIT_MAX` | 4, 4, 2, 32 | Trần đồng thời ban đầu / tối đa mỗi đường (tự co giãn) |

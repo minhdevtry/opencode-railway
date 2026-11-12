@@ -202,6 +202,14 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 	}
 	// Hạn chờ để có 1 IP mới (đổi danh tính WARP) thay cho đường đã cạn quota.
 	freshUntil := time.Now().Add(cfg.FreshPathWait)
+	// Model đã cạn ở MỌI đường mà lần xoay danh tính gần nhất không cứu được (IP mới vẫn cạn) -> xoay tiếp
+	// gần như vô ích. Trả 429 NGAY kèm mốc hồi thay vì giữ request trong hàng đợi tới hết MAX_WAIT
+	// (đo 2026-11-12: request treo 60s rồi mới nhận 429 -> client tưởng gateway treo).
+	if m.hopelessModels(models) {
+		m.wmu.Unlock()
+		return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+			msg: "All egress paths are rate limited for this model. Retry at quota reset.", retryAfter: m.soonest(models)}
+	}
 	if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
 		// Không còn đường nào phục vụ được model này. TRƯỚC khi trả 429: kích hoạt đổi danh tính WARP ngay
 		// để lấy IP mới rồi xếp hàng chờ (8-25s). Trả 429 luôn kèm Retry-After tới nửa đêm UTC là sai:
@@ -252,6 +260,12 @@ func (m *Manager) acquire(ctx context.Context, model string, isPool bool, deadli
 				msg: "All egress paths are busy or rate limited. Max wait exceeded.", retryAfter: m.soonest(models)}
 		case <-tick.C:
 			m.growTor()
+			// Model cạn ở mọi đường và đã hết cửa xoay danh tính -> trả 429 ngay (không giữ tới hết MAX_WAIT).
+			if m.hopelessModels(models) {
+				leave()
+				return "", nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+					msg: "All egress paths are rate limited for this model. Retry at quota reset.", retryAfter: m.soonest(models)}
+			}
 			// Không đường nào có thể phục vụ trong thời gian còn lại (vd chỉ có direct đã cạn): báo sớm thay vì giữ.
 			if !m.canWaitForTor() && !m.anyUsableWithin(models, time.Until(deadline)) && (!m.anyRenewing() || acctGate.capped()) {
 				// Vẫn chưa có đường: xoay tiếp (IP mới có thể còn quota) cho tới khi hết hạn chờ.
@@ -293,6 +307,12 @@ func (m *Manager) triggerRenewFor(models []string) bool {
 		return true // đã có egress đang xoay -> chờ nó xong
 	}
 	pool := len(models) > 1
+	// Giới hạn tần suất xoay THEO MODEL (tính trên mọi egress): model đã cạn ở mọi đường mà xoay liên
+	// tục thì mỗi lần xoay lại làm mất sức chứng của cả pool (đo 2026-11-12: 7 lần/3 phút).
+	renewKey := modelRenewKey(models)
+	if !m.allowModelRenew(renewKey) {
+		return false
+	}
 	for _, e := range m.snapshot() {
 		if e.container == "" || !e.ready.Load() || e.renewing.Load() {
 			continue
@@ -307,6 +327,7 @@ func (m *Manager) triggerRenewFor(models []string) bool {
 		}
 		log.Printf("[Sched] %s không còn đường nào phục vụ được -> xoay danh tính %s để lấy IP mới",
 			strings.Join(models, ","), e.Name)
+		m.noteModelRenew(renewKey)
 		m.renewIdentity(e)
 		return true
 	}

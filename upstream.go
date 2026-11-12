@@ -665,8 +665,15 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 						noteDeadPrefix(m, p, until)
 					}
 					if e.container != "" && !acctGate.capped() && time.Since(time.Unix(0, e.lastIdentityChange.Load())) > 20*time.Second {
-						log.Printf("[%s] model %s bị từ chối ở %d session khác nhau -> dải %s cạn hạn mức cho model, xoay danh tính", e.Name, m, k, e.currentIPPrefix())
-						mgr.renewIdentityFor(e, m)
+						if !mgr.allowModelRenew(m) {
+							// Đã xoay danh tính cho model này rồi mà IP mới vẫn cạn -> xoay tiếp chỉ làm mất
+							// sức chứng của cả pool. Để bộ điều phối quyết định lúc đáng xoay.
+							log.Printf("[%s] model %s đã xoay danh tính gần đây, bỏ qua lần xoay này", e.Name, m)
+						} else {
+							log.Printf("[%s] model %s bị từ chối ở %d session khác nhau -> dải %s cạn hạn mức cho model, xoay danh tính", e.Name, m, k, e.currentIPPrefix())
+							mgr.noteModelRenew(m)
+							mgr.renewIdentityFor(e, m)
+						}
 					}
 				}
 			}
@@ -675,8 +682,20 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				// (mỗi lần ~6-13s) và IPv6 mới có ngân sách riêng. Cứ đổi tới khi được, rồi dùng IP đó tới hết
 				// ngân sách rồi lại đổi tiếp. Giới hạn tần suất để không xoay liên tục.
 				if e.container != "" && !acctGate.capped() && modelUsableEgresses(m, mgr.usableEgresses()) == 0 {
-					if time.Since(time.Unix(0, e.lastIdentityChange.Load())) > 20*time.Second {
+					// Model đã cạn ở MỌI đường. Xoay danh tính là cơ hội duy nhất (IP mới = ngân sách mới),
+					// nhưng mỗi model chỉ được xoay 1 lần / ModelRenewCooldown: lần xoay sau gần như vô ích
+					// (đo 2026-11-12: xoay liên tục làm cả pool WARP mất sức chứng, request xếp hàng rồi 429).
+					if !mgr.allowModelRenew(m) {
+						// Đã xoay rồi mà IP mới vẫn cạn -> trả 429 NGAY kèm mốc hồi cho client, đừng bắt
+						// client ngồi hết MAX_WAIT rồi mới nhận 429. Chỉ áp cho gọi thẳng model của client.
+						if !isPool && m == model {
+							return nil, &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error",
+								msg:  "Model quota exhausted on all egress paths.",
+								retryAfter: mgr.soonest(pickModelsFor(model, isPool))}
+						}
+					} else if time.Since(time.Unix(0, e.lastIdentityChange.Load())) > 20*time.Second {
 						log.Printf("[%s] model %s đã cạn trên mọi IP -> đổi danh tính để lấy IP mới", e.Name, m)
+						mgr.noteModelRenew(m)
 						mgr.renewIdentityFor(e, m)
 					}
 				}
