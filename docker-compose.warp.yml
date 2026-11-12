@@ -14,7 +14,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1080:1080"
-    mem_limit: 256m
+    mem_limit: 512m
 
   warp2:
     image: caomingjun/warp:latest
@@ -31,7 +31,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1081:1080"
-    mem_limit: 256m
+    mem_limit: 512m
 
   warp3:
     image: caomingjun/warp:latest
@@ -48,7 +48,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1082:1080"
-    mem_limit: 256m
+    mem_limit: 512m
 
   warp4:
     image: caomingjun/warp:latest
@@ -65,211 +65,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1083:1080"
-    mem_limit: 256m
-
-  warp5:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-5
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1084:1080"
-    mem_limit: 256m
-
-  warp6:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-6
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1085:1080"
-    mem_limit: 256m
-
-  warp7:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-7
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1086:1080"
-    mem_limit: 256m
-
-  warp8:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-8
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1087:1080"
-    mem_limit: 256m
-
-  warp9:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-9
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1088:1080"
-    mem_limit: 256m
-
-  warp10:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-10
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1089:1080"
-    mem_limit: 256m
-
-  warp11:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-11
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1090:1080"
-    mem_limit: 256m
-
-  warp12:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-12
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1091:1080"
-    mem_limit: 256m
-
-  warp13:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-13
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1092:1080"
-    mem_limit: 256m
-
-  warp14:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-14
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1093:1080"
-    mem_limit: 256m
-
-  warp15:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-15
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1094:1080"
-    mem_limit: 256m
-
-  warp16:
-    image: caomingjun/warp:latest
-    container_name: warp-proxy-16
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - "1095:1080"
-    mem_limit: 256m
+    mem_limit: 512m
 
   redis:
     image: redis:7.4-alpine
@@ -303,31 +99,20 @@ services:
       - warp2
       - warp3
       - warp4
-      - warp5
-      - warp6
-      - warp7
-      - warp8
-      - warp9
-      - warp10
-      - warp11
-      - warp12
-      - warp13
-      - warp14
-      - warp15
-      - warp16
     ports:
       - "8090:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       DISABLE_TOR: "true"
-      PROXY_POOL: "socks5://warp:1080,socks5://warp2:1080,socks5://warp3:1080,socks5://warp4:1080,socks5://warp5:1080,socks5://warp6:1080,socks5://warp7:1080,socks5://warp8:1080,socks5://warp9:1080,socks5://warp10:1080,socks5://warp11:1080,socks5://warp12:1080,socks5://warp13:1080,socks5://warp14:1080,socks5://warp15:1080,socks5://warp16:1080"
+      PROXY_POOL: "socks5://warp:1080,socks5://warp2:1080,socks5://warp3:1080,socks5://warp4:1080"
       # Proxy dân cư + link đổi IP: BÍ MẬT, đọc từ file .env cạnh compose (xem .env.example). Không commit key vào repo.
       RESIDENTIAL_PROXIES: "${RESIDENTIAL_PROXIES:-}"
       RESIDENTIAL_REFRESH_URLS: "${RESIDENTIAL_REFRESH_URLS:-}"
-      AUTO_MODELS: "${AUTO_MODELS:-}"
+      # Loại beam khỏi auto pool để dành 100% quota cho gọi thẳng beam
+      AUTO_MODELS: "${AUTO_MODELS:-nemotron-3.5-lightning,glm-5.3-flash,deepseek-v4.1-flash,mimo-v2.6-flash}"
       MAX_ATTEMPTS: "8"
-      DEFAULT_MODEL: "deepseek"
+      DEFAULT_MODEL: "beam"
       # Gọi đích danh model thì giữ nguyên model đó (client muốn cho đổi: header X-Model-Fallback: allow)
       AUTO_MODEL_FALLBACK: "false"
       # Request đồng bộ xếp hàng chờ egress tối đa 30 phút thay vì báo lỗi; job nền thì không giới hạn (Redis)
@@ -341,11 +126,19 @@ services:
       #   QUOTA_AUTO_SHARE     : phần ngân sách mỗi cặp dành cho kênh auto, phần còn lại cho gọi thẳng model đó
       #   QUOTA_HARD_AFTER     : số 429 hạn mức liên tiếp thì mới coi cặp đó thật sự cạn (xoay danh tính WARP)
       MODEL_QUOTA_DEFAULT: "64"
-      MODEL_QUOTA_OVERRIDES: "nemotron-3.5-lightning-free=256"
-      QUOTA_AUTO_SHARE: "0.6"
+      MODEL_QUOTA_OVERRIDES: "beam-free=200,nemotron-3.5-lightning-free=256,deepseek-v4.1-flash-free=80"
+      QUOTA_AUTO_SHARE: "0.0"
       QUOTA_HARD_AFTER: "2"
-      MAX_WAIT: "1800s"
-      QUEUE_WAIT: "1800s"
+      SESSIONS_PER_EGRESS: "16"
+      SESSION_INFLIGHT: "4"
+      SESSION_REPROBE: "2m"
+      SESSION_COOL_MAX: "5m"
+      LIMIT_WARP: "50"
+      LIMIT_MIN: "10"
+      LIMIT_MAX: "60"
+      WARP_RENEW_PARALLEL: "1"
+      MAX_WAIT: "60s"
+      QUEUE_WAIT: "60s"
       DIRECT_COOLDOWN: "2m"
       MAX_CONCURRENCY: "20000"
       RATE_LIMIT_RPM: "0" # gateway nội bộ: không giới hạn tốc độ theo IP client (đã có ALLOWED_IPS)

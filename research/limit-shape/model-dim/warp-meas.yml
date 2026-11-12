@@ -14,7 +14,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1200:1080"
-    mem_limit: 256m
+    mem_limit: 512m
 
   warpmeas2:
     image: caomingjun/warp:latest
@@ -31,7 +31,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1201:1080"
-    mem_limit: 256m
+    mem_limit: 512m
 
   warpmeas3:
     image: caomingjun/warp:latest
@@ -48,7 +48,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1202:1080"
-    mem_limit: 256m
+    mem_limit: 512m
 
   warpmeas4:
     image: caomingjun/warp:latest
@@ -65,4 +65,4 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       - "1203:1080"
-    mem_limit: 256m
+    mem_limit: 512m

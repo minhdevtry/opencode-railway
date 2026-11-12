@@ -74,6 +74,8 @@ type Egress struct {
 	downUntil          atomic.Int64 // unixnano: cả egress nghỉ (lỗi TCP không theo model) tới lúc này
 	ipChanged          atomic.Int64 // unixnano: lần cuối IP của egress này được đổi (bằng chứng "IP mới tinh")
 	ipAddr             atomic.Value // địa chỉ IP thoát thật (để hiện trong /status)
+	ipPrefix           atomic.Value // /64 (IPv6) hoặc /24 (IPv4) của IP: hạn mức upstream tính theo DẢI này
+	// chứ không theo IP đơn lẻ (đo 2026-11-03: 2a09:bac1:7aa0:50:: còn quota, 2a09:bac1:7a80:50:: cạn)
 	proxyAddr          string       // host:port của proxy (kiểm tra sống lúc khởi động)
 	lastIdentityChange atomic.Int64 // unixnano: lần đổi danh tính gần nhất (giới hạn tần suất xoay IP)
 	ipKind             atomic.Int32 // 0 = chưa biết, 1 = IPv6 riêng (nguồn IP riêng), 2 = IPv4 WARP dùng chung (nhiều container
@@ -318,6 +320,38 @@ func (e *Egress) markIPChanged() {
 	clearBudgetForEgress(e.Name)
 }
 
+// ipPrefixOf: dải mạng mà upstream dùng để tính hạn mức. IPv6 -> /64, IPv4 -> /24.
+// Đo 2026-11-03: 2a09:bac1:7aa0:50:: còn quota cho glm, 2a09:bac1:7a80:50:: đã cạn cho glm,
+// dù mỗi /64 có hàng trăm IP. Vì vậy xoay IP mà rơi lại đúng /64 cũ là vô ích.
+func ipPrefixOf(ip string) string {
+	if ip == "" {
+		return ""
+	}
+	if strings.Contains(ip, ":") {
+		parts := strings.Split(ip, ":")
+		if len(parts) < 4 {
+			return ip
+		}
+		return strings.Join(parts[:4], ":") + "::"
+	}
+	parts := strings.Split(ip, ".")
+	if len(parts) < 3 {
+		return ip
+	}
+	return strings.Join(parts[:3], ".") + ".0/24"
+}
+
+// setIPPrefix: ghi nhớ /64 (hoặc /24) của IP hiện tại của egress.
+func (e *Egress) setIPPrefix(ip string) {
+	e.ipPrefix.Store(ipPrefixOf(ip))
+}
+
+// currentIPPrefix: dải mạng hiện tại của egress (rỗng nếu chưa biết).
+func (e *Egress) currentIPPrefix() string {
+	p, _ := e.ipPrefix.Load().(string)
+	return p
+}
+
 // ipIsFresh: IP của egress này vừa được đổi (mới tinh) chưa?
 func (e *Egress) ipIsFresh() bool {
 	at := e.ipChanged.Load()
@@ -385,14 +419,9 @@ func (e *Egress) exhausted(model string, retryAfter time.Duration, fresh bool) t
 				d = cfg.TorBackoffMax
 			}
 		}
-	case retryAfter > 0 && retryAfter <= cfg.CooldownMax:
+	case retryAfter > 0 && retryAfter <= 30*time.Second:
 		d = retryAfter
-		if d > cfg.CooldownMax {
-			d = cfg.CooldownMax
-		}
 	default:
-		// Retry-After dài (luôn đếm tới nửa đêm UTC) không đáng tin: nghỉ ngắn rồi thăm dò lại. Hết lượt session thật sự
-		// thì sessions.go chặn egress (và warp.go đổi IP cho WARP), không dựa vào cooldown này.
 		if e.Kind == kindDirect && cfg.DirectCooldown > 0 {
 			d = cfg.DirectCooldown
 		} else {
@@ -895,7 +924,10 @@ func (e *Egress) loadScore(median time.Duration) float64 {
 			d = time.Second
 		}
 	}
-	return float64(d) * (1 + 0.25*float64(e.inflight.Load()))
+	// Quy về milliseconds để các trọng số xếp hạng (quotaRankWeight=10, quotaSharePenalty=1e6)
+	// có tác dụng thực tế thay vì bị chênh lệch 1 tỷ lần (nanosecond) lấn át hoàn toàn.
+	ms := float64(d) / float64(time.Millisecond)
+	return ms * (1 + 0.25*float64(e.inflight.Load()))
 }
 
 func (m *Manager) pickRestAvoid(rest []*Egress, model string, avoidMap map[string]bool) *Egress {

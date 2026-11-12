@@ -151,3 +151,51 @@ func TestClearBudgetForEgressOnIPChange(t *testing.T) {
 		t.Fatalf("sau khi đổi IP, model phải dùng lại được, got %d", n)
 	}
 }
+
+func TestTargetModelNameResolution(t *testing.T) {
+	oldDef := cfg.DefaultModel
+	defer func() { cfg.DefaultModel = oldDef }()
+
+	cfg.DefaultModel = "deepseek"
+	if got := targetModelName(); got != "deepseek-v4.1-flash-free" {
+		t.Fatalf("expected deepseek-v4.1-flash-free, got %s", got)
+	}
+
+	cfg.DefaultModel = "glm"
+	if got := targetModelName(); got != "glm-5.3-flash-free" {
+		t.Fatalf("expected glm-5.3-flash-free, got %s", got)
+	}
+}
+
+func TestTargetModelPipelineRotationCondition(t *testing.T) {
+	resetModelBudget()
+	defer resetModelBudget()
+
+	target := "deepseek-v4.1-flash-free"
+	total := 4
+
+	// Ban đầu cả 4 egress đều còn quota
+	if usable := modelUsableEgresses(target, total); usable != 4 {
+		t.Fatalf("expected 4 usable egresses, got %d", usable)
+	}
+
+	// 1 egress (proxy1) cạn quota
+	noteModelExhausted(target, "proxy1", time.Now().Add(time.Hour), total)
+	if !modelExhaustedOn(target, "proxy1") {
+		t.Fatal("proxy1 must be exhausted for target model")
+	}
+	usable := modelUsableEgresses(target, total)
+	if usable != 3 {
+		t.Fatalf("expected 3 usable egresses, got %d", usable)
+	}
+	// Điều kiện xoay gối đầu: usable > 0 và proxy1 cạn -> proxy1 được kích hoạt xoay ngầm
+	shouldRotateProxy1 := usable > 0 && modelExhaustedOn(target, "proxy1")
+	if !shouldRotateProxy1 {
+		t.Fatal("pipeline rotation condition should be met for proxy1")
+	}
+
+	// proxy2 chưa cạn -> không xoay
+	if modelExhaustedOn(target, "proxy2") {
+		t.Fatal("proxy2 should not be exhausted")
+	}
+}

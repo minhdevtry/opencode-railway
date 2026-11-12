@@ -28,22 +28,24 @@ type sessionPool struct {
 	day       string
 	list      []*egSession
 	rr        int
-	newDenied bool      // IP này hiện không mở được session mới
-	deniedAt  time.Time // lúc bị từ chối mở session mới (sau SessionReprobe thì thử lại 1 lần)
-	opened    int       // số session đã mở hôm nay
-	gen       uint64
+	newDenied   bool      // IP này hiện không mở được session mới
+	deniedAt    time.Time // lúc bị từ chối mở session mới (sau SessionReprobe thì thử lại 1 lần)
+	deniedCount int       // số lần liên tiếp session mới bị 429
+	opened      int       // số session đã mở hôm nay
+	gen         uint64
 }
 
 func utcDay() string { return time.Now().UTC().Format("2006-01-02") }
 
 func (p *sessionPool) rollover() {
 	if d := utcDay(); d != p.day {
-		p.day, p.list, p.rr, p.newDenied, p.opened = d, nil, 0, false, 0
+		p.day, p.list, p.rr, p.newDenied, p.deniedCount, p.opened = d, nil, 0, false, 0, 0
 		p.gen++
 	}
 	// Retry-After của upstream luôn chỉ tới nửa đêm UTC nhưng đo thấy có lúc hồi sớm (cửa sổ trượt): định kỳ cho thử lại.
 	if p.newDenied && cfg.SessionReprobe > 0 && time.Since(p.deniedAt) > cfg.SessionReprobe {
 		p.newDenied = false
+		p.deniedCount = 0
 	}
 }
 
@@ -69,7 +71,7 @@ func (p *sessionPool) acquire(want, perSession int) *egSession {
 			best = s
 		}
 	}
-	if (best == nil || best.inflight >= perSession) && alive < want && !p.newDenied {
+	if (best == nil || best.inflight >= perSession) && alive < want && (!p.newDenied || cfg.SessionDailyBudget == 0) {
 		if p.budgetSpent() {
 			// Hết ngân sách session mới của IP này trong ngày -> mở thêm chỉ để nhận 429. IP này chết tới 00:00 UTC,
 			// phải ĐỔI IP (xem Egress.sess.reset() khi đổi danh tính).
@@ -150,7 +152,7 @@ func (p *sessionPool) usable() bool {
 			return true
 		}
 	}
-	if p.newDenied {
+	if p.newDenied && cfg.SessionDailyBudget > 0 {
 		return false
 	}
 	if p.budgetSpent() {
@@ -184,6 +186,9 @@ func (p *sessionPool) budgetLeft() int {
 func (p *sessionPool) readyWithin(d time.Duration) bool {
 	if p.usable() {
 		return true
+	}
+	if cfg.SessionDailyBudget == 0 {
+		return true // ngân sách session không giới hạn -> luôn sẵn sàng mở session mới
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -219,6 +224,7 @@ func (p *sessionPool) success(s *egSession) {
 	p.mu.Lock()
 	s.ok = true
 	s.uses++
+	p.deniedCount = 0
 	p.mu.Unlock()
 }
 
@@ -259,9 +265,13 @@ func (p *sessionPool) blocked(s *egSession, ra time.Duration) bool {
 		s.coolUntil = time.Now().Add(d)
 		return true
 	}
-	p.newDenied = true
-	p.deniedAt = time.Now()
 	s.dead = true
+	p.deniedCount++
+	// 429 là sự kiện rời rạc: chỉ khóa newDenied khi 3 session mới liên tiếp bị từ chối
+	if p.deniedCount >= 3 {
+		p.newDenied = true
+		p.deniedAt = time.Now()
+	}
 	return true
 }
 
@@ -277,8 +287,11 @@ func (p *sessionPool) denied(s *egSession) {
 		return
 	}
 	if !s.ok {
-		p.newDenied = true
-		p.deniedAt = time.Now()
+		p.deniedCount++
+		if p.deniedCount >= 3 {
+			p.newDenied = true
+			p.deniedAt = time.Now()
+		}
 	}
 	s.dead = true
 }
@@ -286,7 +299,7 @@ func (p *sessionPool) denied(s *egSession) {
 // reset khi egress đổi sang IP mới (WARP đổi danh tính, proxy xoay đổi IP): hạn mức mới.
 func (p *sessionPool) reset() {
 	p.mu.Lock()
-	p.day, p.list, p.rr, p.newDenied, p.opened = utcDay(), nil, 0, false, 0
+	p.day, p.list, p.rr, p.newDenied, p.deniedCount, p.opened = utcDay(), nil, 0, false, 0, 0
 	p.gen++
 	p.mu.Unlock()
 }

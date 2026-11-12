@@ -42,6 +42,7 @@ type quotaState struct {
 	attemptsDirect int       // request đã gửi lên upstream qua kênh gọi thẳng model
 	limit429       int       // số SỰ KIỆN 429 hạn mức liên tiếp (không phải số response)
 	lastLimitAt    time.Time // lúc sự kiện 429 gần nhất
+	deniedSessions map[string]bool // các session khác nhau đã bị 429 (bằng chứng IP cạn cho model này)
 }
 
 var (
@@ -146,6 +147,27 @@ func quotaNoteLimit(model, egress string) int {
 	st.lastLimitAt = now
 	st.limit429++
 	return st.limit429
+}
+
+// quotaNoteDeniedSession: ghi nhận 1 session cụ thể bị 429 trên cặp (model, egress).
+// Trả về số session KHÁC NHAU đã bị từ chối. Đây là bằng chứng mạnh hơn bộ đếm sự kiện 429:
+// nếu 2+ session khác nhau cùng bị 429 trên cùng IP thì IP đó đã cạn hạn mức cho model này
+// (đo 2026-11-03: proxy1 trả 429 cho glm ở MỌI session -> phải xoay IP, không phải chờ).
+func quotaNoteDeniedSession(model, egress, sessionID string) int {
+	if model == "" || egress == "" || sessionID == "" {
+		return 0
+	}
+	quotaMu.Lock()
+	defer quotaMu.Unlock()
+	st := quotaStateFor(model, egress)
+	if st.deniedSessions == nil {
+		st.deniedSessions = map[string]bool{}
+	}
+	if st.deniedSessions[sessionID] {
+		return len(st.deniedSessions)
+	}
+	st.deniedSessions[sessionID] = true
+	return len(st.deniedSessions)
 }
 
 // quotaCapLocked: trần request/ngày của model = MAX(mặc định, override, trần đã học).

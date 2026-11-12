@@ -243,12 +243,26 @@ func anthropicToOpenAI(req map[string]any, model string) map[string]any {
 			tm, _ := t.(map[string]any)
 			name, _ := tm["name"].(string)
 			schema, ok := tm["input_schema"]
-			if name == "" || !ok { // server tool (web_search...) không map được
+			if name == "" || !ok {
 				continue
 			}
+			// OpenCode upstream WAF chặn 429 khi gặp DeferredToolPlaceholder hoặc ScheduleWakeup
+			if name == "DeferredToolPlaceholder" || name == "ScheduleWakeup" {
+				continue
+			}
+			desc, _ := tm["description"].(string)
+			// OpenCode upstream giới hạn độ dài mô tả tool tối đa 2000 ký tự (vượt qua sẽ bị 429 FreeUsageLimitError)
+			if len(desc) > 1500 {
+				desc = desc[:1500]
+			}
 			list = append(list, map[string]any{"type": "function", "function": map[string]any{
-				"name": name, "description": tm["description"], "parameters": schema,
+				"name": name, "description": desc, "parameters": schema,
 			}})
+		}
+		// Upstream OpenCode Free Tier giới hạn tối đa 14 tools (gồm cả 4 tool stub bắt buộc)
+		// Do đó tools của client tối đa là 10 để nhường chỗ cho 4 tool stub
+		if len(list) > 10 {
+			list = list[:10]
 		}
 		if len(list) > 0 {
 			out["tools"] = list

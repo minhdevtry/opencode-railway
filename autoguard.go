@@ -26,7 +26,6 @@ var autoModelExtras = map[string]map[string]any{
 	"deepseek": {"thinking": map[string]any{"type": "disabled"}},
 	"nemotron": {"reasoning": map[string]any{"enabled": false}},
 	"glm":      {"reasoning": map[string]any{"enabled": false}},
-	"beam":     {"reasoning": map[string]any{"enabled": false}},
 }
 
 func applyAutoExtras(body map[string]any, model string) {

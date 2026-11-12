@@ -83,18 +83,47 @@ func dockerExec(container string, cmd ...string) (string, error) {
 // renewIdentity đổi danh tính WARP của egress (bất đồng bộ, mỗi egress 1 lần tại 1 thời điểm, giới hạn số container
 // đổi cùng lúc). Egress không phải WARP thì bỏ qua (proxy dân cư có cơ chế xoay riêng).
 func (m *Manager) renewIdentity(e *Egress) {
-	if e.container == "" || !e.renewing.CompareAndSwap(false, true) {
+	m.renewIdentityFor(e, "")
+}
+
+// renewIdentityFor: đổi danh tính WARP, và nếu probeModel khác rỗng thì dùng model ĐÓ để kiểm tra
+// IP mới còn quota hay không (thay vì model mục tiêu). Cần thiết vì quota là per-(IP, model):
+// IP mới có thể còn quota cho beam nhưng vẫn cạn cho glm (đo 2026-11-03).
+func (m *Manager) renewIdentityFor(e *Egress, probeModel string) {
+	if e.container == "" {
 		return
 	}
+	if time.Since(time.Unix(0, e.lastIdentityChange.Load())) < 45*time.Second {
+		return // giới hạn tần suất: mỗi egress tối đa 1 lần / 45s
+	}
+	m.renewIdentityNow(e, probeModel)
+}
+
+// renewIdentityNow: xoay danh tính NGAY (không qua guard tần suất). Dùng cho:
+//   - vòng "đổi tiếp" khi IP vừa xoay vẫn rơi vào /64 đã cạn;
+//   - nơi gọi đã tự kiểm tra tần suất riêng.
+// Lưu ý: KHÔNG set lastIdentityChange ở nơi gọi, vì hàm này sẽ tự set -> sẽ tự chặn chính nó.
+func (m *Manager) renewIdentityNow(e *Egress, probeModel string) {
+	if e.container == "" {
+		return
+	}
+	if m.anyRenewing() {
+		return // bảo vệ: chỉ cho phép tối đa 1 container xoay tại 1 thời điểm, các container khác phải ở lại phục vụ
+	}
+	if !e.renewing.CompareAndSwap(false, true) {
+		return
+	}
+	e.lastIdentityChange.Store(time.Now().UnixNano())
 	go func() {
 		defer e.renewing.Store(false)
-		e.ready.Store(false)
-		defer e.ready.Store(true)
 		t0 := time.Now()
 		renewSem <- struct{}{}
+		defer func() { <-renewSem }()
+		e.ready.Store(false)
+		defer e.ready.Store(true)
+
 		out, err := dockerExec(e.container, "sh", "-c",
 			"warp-cli --accept-tos registration delete >/dev/null 2>&1; warp-cli --accept-tos registration new && warp-cli --accept-tos connect")
-		<-renewSem
 		e.renewTries.Add(1)
 		if err != nil || !strings.Contains(out, "Success") {
 			log.Printf("[WARP] %s (%s) đổi danh tính thất bại: %v %q", e.Name, e.container, err, strings.TrimSpace(out))
@@ -102,7 +131,7 @@ func (m *Manager) renewIdentity(e *Egress) {
 			return
 		}
 		// Chờ tunnel lên lại: thử kết nối tới upstream qua chính egress này.
-		for i := 0; i < 30; i++ {
+		for range 30 {
 			time.Sleep(time.Second)
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://opencode.ai/cdn-cgi/trace", nil)
@@ -118,15 +147,38 @@ func (m *Manager) renewIdentity(e *Egress) {
 					}
 				}
 				// IPv4 của WARP (104.28.x) dùng chung cho mọi người dùng WARP trong vùng nên gần như luôn hết lượt:
-				// đổi tiếp (tối đa 3 lần liên tiếp) để lấy IPv6 riêng.
+				// đổi tiếp (tối đa 4 lần liên tiếp) để lấy IPv6 riêng.
 				if ip != "" && !strings.Contains(ip, ":") && e.renewTries.Load() < 5 {
 					log.Printf("[WARP] %s nhận IPv4 dùng chung %s, đổi tiếp", e.Name, ip)
-					go func() { time.Sleep(2 * time.Second); m.renewIdentity(e) }()
+					go func() { time.Sleep(2 * time.Second); m.renewIdentityNow(e, probeModel) }()
 					return
 				}
+
+				// Kiểm tra IPv6 mới có còn quota cho model mục tiêu không (50% IP WARP chết sẵn 429 do chung /64)
+				target := probeModel
+				if target == "" {
+					target = targetModelName()
+				}
+				// Hạn mức upstream tính theo DẢI /64: nếu /64 mới rơi vào đúng dải đã biết cạn thì xoay tiếp
+				// (đo 2026-11-03: 2a09:bac1:7aa0:50:: OK, 2a09:bac1:7a80:50:: 429 cho cùng model).
+				prefix := ipPrefixOf(ip)
+				if prefixDead(target, prefix) && e.renewTries.Load() < 6 {
+					log.Printf("[WARP] %s nhận IP %s thuộc /64 %s đã biết cạn cho model %s, đổi tiếp (lần %d)",
+						e.Name, ip, prefix, target, e.renewTries.Load())
+					go func() { time.Sleep(2 * time.Second); m.renewIdentityNow(e, target) }()
+					return
+				}
+				if !m.probeEgressModel(e, target) && e.renewTries.Load() < 4 {
+					log.Printf("[WARP] %s nhận IPv6 %s nhưng model %s đã cạn sẵn (429), đổi tiếp (lần %d)",
+						e.Name, ip, target, e.renewTries.Load())
+					go func() { time.Sleep(2 * time.Second); m.renewIdentityNow(e, target) }()
+					return
+				}
+
 				e.renewTries.Store(0)
 				e.renews.Add(1)
 				e.ipAddr.Store(ip)
+				e.setIPPrefix(ip)
 				if strings.Contains(ip, ":") {
 					e.ipKind.Store(ipKindOwn)
 				} else {
@@ -138,13 +190,59 @@ func (m *Manager) renewIdentity(e *Egress) {
 				if t, ok := e.Client().Transport.(*http.Transport); ok {
 					t.CloseIdleConnections()
 				}
-				log.Printf("[WARP] %s (%s) đã đổi danh tính sau %v, IP mới %s", e.Name, e.container, time.Since(t0).Round(time.Second), ip)
+				log.Printf("[WARP] %s (%s) đã đổi danh tính sau %v, IP mới %s (đã xác thực model %s)",
+					e.Name, e.container, time.Since(t0).Round(time.Second), ip, target)
 				return
 			}
 			cancel()
 		}
 		log.Printf("[WARP] %s (%s) đổi danh tính xong nhưng tunnel chưa lên sau 30s", e.Name, e.container)
 	}()
+}
+
+// probeEgressModel gửi 1 request siêu nhẹ (1 token) với model mục tiêu để kiểm tra xem IPv6 mới có bị cạn sẵn (FreeUsageLimitError) không.
+func (m *Manager) probeEgressModel(e *Egress, model string) bool {
+	if model == "" {
+		return true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	body := map[string]any{
+		"model": model,
+		"messages": []any{
+			map[string]any{"role": "user", "content": "hi"},
+		},
+		"max_tokens": 1,
+	}
+	applyFingerprint(body, model, true, stubDescription)
+	payload, err := jsonMarshalNoEscape(body)
+	if err != nil {
+		return true
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, infURL+"/chat/completions", bytes.NewReader(payload))
+	if err != nil {
+		return true
+	}
+	setUpstreamHeaders(req, "*/*", "probe", nil)
+
+	resp, err := e.Client().Do(req)
+	if err != nil {
+		return true // lỗi mạng tạm thời hoặc timeout probe -> không chặn egress
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		return true
+	}
+	if resp.StatusCode == http.StatusTooManyRequests {
+		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		if bytes.Contains(snippet, []byte("FreeUsageLimitError")) || bytes.Contains(snippet, []byte("Free usage limit")) {
+			return false // Cạn quota thật sự
+		}
+	}
+	return true
 }
 
 // warpJanitor: định kỳ đổi danh tính cho egress WARP đang không phục vụ được (vd bị chặn giữa lúc không có traffic
@@ -178,13 +276,58 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 			m.probeAccount() // thăm dò để gia hạn bằng chứng / phát hiện quota hồi
 			continue
 		}
-		// Model đã cạn trên MỌI IP -> xoay 1 danh tính để lấy IP mới cho model đó. WARP luôn có thể đổi danh tính
-		// (mỗi lần ~6-13s) và IPv6 mới có ngân sách riêng: cứ đổi tới khi được IP còn hạn, rồi dùng IP đó tới
-		// hết hạn rồi lại đổi tiếp.
+		// 1. Model mục tiêu: xoay gối đầu (Pipeline Rotation)
+		// - Nếu đã cạn trên MỌI IP (usable == 0) -> xoay 1 container để hồi phục.
+		// - Nếu đã cạn trên egress này nhưng các egress khác vẫn còn (usable > 0) -> xoay gối đầu (pipeline rotation)
+		//   khi không có container nào khác đang xoay.
+		target := targetModelName()
+		targetUsable := modelUsableEgresses(target, m.usableEgresses())
+		if targetUsable == 0 || !m.anyRenewing() {
+			for _, e := range m.snapshot() {
+				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
+					continue
+				}
+				if time.Since(time.Unix(0, e.lastIdentityChange.Load())) < 30*time.Second {
+					continue
+				}
+				if egressExhaustedOn(target, e.Name) {
+					log.Printf("[WARP] %s xoay danh tính gối đầu cho model mục tiêu %s (usable=%d)", e.Name, target, targetUsable)
+					m.renewIdentityFor(e, target)
+					break // xoay từng container một
+				}
+			}
+		}
+
+		// 1b. Xoay gối đầu theo CẶP (model, egress): nếu 1 egress đã cạn hạn mức riêng cho model M
+		// (đốt hết quota của IP đó cho M) nhưng M vẫn còn egress khác phục vụ được, thì xoay IP của
+		// egress đó để lấy quota mới cho M. Không làm vậy thì 1 IP "chết" với 1 model sẽ bị bỏ hoang
+		// suốt ngày (đo 2026-11-03: proxy1/proxy4 còn phục vụ được beam+nemotron nhưng 429 với
+		// deepseek/glm/mimo -> 3/5 model mất 50% sức chứa).
+		poolForPair := poolSnapshot()
+		for _, model := range poolForPair {
+			if modelUsableEgresses(model, m.usableEgresses()) == 0 {
+				continue // model cạn khắp mọi egress -> xử lý ở mục 2
+			}
+			for _, e := range m.snapshot() {
+				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
+					continue
+				}
+				if time.Since(time.Unix(0, e.lastIdentityChange.Load())) < 30*time.Second {
+					continue
+				}
+				if egressExhaustedOn(model, e.Name) {
+					log.Printf("[WARP] %s xoay danh tính để lấy quota mới cho model %s (IP này đã cạn riêng model này)", e.Name, model)
+					m.renewIdentityFor(e, model)
+					break
+				}
+			}
+		}
+
+		// 2. Các model khác trong pool đã cạn trên MỌI IP -> xoay 1 danh tính
 		pool := poolSnapshot()
 		for _, model := range pool {
-			if modelUsableEgresses(model, m.usableEgresses()) != 0 {
-				continue // model này còn IP nào có ngân sách -> không cần xoay
+			if model == target || modelUsableEgresses(model, m.usableEgresses()) != 0 {
+				continue // target đã xử lý ở trên, hoặc model còn IP có ngân sách
 			}
 			for _, e := range m.snapshot() {
 				if e.container == "" || !e.ready.Load() || e.renewing.Load() {
@@ -194,16 +337,18 @@ func (m *Manager) warpJanitor(ctx context.Context) {
 					continue // giới hạn tần suất: không xoay liên tục
 				}
 				log.Printf("[WARP] %s xoay danh tính để lấy IP mới cho model %s (đã cạn trên mọi IP)", e.Name, model)
-				e.lastIdentityChange.Store(time.Now().UnixNano())
-				m.renewIdentity(e)
+				m.renewIdentityFor(e, model)
 				break // mỗi model 1 lần mỗi vòng
 			}
 		}
 		for _, e := range m.snapshot() {
-			if e.container != "" && e.ready.Load() && !e.renewing.Load() && !e.sess.usable() {
+			if e.container != "" && e.ready.Load() && !e.renewing.Load() && e.sess.exhausted() {
+				if time.Since(time.Unix(0, e.lastIdentityChange.Load())) < 30*time.Second {
+					continue
+				}
 				log.Printf("[WARP] %s không còn session dùng được, đổi danh tính", e.Name)
-				m.renewIdentity(e)
-				continue
+				m.renewIdentityFor(e, "")
+				break
 			}
 			// IP này đã hết ngân sách session mới trong ngày: IP chết tới 00:00 UTC, phải đổi IP để có ngân sách mới.
 			// Không đổi thì egress đó nằm không cho tới hết ngày.
@@ -278,10 +423,12 @@ func (m *Manager) detectWarpIP(ctx context.Context, e *Egress) {
 		case ip == "":
 		case strings.Contains(ip, ":"):
 			e.ipAddr.Store(ip)
+			e.setIPPrefix(ip)
 			e.ipKind.Store(ipKindOwn)
-			log.Printf("[WARP] %s có IPv6 riêng %s", e.Name, ip)
+			log.Printf("[WARP] %s có IPv6 riêng %s (/64 %s)", e.Name, ip, ipPrefixOf(ip))
 		default:
 			e.ipAddr.Store(ip)
+			e.setIPPrefix(ip)
 			e.ipKind.Store(ipKindShared)
 			log.Printf("[WARP] %s đang dùng IPv4 DÙNG CHUNG %s (hạn mức upstream cũng dùng chung) - sẽ đổi danh tính để lấy IPv6 riêng", e.Name, ip)
 		}

@@ -239,15 +239,17 @@ func resolveModelName(name string) (resolved string, isPool bool) {
 		return "big-pickle", false
 	case "nemotron", "nemotron-3.5-lightning":
 		return "nemotron-3.5-lightning-free", false
+	case "glm", "glm-5.3", "glm-5.3-flash":
+		// Upstream không còn model "glm" (trả "Model is unavailable"); chỉ có glm-5.3-flash-free.
+		return "glm-5.3-flash-free", false
+	case "beam":
+		return "beam-free", false
 	case "cat-jam":
 		return "cat-jam-free", false
 	case "space-bunny":
 		return "space-bunny-free", false
 	case "minimax", "minimax-m3.1", "minimax-m3.1-flash", "minimax-m3.1-flash-free":
 		return "deepseek-v4.1-flash-free", false
-	case "glm", "glm-5.3", "glm-5.3-flash":
-		// Upstream không còn model "glm" (trả "Model is unavailable"); chỉ có glm-5.3-flash-free.
-		return "glm-5.3-flash-free", false
 	case "mimo", "mimo-v2.6-flash":
 		return "mimo-v2.6-flash-free", false
 	case "deepseek", "deepseek-v4.1-flash", "deepseek-v4.1", "deepseek-flash", "deepseek-chat", "deepseek-reasoner":
@@ -278,9 +280,24 @@ func resolveModelName(name string) (resolved string, isPool bool) {
 		if def == "deepseek" || def == "deepseek-v4.1-flash" {
 			return "deepseek-v4.1-flash-free", false
 		}
+		if def == "beam" || def == "beam-free" {
+			return "beam-free", false
+		}
 		return def, false
 	}
 	return clean, false
+}
+
+func targetModelName() string {
+	def := cfg.DefaultModel
+	if def == "" {
+		def = "deepseek"
+	}
+	resolved, _ := resolveModelName(def)
+	if resolved == "" {
+		return "deepseek-v4.1-flash-free"
+	}
+	return resolved
 }
 
 // applyFingerprint ép stream=true (upstream chỉ nhận stream) và bổ sung bộ tool bắt buộc của opencode
@@ -684,6 +701,10 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 			normalizeThinking(body, m)
 			if guard {
 				applyAutoExtras(body, m)
+			} else if !hasClientTools(reqData) && !paramUnsupported(m, "tool_choice") {
+				if _, ok := body["tool_choice"]; !ok {
+					body["tool_choice"] = "none"
+				}
 			}
 			if d := dropUnsupported(body, m); len(d) > 0 {
 				droppedMu.Lock()
@@ -1156,6 +1177,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		ExpiredWhy string             `json:"expired_reason,omitempty"`
 		IP         string             `json:"ip,omitempty"`      // IP thoát thật mà upstream nhìn thấy
 		IPKind     string             `json:"ip_kind,omitempty"` // own = IPv6 riêng của container, shared = IPv4 WARP dùng chung
+		IPPrefix   string             `json:"ip_prefix,omitempty"` // /64 (IPv6) hoặc /24 (IPv4): dải mà upstream tính hạn mức
 		NoNewSes   bool               `json:"new_sessions_denied,omitempty"`
 		SesUses    int64              `json:"session_requests_today"`
 		Renews     int64              `json:"identity_renews,omitempty"`
@@ -1174,6 +1196,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		if ip, ok := e.ipAddr.Load().(string); ok {
 			s.IP = ip
 		}
+		s.IPPrefix = e.currentIPPrefix()
 		switch e.ipKind.Load() {
 		case ipKindOwn:
 			s.IPKind = "own"
@@ -1202,6 +1225,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"queued_jobs":            queuedLow.Load(),
 		"model_quality":          modelQualitySnapshot(),
 		"model_budget_exhausted": modelBudgetSnapshot(),            // model đã hết ngân sách free -> mốc reset
+		"dead_prefix":            prefixDeadSnapshot(),            // /64 đã cạn hạn mức cho model (hạn mức tính theo dải)
 		"quota":                  quotaSnapshot(mgr.egressNames()), // ngân sách per (IP, model): đã dùng / còn lại
 		"egress":                 list,
 	})

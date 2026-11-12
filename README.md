@@ -169,7 +169,7 @@ Hướng dẫn đầy đủ cho client (mức đồng thời, timeout, retry, v�
 ```bash
 cd /home/minhdn3/Downloads/opencode-railway
 cp .env.example .env          # điền key proxy dân cư (KHÔNG commit file .env)
-docker compose -f docker-compose.warp.yml up -d            # 16 WARP + Redis + gateway (cổng 8090)
+docker compose -f docker-compose.warp.yml up -d            # 4 WARP + Redis + gateway (cổng 8090)
 docker compose -f docker-compose.warp.yml up -d --build --no-deps gateway   # chỉ build lại gateway
 docker logs -f orw-prod
 ```
@@ -180,8 +180,9 @@ gateway chạy chỉ với WARP. Vì repo trước đây công khai, key đã t�
 
 Mọi container đều giới hạn log 3 × 10 MB. Gateway mount `/var/run/docker.sock` để tự đổi danh tính WARP.
 
-`scripts/warp_watch.sh` (chạy bằng systemd user timer `warp-watch.timer`, 2 phút/lần) khởi động lại container WARP
-bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` không tự phát hiện).
+`scripts/warp_watch.sh` (chạy bằng systemd user timer `warp-watch.timer`, 2 phút/lần) khởi động lại các container WARP
+đang dùng bị unhealthy (lỗi DNS nội bộ của WARP mà `restart: unless-stopped` không tự phát hiện). Mặc định nó chỉ
+quản lý `warp-proxy`, `warp-proxy-2`, `warp-proxy-3`, `warp-proxy-4`; đổi danh sách bằng biến `WARP_WATCH_CONTAINERS`.
 
 ### Biến môi trường chính
 

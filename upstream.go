@@ -643,23 +643,30 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				e.adapt(false) // rate limit ngắn hạn: giảm trần in-flight của egress này
 			}
 			if freeLimit {
-				// Hạn mức free là CỦA CẶP (model, IP) và đếm theo REQUEST (đo 2026-10-26,
-				// research/limit-shape/model-dim). Sự kiện 429 hạn mức là RỜI RẠC: sau đó cùng cặp đó
-				// vẫn phục vụ được (đo được 45/45 và 2/2 request 200 ngay sau sự kiện 429). Vì vậy
-				// KHÔNG khoá cặp tới 00:00 UTC ngay lần đầu - lần đầu chỉ để cơ chế cooldown sẵn có
-				// (e.exhausted + probe lease) nghỉ ngắn rồi thử lại. Từ lần thứ N (QUOTA_HARD_AFTER)
-				// mới coi là cặp đó thật sự cạn: khoá tới reset VÀ xoay danh tính WARP (IP mới = ngân sách mới).
-				n := quotaNoteLimit(m, e.Name)
-				if n >= cfg.QuotaHardAfter {
+				// BẰNG CHỨNG cạn IP cho model này: nhiềU SESSION KHÁC NHAU cùng bị từ chối trên cùng IP.
+				// Một session duy nhất bị 429 chỉ là cửa sổ tốc độ của session đó (đo 2026-10-29: sau khi 1 session
+				// bị 429, mở session mới trên cùng IP vẫn trả 200 ngay). Nhưng nếu 2+ session khác nhau cùng bị
+				// từ chối thì IP đó đã cạn hạn mức cho model này (đo 2026-11-03: proxy3 trả 429 cho glm ở MỌI session).
+				k := 0
+				if es != nil {
+					k = quotaNoteDeniedSession(m, e.Name, es.id)
+				} else {
+					k = quotaNoteLimit(m, e.Name)
+				}
+				if k >= 2 {
 					until := time.Now().Add(ra)
 					if ra <= 0 {
 						until = time.Now().Add(cfg.CooldownMax)
 					}
 					noteModelExhausted(m, e.Name, until, mgr.usableEgresses())
+					// Hạn mức tính theo DẢI /64 chứ không phải IP đơn lẻ: ghi nhớ /64 để lần xoay IP sau
+					// biết mà tránh rơi lại đúng dải đã cạn (đo 2026-11-03).
+					if p := e.currentIPPrefix(); p != "" {
+						noteDeadPrefix(m, p, until)
+					}
 					if e.container != "" && !acctGate.capped() && time.Since(time.Unix(0, e.lastIdentityChange.Load())) > 20*time.Second {
-						log.Printf("[%s] model %s cạn hạn mức %d lần liên tiếp -> xoay danh tính để lấy IP mới", e.Name, m, n)
-						e.lastIdentityChange.Store(time.Now().UnixNano())
-						mgr.renewIdentity(e)
+						log.Printf("[%s] model %s bị từ chối ở %d session khác nhau -> dải %s cạn hạn mức cho model, xoay danh tính", e.Name, m, k, e.currentIPPrefix())
+						mgr.renewIdentityFor(e, m)
 					}
 				}
 			}
@@ -670,8 +677,7 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 				if e.container != "" && !acctGate.capped() && modelUsableEgresses(m, mgr.usableEgresses()) == 0 {
 					if time.Since(time.Unix(0, e.lastIdentityChange.Load())) > 20*time.Second {
 						log.Printf("[%s] model %s đã cạn trên mọi IP -> đổi danh tính để lấy IP mới", e.Name, m)
-						e.lastIdentityChange.Store(time.Now().UnixNano())
-						mgr.renewIdentity(e)
+						mgr.renewIdentityFor(e, m)
 					}
 				}
 				// Retry-after dài + (IP mới tinh cũng cạn) = bằng chứng quota cạn ở cấp tài khoản, không phải từng IP.
@@ -683,14 +689,6 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 			if es != nil && freeLimit {
 				if !e.sess.blocked(es, ra) {
 					// Session của IP cũ (egress vừa đổi IP): kết quả không áp cho pool mới, thử lại ngay.
-					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
-					continue
-				}
-				// WARP đổi IP rẻ (~15-25s, không giới hạn): hễ egress không phục vụ được ngay (hết lượt mở session mới
-				// và session còn lại đều đang nghỉ) là đổi danh tính luôn, không ngồi chờ session hết nghỉ.
-				if e.container != "" && !e.sess.usable() && !acctGate.capped() {
-					mgr.renewIdentity(e)
-					avoidDaemons = appendAvoid(avoidDaemons, e.daemon)
 					last = &gwError{status: http.StatusTooManyRequests, typ: "rate_limit_error", msg: "Rate limited on all egress paths. Retry shortly."}
 					continue
 				}

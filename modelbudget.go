@@ -32,11 +32,72 @@ var (
 	budgetMu    sync.Mutex
 	budgetPairs map[string]map[string]time.Time // model -> egress -> mốc hết hạn
 	budgetAll   map[string]time.Time            // model -> mốc hết hạn (model cạn ở MỌI egress còn dùng được)
+	// deadPrefix: model -> /64 (hoặc /24) -> mốc hết hạn. Hạn mức upstream tính theo DẢI mạng chứ không
+	// phải IP đơn lẻ: đo 2026-11-03, 2a09:bac1:7aa0:50:: còn quota cho glm còn 2a09:bac1:7a80:50:: đã cạn.
+	// Xoay WARP mà rơi lại đúng /64 cũ thì vô ích => phải biết /64 nào chết và xoay tiếp.
+	deadPrefix map[string]map[string]time.Time
 )
 
 func init() {
 	budgetPairs = map[string]map[string]time.Time{}
 	budgetAll = map[string]time.Time{}
+	deadPrefix = map[string]map[string]time.Time{}
+}
+
+// noteDeadPrefix: ghi nhận /64 (hoặc /24) đã cạn hạn mức cho model.
+func noteDeadPrefix(model, prefix string, until time.Time) {
+	if model == "" || prefix == "" || until.IsZero() {
+		return
+	}
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	if deadPrefix[model] == nil {
+		deadPrefix[model] = map[string]time.Time{}
+	}
+	if old, ok := deadPrefix[model][prefix]; !ok || until.After(old) {
+		deadPrefix[model][prefix] = until
+	}
+}
+
+// prefixDead: /64 này đã cạn hạn mức cho model chưa?
+func prefixDead(model, prefix string) bool {
+	if model == "" || prefix == "" {
+		return false
+	}
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	m, ok := deadPrefix[model]
+	if !ok {
+		return false
+	}
+	until, ok := m[prefix]
+	if !ok {
+		return false
+	}
+	if time.Now().After(until) {
+		delete(m, prefix)
+		return false
+	}
+	return true
+}
+
+// prefixDeadSnapshot: danh sách /64 đã chết (để hiện trong /status).
+func prefixDeadSnapshot() map[string]map[string]string {
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	now := time.Now()
+	out := map[string]map[string]string{}
+	for model, m := range deadPrefix {
+		for prefix, until := range m {
+			if now.Before(until) {
+				if out[model] == nil {
+					out[model] = map[string]string{}
+				}
+				out[model][prefix] = until.UTC().Format(time.RFC3339)
+			}
+		}
+	}
+	return out
 }
 
 // noteModelExhausted: model đã hết ngân sách trên egress này, tới mốc until (thường 00:00 UTC).
@@ -82,6 +143,25 @@ func modelExhaustedOn(model, egress string) bool {
 		}
 		delete(budgetAll, model)
 	}
+	m, ok := budgetPairs[model]
+	if !ok {
+		return false
+	}
+	until, ok := m[egress]
+	if !ok {
+		return false
+	}
+	if time.Now().After(until) {
+		delete(m, egress)
+		return false
+	}
+	return true
+}
+
+// egressExhaustedOn: chính egress này đã hết ngân sách cho model chưa (chỉ xét riêng egress này, không tính lệnh cấm toàn cục).
+func egressExhaustedOn(model, egress string) bool {
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
 	m, ok := budgetPairs[model]
 	if !ok {
 		return false
@@ -144,18 +224,14 @@ func clearBudgetForEgress(egress string) {
 	budgetMu.Lock()
 	defer budgetMu.Unlock()
 	for model, byEgress := range budgetPairs {
-		if _, ok := byEgress[egress]; ok {
-			delete(byEgress, egress)
-			// Egress này có IP mới -> model không còn cạn ở mọi nơi nữa -> bỏ lệnh cấm toàn cục.
-			delete(budgetAll, model)
-		}
+		delete(byEgress, egress)
+		delete(budgetAll, model)
 		if len(byEgress) == 0 {
 			delete(budgetPairs, model)
 		}
 	}
-	if len(budgetPairs) == 0 {
-		budgetAll = map[string]time.Time{}
-	}
+	// Bất kỳ egress nào có IP mới thì model không còn cạn ở MỌI egress nữa -> xóa budgetAll
+	budgetAll = map[string]time.Time{}
 	// IP mới của egress này => ngân sách (IP, model) cũ hết hiệu lực, bộ đếm request về 0.
 	quotaClearEgress(egress)
 }

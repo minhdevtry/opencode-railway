@@ -307,7 +307,6 @@ func (m *Manager) triggerRenewFor(models []string) bool {
 		}
 		log.Printf("[Sched] %s không còn đường nào phục vụ được -> xoay danh tính %s để lấy IP mới",
 			strings.Join(models, ","), e.Name)
-		e.lastIdentityChange.Store(time.Now().UnixNano())
 		m.renewIdentity(e)
 		return true
 	}

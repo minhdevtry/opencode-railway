@@ -66,8 +66,8 @@ const (
 //	retryAfter - Retry-After của upstream
 //	freshIP    - IP của egress này vừa được đổi (mới tinh) => bằng chứng cạn cấp tài khoản
 func (g *accountGate) noteFreshCap(egress string, retryAfter time.Duration, freshIP bool, model string) {
-	if retryAfter < acctGateMinCap {
-		return // cửa sổ tốc độ ngắn của 1 session, không phải cạn cả ngày
+	if retryAfter < acctGateMinCap || egress == "direct" {
+		return // direct là IP máy chủ cố định (không đổi được IP) -> không tính làm bằng chứng cạn cấp tài khoản
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()

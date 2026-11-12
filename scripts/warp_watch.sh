@@ -14,7 +14,13 @@
 # khởi động lại sẽ tạo lại tunnel + DNS proxy và trở lại healthy.
 set -u
 
-CONTAINERS=$(docker ps -a --filter "name=warp-proxy" --format '{{.Names}}')
+# Chỉ quản lý 4 egress WARP đang dùng; warp-proxy-5..32 đã nghỉ.
+# Override bằng WARP_WATCH_CONTAINERS nếu cần đổi danh sách.
+WARP_CONTAINERS="${WARP_WATCH_CONTAINERS:-warp-proxy warp-proxy-2 warp-proxy-3 warp-proxy-4}"
+CONTAINERS=""
+for c in $WARP_CONTAINERS; do
+    docker inspect "$c" >/dev/null 2>&1 && CONTAINERS="$CONTAINERS $c"
+done
 [ -z "$CONTAINERS" ] && exit 0
 
 fixed=0
