@@ -656,9 +656,9 @@ func forward(ctx context.Context, model string, isPool bool, url, accept, key st
 						until = time.Now().Add(cfg.CooldownMax)
 					}
 					noteModelExhausted(m, e.Name, until, mgr.usableEgresses())
-					if e.container != "" && !acctGate.capped() && time.Since(e.lastIdentityChange) > 20*time.Second {
+					if e.container != "" && !acctGate.capped() && time.Since(time.Unix(0, e.lastIdentityChange.Load())) > 20*time.Second {
 						log.Printf("[%s] model %s cạn hạn mức %d lần liên tiếp -> xoay danh tính để lấy IP mới", e.Name, m, n)
-						e.lastIdentityChange = time.Now()
+						e.lastIdentityChange.Store(time.Now().UnixNano())
 						mgr.renewIdentity(e)
 					}
 				}

@@ -90,7 +90,7 @@ func TestRateLimitedHeaderIsClientFriendly(t *testing.T) {
 	}, false)
 
 	// model đã cạn trên egress duy nhất, hạn tới ~9h (mốc quota hồi của upstream)
-	noteModelExhausted("deepseek-v4.1-flash-free", "direct", time.Now().Add(9*time.Hour))
+	noteModelExhausted("deepseek-v4.1-flash-free", "direct", time.Now().Add(9*time.Hour), 1)
 
 	resp, body := post(t, gw.URL+"/v1/chat/completions", `{"model":"deepseek","messages":[{"role":"user","content":"x"}]}`)
 	if resp.StatusCode != http.StatusTooManyRequests {
