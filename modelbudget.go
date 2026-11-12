@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -256,10 +258,118 @@ func modelResetAt(model string) (time.Time, bool) {
 	return best, true
 }
 
+// ======================== BỀN VỮNG HOÁ NGÂN SÁCH (REDIS) ========================
+//
+// Cùng lý do với sổ quota (quota.go): bằng chứng "cặp (model, egress) đã cạn tới mốc X" và
+// "/64 này chết cho model Y" nằm trong RAM, restart là mất -> gateway lại gửi request vào
+// đúng chỗ đã cạn. Chụp/nạp qua Redis, chỉ giữ các mốc CHƯA hết hạn.
+
+type budgetPersistSnap struct {
+	Pairs  map[string]map[string]int64 `json:"pairs"`  // model -> egress -> unixnano hết hạn
+	All    map[string]int64            `json:"all"`    // model -> unixnano (cạn mọi đường)
+	Prefix map[string]map[string]int64 `json:"prefix"` // model -> /64 -> unixnano
+}
+
+const budgetPersistKey = "orw:state:budget"
+
+func budgetExport() budgetPersistSnap {
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	now := time.Now()
+	snap := budgetPersistSnap{Pairs: map[string]map[string]int64{}, All: map[string]int64{}, Prefix: map[string]map[string]int64{}}
+	for model, byEgress := range budgetPairs {
+		for e, u := range byEgress {
+			if now.Before(u) {
+				if snap.Pairs[model] == nil {
+					snap.Pairs[model] = map[string]int64{}
+				}
+				snap.Pairs[model][e] = u.UnixNano()
+			}
+		}
+	}
+	for model, u := range budgetAll {
+		if now.Before(u) {
+			snap.All[model] = u.UnixNano()
+		}
+	}
+	for model, byPrefix := range deadPrefix {
+		for p, u := range byPrefix {
+			if now.Before(u) {
+				if snap.Prefix[model] == nil {
+					snap.Prefix[model] = map[string]int64{}
+				}
+				snap.Prefix[model][p] = u.UnixNano()
+			}
+		}
+	}
+	return snap
+}
+
+// budgetImport nạp bằng chứng cạn còn hạn. Mốc đang có dài hơn thì giữ (không lùi).
+func budgetImport(snap budgetPersistSnap) {
+	budgetMu.Lock()
+	defer budgetMu.Unlock()
+	now := time.Now()
+	merge := func(dst map[string]time.Time, src map[string]int64) {
+		for k, ns := range src {
+			u := time.Unix(0, ns)
+			if now.Before(u) {
+				if old, ok := dst[k]; !ok || u.After(old) {
+					dst[k] = u
+				}
+			}
+		}
+	}
+	for model, byEgress := range snap.Pairs {
+		if budgetPairs[model] == nil {
+			budgetPairs[model] = map[string]time.Time{}
+		}
+		merge(budgetPairs[model], byEgress)
+	}
+	merge(budgetAll, snap.All)
+	for model, byPrefix := range snap.Prefix {
+		if deadPrefix[model] == nil {
+			deadPrefix[model] = map[string]time.Time{}
+		}
+		merge(deadPrefix[model], byPrefix)
+	}
+}
+
+func budgetPersistSave(ctx context.Context) {
+	if rdb == nil {
+		return
+	}
+	b, err := json.Marshal(budgetExport())
+	if err != nil {
+		return
+	}
+	if _, err := rdb.Do(ctx, 2*time.Second, "SET", budgetPersistKey, string(b)); err != nil {
+		log.Printf("[ModelBudget] không lưu được ngân sách vào Redis: %v", err)
+	}
+}
+
+func budgetPersistLoad(ctx context.Context) {
+	if rdb == nil {
+		return
+	}
+	v, err := rdb.Do(ctx, 2*time.Second, "GET", budgetPersistKey)
+	if err != nil || v == nil {
+		return
+	}
+	var snap budgetPersistSnap
+	if err := json.Unmarshal([]byte(rStr(v)), &snap); err != nil {
+		log.Printf("[ModelBudget] bản chụp trong Redis hỏng, bỏ qua: %v", err)
+		return
+	}
+	budgetImport(snap)
+	log.Printf("[ModelBudget] đã nạp lại bằng chứng cạn hạn mức từ Redis (%d model)", len(snap.Pairs))
+}
+
 // resetModelBudget (chỉ dùng trong test).
 func resetModelBudget() {
 	budgetMu.Lock()
 	budgetPairs = map[string]map[string]time.Time{}
 	budgetAll = map[string]time.Time{}
+	deadPrefix = map[string]map[string]time.Time{}
 	budgetMu.Unlock()
 }

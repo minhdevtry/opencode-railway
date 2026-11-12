@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"log"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -34,14 +37,15 @@ import (
 // và tự ưu tiên cặp ít dùng (quotaRankWeight).
 //
 // GIỚI HẠN ĐÃ BIẾT: sổ này nằm trong RAM của tiến trình, còn ngân sách thật của upstream thì KHÔNG reset
-// khi ta restart. Restart gateway => ta tưởng cặp (IP, model) còn nguyên trong khi upstream đã dùng một phần.
-// Cơ chế leo thang theo 429 là thứ bảo vệ ta trong tình huống đó.
+// khi ta restart. Có Redis (REDIS_URL) thì sổ được chụp định kỳ (STATE_PERSIST_INTERVAL, mặc định 15s) và
+// nạp lại lúc khởi động — xem quotaPersist* bên dưới; restart đột ngột mất tối đa 1 chu kỳ số đếm.
+// Không có Redis, hoặc bản chụp cũ hơn ngày UTC hiện tại: cơ chế leo thang theo 429 là lưới đỡ.
 
 type quotaState struct {
-	attemptsAuto   int       // request đã gửi lên upstream qua kênh auto
-	attemptsDirect int       // request đã gửi lên upstream qua kênh gọi thẳng model
-	limit429       int       // số SỰ KIỆN 429 hạn mức liên tiếp (không phải số response)
-	lastLimitAt    time.Time // lúc sự kiện 429 gần nhất
+	attemptsAuto   int             // request đã gửi lên upstream qua kênh auto
+	attemptsDirect int             // request đã gửi lên upstream qua kênh gọi thẳng model
+	limit429       int             // số SỰ KIỆN 429 hạn mức liên tiếp (không phải số response)
+	lastLimitAt    time.Time       // lúc sự kiện 429 gần nhất
 	deniedSessions map[string]bool // các session khác nhau đã bị 429 (bằng chứng IP cạn cho model này)
 }
 
@@ -397,6 +401,136 @@ func (m *Manager) orderModelsByCapacity(pool []string, auto bool) []string {
 		out[i] = pool[j]
 	}
 	return out
+}
+
+// ======================== BỀN VỮNG HOÁ SỔ QUOTA (REDIS) ========================
+//
+// Sổ quota nằm trong RAM: restart gateway là mất lịch sử dùng trong khi ngân sách thật của
+// upstream KHÔNG reset (xem chú thích đầu file). Khi có Redis (cùng hạ tầng với hàng đợi job),
+// sổ được chụp định kỳ và nạp lại lúc khởi động để cặp (IP, model) đã dùng gần hết không bị
+// coi là còn nguyên. Dữ liệu chỉ là GỢI Ý xếp hạng — sai lệch sau restore vẫn được cơ chế
+// leo thang theo 429 quan sát được xử lý, đúng nguyên tắc của sổ.
+
+type quotaPersistState struct {
+	Auto   int   `json:"a"`
+	Direct int   `json:"d"`
+	L429   int   `json:"l"`
+	LastAt int64 `json:"t"` // unixnano của sự kiện 429 gần nhất
+}
+
+type quotaPersistSnap struct {
+	Day   string                                  `json:"day"`
+	Caps  map[string]int                          `json:"caps"`
+	Pairs map[string]map[string]quotaPersistState `json:"pairs"` // model -> egress -> số liệu
+}
+
+const quotaPersistKey = "orw:state:quota"
+
+// quotaExport: chụp sổ dưới 1 lần khoá.
+func quotaExport() quotaPersistSnap {
+	quotaMu.Lock()
+	defer quotaMu.Unlock()
+	quotaResetDayLocked()
+	snap := quotaPersistSnap{Day: quotaDay, Caps: map[string]int{}, Pairs: map[string]map[string]quotaPersistState{}}
+	for m, c := range quotaCaps {
+		snap.Caps[m] = c
+	}
+	for model, byEgress := range quotaMap {
+		for e, st := range byEgress {
+			if snap.Pairs[model] == nil {
+				snap.Pairs[model] = map[string]quotaPersistState{}
+			}
+			snap.Pairs[model][e] = quotaPersistState{Auto: st.attemptsAuto, Direct: st.attemptsDirect, L429: st.limit429, LastAt: st.lastLimitAt.UnixNano()}
+		}
+	}
+	return snap
+}
+
+// quotaImport: nạp sổ từ bản chụp. Chỉ nhận bản chụp của NGÀY UTC HIỆN TẠI (quota upstream
+// reset 00:00 UTC); bản cũ hơn bị bỏ. Số liệu nạp KHÔNG ghi đè số liệu đang có lớn hơn
+// (gateway đã chạy và đếm tiếp trong lúc đọc Redis).
+func quotaImport(snap quotaPersistSnap) bool {
+	if snap.Day != utcDay() {
+		return false
+	}
+	quotaMu.Lock()
+	defer quotaMu.Unlock()
+	quotaResetDayLocked()
+	for m, c := range snap.Caps {
+		if c > quotaCaps[m] {
+			quotaCaps[m] = c
+		}
+	}
+	for model, byEgress := range snap.Pairs {
+		for e, ps := range byEgress {
+			st := quotaStateFor(model, e)
+			if ps.Auto > st.attemptsAuto {
+				st.attemptsAuto = ps.Auto
+			}
+			if ps.Direct > st.attemptsDirect {
+				st.attemptsDirect = ps.Direct
+			}
+			if ps.L429 > st.limit429 {
+				st.limit429 = ps.L429
+				st.lastLimitAt = time.Unix(0, ps.LastAt)
+			}
+		}
+	}
+	return true
+}
+
+// quotaPersistSave ghi bản chụp vào Redis (best-effort, không chặn đường nóng).
+func quotaPersistSave(ctx context.Context) {
+	if rdb == nil {
+		return
+	}
+	b, err := json.Marshal(quotaExport())
+	if err != nil {
+		return
+	}
+	if _, err := rdb.Do(ctx, 2*time.Second, "SET", quotaPersistKey, string(b)); err != nil {
+		log.Printf("[Quota] không lưu được sổ vào Redis: %v", err)
+	}
+}
+
+// quotaPersistLoad nạp bản chụp lúc khởi động. Gọi SAU khi Redis sẵn sàng, TRƯỚC khi nhận traffic.
+func quotaPersistLoad(ctx context.Context) {
+	if rdb == nil {
+		return
+	}
+	v, err := rdb.Do(ctx, 2*time.Second, "GET", quotaPersistKey)
+	if err != nil || v == nil {
+		return
+	}
+	var snap quotaPersistSnap
+	if err := json.Unmarshal([]byte(rStr(v)), &snap); err != nil {
+		log.Printf("[Quota] bản chụp trong Redis hỏng, bỏ qua: %v", err)
+		return
+	}
+	if quotaImport(snap) {
+		log.Printf("[Quota] đã nạp lại sổ ngân sách ngày %s từ Redis (%d model)", snap.Day, len(snap.Pairs))
+	}
+}
+
+// quotaPersistLoop chụp sổ định kỳ và chụp lần cuối khi gateway tắt.
+func quotaPersistLoop(ctx context.Context, every time.Duration) {
+	if rdb == nil || every <= 0 {
+		return
+	}
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			// Ghi lần cuối bằng context mới: ctx gốc đã huỷ nhưng Redis còn sống lúc shutdown.
+			fin, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			quotaPersistSave(fin)
+			cancel()
+			return
+		case <-t.C:
+			quotaPersistSave(ctx)
+		}
+	}
 }
 
 // resetQuota (chỉ dùng trong test).
